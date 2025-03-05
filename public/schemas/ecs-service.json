@@ -1,0 +1,69 @@
+{
+  "$id": "vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ServiceCredential",
+  "description": "ServiceCredential using JsonSchema",
+  "type": "object",
+  "properties": {
+    "credentialSubject": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uri"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "description": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 4096
+        },
+        "logo": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "contentMediaType": "image/png"
+        },
+        "minimumAgeRequired": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMaximum": 150
+        },
+        "termsAndConditions": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "termsAndConditionsHash": {
+          "type": "string"
+        },
+        "privacyPolicy": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "privacyPolicyHash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "description",
+        "logo",
+        "minimumAgeRequired",
+        "termsAndConditions",
+        "privacyPolicy"
+      ]
+    }
+  }
+}
