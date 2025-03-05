@@ -6,7 +6,7 @@
     "clean": "rimraf -rf ./build",
     "compile": "tsc -p tsconfig.json",
     "prepublishOnly": "yarn run build",
-    "test": "jest --passWithNoTests"
+    "test": "jest"
   },
   "devDependencies": {
     "@types/eslint": "^8.56.2",
@@ -29,9 +29,10 @@
     "typescript": "^5.6.2"
   },
   "dependencies": {
-    "@credo-ts/core": "0.5.11",
     "@transmute/verifiable-credentials": "^0.3.4",
-    "ajv": "^8.17.1"
+    "ajv": "^8.17.1",
+    "did-resolver": "^4.1.0",
+    "web-did-resolver": "^2.0.29"
   },
   "engines": {
     "node": ">= 18"
