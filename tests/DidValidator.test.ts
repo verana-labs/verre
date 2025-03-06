@@ -38,7 +38,7 @@ describe('DidValidator', () => {
       expect(resolveSpy).toHaveBeenCalledWith(did);
       expect(fetchTrustRegistrySpy).not.toHaveBeenCalled();
       expect(fetchLinkedVPSpy).not.toHaveBeenCalled();
-      expect(result.result).toBe(false);    
+      expect(result.result).toBe(false);
     });
   });
 });
