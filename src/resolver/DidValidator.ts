@@ -50,17 +50,29 @@ export class DidValidator {
     if (!didDocument.service?.length) {
       return { result: false, didDocument, message: "No services found in the DID Document." };
     }
+
+    // Validate presence of "vpr-schemas"
     const hasLinkedPresentation = didDocument.service.some(service =>
       service.type === "LinkedVerifiablePresentation" && service.id.includes("#vpr-schemas")
     );
     const hasTrustRegistry = didDocument.service.some(service =>
       service.type === "VerifiablePublicRegistry" && service.id.includes("#vpr-schemas-trust-registry")
     );
-    if (!hasLinkedPresentation) {
-      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-schemas'.");
+
+    // Validate presence of "vpr-essential-schemas"
+    const hasEssentialSchemas = didDocument.service.some(service =>
+      service.type === "LinkedVerifiablePresentation" && service.id.includes("#vpr-essential-schemas")
+    );
+    const hasEssentialTrustRegistry = didDocument.service.some(service =>
+      service.type === "VerifiablePublicRegistry" && service.id.includes("#vpr-essential-schemas-trust-registry")
+    );
+
+    // Validate schema presence
+    if (!(hasLinkedPresentation || hasEssentialSchemas)) {
+      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-schemas' or '#vpr-essential-schemas'.");
     }
-    if (!hasTrustRegistry) {
-      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-schemas-trust-registry'.");
+    if (!(hasTrustRegistry || hasEssentialTrustRegistry)) {
+      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-schemas-trust-registry' or '#vpr-essential-schemas-trust-registry'.");
     }
 
     return errors.length > 0
