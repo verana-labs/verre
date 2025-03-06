@@ -1,24 +1,30 @@
 import { identifySchema } from '../utils';
-import { getResolver } from 'web-did-resolver'
+import * as didWeb from 'web-did-resolver'
 
 import { ECS } from '../types';
 import { Resolver, ServiceEndpoint } from 'did-resolver';
 import { VerifiableCredential } from '@transmute/verifiable-credentials';
 
-const webResolver = getResolver();
-
-const resolver = new Resolver(webResolver);
-
 export class DidValidator {
+  private resolverInstance: Resolver;
 
-  async resolver(did: string): Promise<Boolean> {
+  constructor() {
+    const webDidResolver = didWeb.getResolver();
+    this.resolverInstance = new Resolver(webDidResolver);
+  }
+
+  async resolve(did: string): Promise<Boolean> {
     if (!did) {
       console.error('Invalid DID URL');
       return false;
     }
 
     try {
-      const didDocument = (await resolver.resolve(did)).didDocument
+      const resolutionResult = await this.resolverInstance.resolve(did);
+      if (!resolutionResult || !resolutionResult.didDocument) {
+        throw new Error(`DID resolution failed for ${did}, response: ${JSON.stringify(resolutionResult, null, 2)}`);
+      }
+      const didDocument = resolutionResult.didDocument;
 
       if (!didDocument?.service?.length) {
         console.warn('No services found in DID Document');
