@@ -41,7 +41,7 @@ export class DidValidator {
         }
         if (type === 'LinkedVerifiablePresentation') {
           const vpResult = await this.fetchLinkedVP(serviceEndpoint);
-          if (!vpResult.result) return vpResult;
+          if (!vpResult.result) return { ...vpResult, didDocument};
         } else if (type === 'VerifiablePublicRegistry') {
           return this.fetchTrustRegistry(serviceEndpoint);
         }
