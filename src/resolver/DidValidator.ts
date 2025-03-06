@@ -1,9 +1,8 @@
 import { identifySchema } from '../utils';
-import * as didWeb from 'web-did-resolver'
-
-import { ECS } from '../types';
+import * as didWeb from 'web-did-resolver';
+import { ECS, ResolveResult } from '../types';
 import { Resolver, ServiceEndpoint } from 'did-resolver';
-import { VerifiableCredential } from '@transmute/verifiable-credentials';
+import { JsonLdObject, VerifiableCredential } from '@transmute/verifiable-credentials';
 
 export class DidValidator {
   private resolverInstance: Resolver;
@@ -13,73 +12,84 @@ export class DidValidator {
     this.resolverInstance = new Resolver(webDidResolver);
   }
 
-  async resolve(did: string): Promise<Boolean> {
+  public async resolve(did: string): Promise<ResolveResult> {
     if (!did) {
-      console.error('Invalid DID URL');
-      return false;
+      return { result: false, message: 'Invalid DID URL' };
     }
 
     try {
       const resolutionResult = await this.resolverInstance.resolve(did);
       if (!resolutionResult || !resolutionResult.didDocument) {
-        throw new Error(`DID resolution failed for ${did}, response: ${JSON.stringify(resolutionResult, null, 2)}`);
+        return {
+          result: false,
+          message: `DID resolution failed for ${did}`,
+        };
       }
       const didDocument = resolutionResult.didDocument;
 
       if (!didDocument?.service?.length) {
-        console.warn('No services found in DID Document');
-        return false;
+        return {
+          result: false,
+          didDocument,
+          message: 'No services found in DID Document',
+        };
       }
 
       for (const { type, serviceEndpoint } of didDocument.service) {
+        if (type !== 'LinkedVerifiablePresentation' && type !== 'VerifiablePublicRegistry') {
+          return { result: false, message: `Unsupported service type: ${type}` };
+        }
         if (type === 'LinkedVerifiablePresentation') {
-          await this.fetchLinkedVP(serviceEndpoint);
+          const vpResult = await this.fetchLinkedVP(serviceEndpoint);
+          if (!vpResult.result) return vpResult;
         } else if (type === 'VerifiablePublicRegistry') {
-          await this.fetchTrustRegistry(serviceEndpoint);
+          return this.fetchTrustRegistry(serviceEndpoint);
         }
       }
+
+      return { result: true, didDocument };
     } catch (error) {
-      console.error(`Error resolving DID Document: ${error}`);
+      return {
+        result: false,
+        message: `Error resolving DID Document: ${error}`,
+      };
     }
-    return false;
   }
 
-  private async fetchLinkedVP(serviceEndpoint: ServiceEndpoint) {
+  private async fetchLinkedVP(serviceEndpoint: ServiceEndpoint): Promise<ResolveResult> {
     const endpoints = Array.isArray(serviceEndpoint) ? serviceEndpoint : [serviceEndpoint];
     const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[];
 
     if (!validEndpoints.length) {
-      console.warn('No valid service endpoints found.');
-      return false;
+      return { result: false, message: 'No valid service endpoints found.' };
     }
 
-    await Promise.all(validEndpoints.map(async (endpoint) => {
-      try {
+    try {
+      await Promise.all(validEndpoints.map(async (endpoint) => {
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
 
-        const responseJson = await response.json() as { 
-          verifiableCredential: VerifiableCredential;
-        };
-        const { issuer, id, credentialSchema } = responseJson.verifiableCredential
-  
+        const responseJson = await response.json() as { verifiableCredential: VerifiableCredential };
+        const { issuer, id, credentialSchema } = responseJson.verifiableCredential;
         console.info(`Linked VP from ${endpoint}:`, responseJson.verifiableCredential);
 
         const schemaMatch = identifySchema(credentialSchema);
-        schemaMatch 
-          ? console.info(`VP matches schema: ${schemaMatch}`) 
-          : console.warn('VP does not match any known schema.');
+        if (!schemaMatch) {
+          return { result: false, message: 'VP does not match any known schema.' };
+        }
 
-        if (issuer === id && ![ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v))) return false;
-        if (schemaMatch === ECS.SERVICE) return true;
-      } catch (error) {
-        console.error(`Failed to fetch Linked VP from ${endpoint}: ${error}`);
-      }
-      return false;
-    }));
+        return {
+          result: issuer === id && [ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v)) || schemaMatch === ECS.SERVICE,
+        };
+      }));
+    } catch (error) {
+      return { result: false, message: `Failed to fetch Linked VP: ${error}` };
+    }
+
+    return { result: true };
   }
 
-  private fetchTrustRegistry(serviceEndpoint: ServiceEndpoint) {
-    throw new Error('Method not implemented.');
+  private fetchTrustRegistry(serviceEndpoint: ServiceEndpoint): ResolveResult {
+    return { result: false, message: 'Method not implemented.' };
   }
 }
