@@ -2,7 +2,7 @@ import { identifySchema } from '../utils';
 import * as didWeb from 'web-did-resolver';
 import { ECS, ResolveResult } from '../types';
 import { Resolver, ServiceEndpoint } from 'did-resolver';
-import { JsonLdObject, VerifiableCredential } from '@transmute/verifiable-credentials';
+import { VerifiableCredential } from '@transmute/verifiable-credentials';
 
 export class DidValidator {
   private resolverInstance: Resolver;
@@ -96,6 +96,7 @@ export class DidValidator {
         const responseJson = await response.json() as { verifiableCredential: VerifiableCredential };
         console.info(`Linked VP from ${endpoint}:`, responseJson.verifiableCredential);
 
+        this.validateTrustCredential(responseJson.verifiableCredential)
         const schemaMatch = identifySchema(responseJson.verifiableCredential.credentialSchema);
         if (!schemaMatch) {
           return { result: false, message: 'VP does not match any known schema.' };
@@ -115,5 +116,32 @@ export class DidValidator {
 
   private fetchTrustRegistry(serviceEndpoint: ServiceEndpoint): ResolveResult {
     return { result: false, message: 'Method not implemented.' };
+  }
+
+  private async validateTrustCredential(credential: VerifiableCredential): Promise<ResolveResult> {
+    const errors: string[] = [];
+
+    // Ensure credentialSchema exists
+    if (!credential.credentialSchema) {
+        return { result: false, message: "Missing 'credentialSchema' property in the Verifiable Trust Credential." };
+    }
+
+    // Handle cases where credentialSchema could be an object or an array
+    const schema = Array.isArray(credential.credentialSchema) 
+        ? credential.credentialSchema[0] // Take the first one if it's an array
+        : credential.credentialSchema;
+
+    // Validate credentialSchema properties
+    const { id, type } = schema as Record<string, any>;
+    if (!id || typeof id !== "string" || !id.startsWith("http")) {
+        errors.push("Invalid or missing 'id' in credentialSchema. It must be a valid URL.");
+    }
+    if (type !== "JsonSchemaCredential") {
+        errors.push("Invalid 'type' in credentialSchema. It must be 'JsonSchemaCredential'.");
+    }
+
+    return errors.length > 0
+        ? { result: false, message: errors.join(" ") }
+        : { result: true };
   }
 }
