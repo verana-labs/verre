@@ -1,3 +1,5 @@
+import { DIDDocument } from "did-resolver";
+
 export enum ECS {
   ORG = "ecs-org.json",
   PERSON = "ecs-person.json",
@@ -7,6 +9,6 @@ export enum ECS {
 
 export type ResolveResult = {
   result: boolean;
-  didDocument?: any;
+  didDocument?: DIDDocument;
   message?: string;
 };

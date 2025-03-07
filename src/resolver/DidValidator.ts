@@ -1,7 +1,7 @@
 import { identifySchema } from '../utils';
 import * as didWeb from 'web-did-resolver';
 import { ECS, ResolveResult } from '../types';
-import { Resolver, ServiceEndpoint } from 'did-resolver';
+import { Resolver, Service, ServiceEndpoint } from 'did-resolver';
 import { VerifiableCredential } from '@transmute/verifiable-credentials';
 
 export class DidValidator {
@@ -19,18 +19,18 @@ export class DidValidator {
 
     try {
       const didDocument = (await this.fetchDidDocument(did)).didDocument;
-      if (!didDocument) return { result: false, message: 'Failed to retrieve DID Document.' };
+      if (!didDocument || !didDocument.service) return { result: false, message: 'Failed to retrieve DID Document with service.' };
 
-      for (const { type, serviceEndpoint } of didDocument.service) {
-        if (type === 'LinkedVerifiablePresentation') {
-          const vpResult = await this.fetchLinkedVP(serviceEndpoint);
+      for (const service of didDocument.service) {
+        if (service.type === 'LinkedVerifiablePresentation') {
+          const vpResult = await this.fetchLinkedVP(service);
           if (!vpResult.result) return { ...vpResult, didDocument };
-        } else if (type === 'VerifiablePublicRegistry') {
-          return this.fetchTrustRegistry(serviceEndpoint);
+        } else if (service.type === 'VerifiablePublicRegistry') {
+          return this.fetchTrustRegistry(service.serviceEndpoint);
         }
       }
 
-      return { result: true, didDocument };
+      return { result: false, didDocument };
     } catch (error) {
       return { result: false, message: `Error resolving DID Document: ${error}` };
     }
@@ -80,45 +80,67 @@ export class DidValidator {
       : { result: true, didDocument };
   }
 
-  private async fetchLinkedVP(serviceEndpoint: ServiceEndpoint): Promise<ResolveResult> {
-    const endpoints = Array.isArray(serviceEndpoint) ? serviceEndpoint : [serviceEndpoint];
+  /**
+   * Fetches the Linked Verifiable Presentation (VP) from the provided service endpoint(s),
+   * validates its credential schema, and ensures it matches the expected trust registry credentials.
+   *
+   * @param serviceEndpoint - A single service endpoint or an array of endpoints to fetch the VP from.
+   * @returns A promise resolving to a `ResolveResult` object indicating whether the VP is valid.
+   */
+  private async fetchLinkedVP(service: Service): Promise<ResolveResult> {
+    const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint];
     const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[];
-
     if (!validEndpoints.length) {
       return { result: false, message: 'No valid service endpoints found.' };
     }
 
     try {
-      await Promise.all(validEndpoints.map(async (endpoint) => {
+      const results = await Promise.all(validEndpoints.map(async (endpoint) => {
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
 
         const responseJson = await response.json() as { verifiableCredential: VerifiableCredential };
         console.info(`Linked VP from ${endpoint}:`, responseJson.verifiableCredential);
 
-        this.validateTrustCredential(responseJson.verifiableCredential)
-        const schemaMatch = identifySchema(responseJson.verifiableCredential.credentialSchema);
-        if (!schemaMatch) {
-          return { result: false, message: 'VP does not match any known schema.' };
-        }
+        const verifiableCredential = responseJson.verifiableCredential;
+        if (service.id.includes('#vpr-essential-schemas-service-credential-schema-credential')) return await this.validateServiceTrustCredential(verifiableCredential)
 
-        return {
-          result: responseJson.verifiableCredential.issuer === responseJson.verifiableCredential.id &&
-            [ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v)) || schemaMatch === ECS.SERVICE,
-        };
+        return { result: false };
       }));
+
+      // Return the first failure result if found, otherwise return success
+      const failedResult = results.find(res => res.result === false);
+      return failedResult || { result: true };
+
     } catch (error) {
       return { result: false, message: `Failed to fetch Linked VP: ${error}` };
     }
+  }
 
-    return { result: true };
+  /**
+   * Fetches the schema from a given URL and returns the JSON response.
+   *
+   * @param url - The URL of the schema to fetch.
+   * @returns A promise resolving to the fetched schema or null if an error occurs.
+   */
+  private async fetchSchema(url: string): Promise<any> {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch schema from ${url}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching schema:", error);
+      return null;
+    }
   }
 
   private fetchTrustRegistry(serviceEndpoint: ServiceEndpoint): ResolveResult {
     return { result: false, message: 'Method not implemented.' };
   }
 
-  private async validateTrustCredential(credential: VerifiableCredential): Promise<ResolveResult> {
+  private async validateServiceTrustCredential(credential: VerifiableCredential): Promise<ResolveResult> {
     const errors: string[] = [];
 
     // Ensure credentialSchema exists
@@ -127,18 +149,32 @@ export class DidValidator {
     }
 
     // Handle cases where credentialSchema could be an object or an array
-    const schema = Array.isArray(credential.credentialSchema) 
+    const credentialSchema = Array.isArray(credential.credentialSchema) 
         ? credential.credentialSchema[0] // Take the first one if it's an array
         : credential.credentialSchema;
 
     // Validate credentialSchema properties
-    const { id, type } = schema as Record<string, any>;
+    const { id, type } = credentialSchema as Record<string, any>;
     if (!id || typeof id !== "string" || !id.startsWith("http")) {
         errors.push("Invalid or missing 'id' in credentialSchema. It must be a valid URL.");
     }
     if (type !== "JsonSchemaCredential") {
         errors.push("Invalid 'type' in credentialSchema. It must be 'JsonSchemaCredential'.");
     }
+    const schema = await this.fetchSchema(id);
+    if (!schema) {
+      errors.push('Credential schema is not of type JsonSchemaCredential.');
+    }
+    console.info("✅ Credential schema is valid for service.");
+
+    // Identify schema type and verify if it matches the expected type (ORG, PERSON, or SERVICE)
+    const schemaMatch = identifySchema(schema);
+    if (!schemaMatch) {
+      errors.push('VP does not match any known schema.');
+    }
+    if (credential.issuer === credential.id &&
+      [ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v)))
+      errors.push('The schema must be of type "organization" or "person" if it is part of an essential service.');
 
     return errors.length > 0
         ? { result: false, message: errors.join(" ") }
