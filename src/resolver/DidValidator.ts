@@ -119,8 +119,21 @@ export class DidValidator {
   /**
    * Placeholder for trust registry fetching logic.
    */
-  private fetchTrustRegistry(service: Service): ResolveResult {
-    return { result: false, message: 'Method not implemented.' };
+  private async fetchTrustRegistry(service: Service): Promise<ResolveResult> {
+    if (!service.serviceEndpoint || !Array.isArray(service.serviceEndpoint) || service.serviceEndpoint.length === 0) {
+        return { result: false, message: "The service does not have a valid endpoint." };
+    }
+
+    try {
+        const response = await fetch(service.serviceEndpoint[0], { method: "GET" });
+
+        if (!response.ok) {
+          return { result: false, message: `The service responded with code ${response.status}.` };
+        }
+        return { result: true }
+    } catch (error) {
+        return { result: false, message: `Error querying the Trust Registry: ${error.message}` };
+    }
   }
 
   /**
