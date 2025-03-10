@@ -23,10 +23,9 @@ export class DidValidator {
 
       for (const service of didDocument.service) {
         if (service.type === 'LinkedVerifiablePresentation') {
-          const vpResult = await this.fetchLinkedVP(service);
-          if (!vpResult.result) return { ...vpResult, didDocument };
+          const verifiableCredential = await this.resolveLinkedVP(service);
         } else if (service.type === 'VerifiablePublicRegistry') {
-          return this.fetchTrustRegistry(service.serviceEndpoint);
+          return this.fetchTrustRegistry(service);
         }
       }
 
@@ -101,35 +100,45 @@ export class DidValidator {
    * @param serviceEndpoint - A single service endpoint or an array of endpoints to fetch the VP from.
    * @returns A promise resolving to a `ResolveResult` object indicating whether the VP is valid.
    */
-  private async fetchLinkedVP(service: Service): Promise<ResolveResult> {
-    const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint];
+  private async resolveLinkedVP(service: Service): Promise<VerifiableCredential | null> {
+    const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint]; // TODO: are more than one possible?
     const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[];
     if (!validEndpoints.length) {
-      return { result: false, message: 'No valid service endpoints found.' };
+      console.warn(`No valid service endpoints found for service: ${service.id}`);
+      return null;
     }
 
     try {
-      const results = await Promise.all(validEndpoints.map(async (endpoint) => {
-        const response = await fetch(endpoint);
-        if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
-
-        const responseJson = await response.json() as { verifiableCredential: VerifiableCredential };
-        console.info(`Linked VP from ${endpoint}:`, responseJson.verifiableCredential);
-
-        const verifiableCredential = responseJson.verifiableCredential;
-        if (service.id.includes('#vpr-essential-schemas-service-credential-schema-credential')) return await this.validateServiceTrustCredential(verifiableCredential)
-
-        return { result: false };
-      }));
-
-      // Return the first failure result if found, otherwise return success
-      const failedResult = results.find(res => res.result === false);
-      return failedResult || { result: true };
-
+      for (const endpoint of validEndpoints) {
+        try {
+          const response = await fetch(endpoint);
+          if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
+  
+          const responseJson = await response.json() as { verifiableCredential: VerifiableCredential };
+          console.info(`Linked VP from ${endpoint}:`, responseJson.verifiableCredential);
+  
+          const verifiableCredential = responseJson.verifiableCredential;
+  
+          // Validate and return if necessary
+          if (
+            service.id.includes('#vpr-essential-schemas-service-credential-schema-credential')
+            || service.id.includes('#vpr-schemas')
+          ) {
+            const validationResult = await this.validateServiceTrustCredential(verifiableCredential);
+            if (validationResult.result) return verifiableCredential;
+          }
+        } catch (error) {
+          console.error(`Failed to fetch VP from ${endpoint}: ${error}`);
+        }
+      }
+  
+      // If no valid credential was found, return null
+      return null;
     } catch (error) {
-      return { result: false, message: `Failed to fetch Linked VP: ${error}` };
+      console.error(`Unexpected error fetching Linked VP: ${error}`);
+      return null;
     }
-  }
+  }  
 
   /**
    * Fetches the schema from a given URL and returns the JSON response.
@@ -150,7 +159,7 @@ export class DidValidator {
     }
   }
 
-  private fetchTrustRegistry(serviceEndpoint: ServiceEndpoint): ResolveResult {
+  private fetchTrustRegistry(service: Service): ResolveResult {
     return { result: false, message: 'Method not implemented.' };
   }
 
