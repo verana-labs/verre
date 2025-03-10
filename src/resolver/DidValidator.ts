@@ -1,7 +1,7 @@
 import { identifySchema } from '../utils';
 import * as didWeb from 'web-did-resolver';
 import { ECS, ResolveResult } from '../types';
-import { Resolver, Service, ServiceEndpoint } from 'did-resolver';
+import { Resolver, Service } from 'did-resolver';
 import { VerifiableCredential } from '@transmute/verifiable-credentials';
 
 export class DidValidator {
@@ -12,18 +12,23 @@ export class DidValidator {
     this.resolverInstance = new Resolver(webDidResolver);
   }
 
+  /**
+   * Resolves a DID and validates its document and associated services.
+   * @param did - The DID to resolve.
+   * @returns A promise resolving to the resolution result.
+   */
   public async resolve(did: string): Promise<ResolveResult> {
-    if (!did) {
-      return { result: false, message: 'Invalid DID URL' };
-    }
+    if (!did) return { result: false, message: 'Invalid DID URL' };
 
     try {
-      const didDocument = (await this.fetchDidDocument(did)).didDocument;
-      if (!didDocument || !didDocument.service) return { result: false, message: 'Failed to retrieve DID Document with service.' };
+      const { didDocument } = await this.fetchDidDocument(did);
+      if (!didDocument?.service) {
+        return { result: false, message: 'Failed to retrieve DID Document with service.' };
+      }
 
       for (const service of didDocument.service) {
         if (service.type === 'LinkedVerifiablePresentation') {
-          const verifiableCredential = await this.resolveLinkedVP(service);
+          await this.resolveLinkedVP(service);
         } else if (service.type === 'VerifiablePublicRegistry') {
           return this.fetchTrustRegistry(service);
         }
@@ -35,123 +40,71 @@ export class DidValidator {
     }
   }
 
+  /**
+   * Fetches and validates a DID Document.
+   */
   private async fetchDidDocument(did: string): Promise<ResolveResult> {
     const errors: string[] = [];
-
-    // Resolve the DID document
     const resolutionResult = await this.resolverInstance.resolve(did);
     const didDocument = resolutionResult?.didDocument;
-    if (!didDocument) {
-      return { result: false, message: `DID resolution failed for ${did}` };
-    }
+    if (!didDocument) return { result: false, message: `DID resolution failed for ${did}` };
 
-    // Validate service entries
-    if (!didDocument.service?.length) {
-      return { result: false, didDocument, message: "No services found in the DID Document." };
-    }
+    const serviceEntries = didDocument.service || [];
+    if (!serviceEntries.length) return { result: false, didDocument, message: 'No services found in the DID Document.' };
 
     // Validate presence of "vpr-schemas"
-    const hasLinkedPresentation = didDocument.service.some(service =>
-      service.type === "LinkedVerifiablePresentation" && service.id.includes("#vpr-schemas")
-    );
-    const hasTrustRegistry = didDocument.service.some(service =>
-      service.type === "VerifiablePublicRegistry" && service.id.includes("#vpr-schemas-trust-registry")
-    );
+    const hasLinkedPresentation = serviceEntries.some(s => s.type === 'LinkedVerifiablePresentation' && s.id.includes('#vpr-schemas'));
+    const hasTrustRegistry = serviceEntries.some(s => s.type === 'VerifiablePublicRegistry' && s.id.includes('#vpr-schemas-trust-registry'));
 
     // Validate presence of "vpr-essential-schemas"
-    const hasEssentialSchemas = didDocument.service.some(service =>
-      service.type === "LinkedVerifiablePresentation" && service.id.includes("#vpr-essential-schemas")
-    );
-    const hasEssentialTrustRegistry = didDocument.service.some(service =>
-      service.type === "VerifiablePublicRegistry" && service.id.includes("#vpr-essential-schemas-trust-registry")
-    );
+    const hasEssentialSchemas = serviceEntries.some(s => s.type === 'LinkedVerifiablePresentation' && s.id.includes('#vpr-essential-schemas'));
+    const hasEssentialTrustRegistry = serviceEntries.some(s => s.type === 'VerifiablePublicRegistry' && s.id.includes('#vpr-essential-schemas-trust-registry'));
 
     // Validate schema consistency
     if (hasLinkedPresentation && !hasTrustRegistry) {
-      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-schemas-trust-registry' for existing '#vpr-schemas'.");
+      errors.push("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas'.");
     }
     if (hasTrustRegistry && !hasLinkedPresentation) {
-      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-schemas' for existing '#vpr-schemas-trust-registry'.");
+      errors.push("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas-trust-registry'.");
     }
     if (hasEssentialSchemas && !hasEssentialTrustRegistry) {
-      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-essential-schemas-trust-registry' for existing '#vpr-essential-schemas'.");
+      errors.push("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-essential-schemas'.");
     }
     if (hasEssentialTrustRegistry && !hasEssentialSchemas) {
-      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-essential-schemas' for existing '#vpr-essential-schemas-trust-registry'.");
+      errors.push("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-essential-schemas-trust-registry'.");
     }
 
-    // Validate schema presence
-    if (!(hasLinkedPresentation || hasEssentialSchemas)) {
-      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-schemas' or '#vpr-essential-schemas'.");
-    }
-    if (!(hasTrustRegistry || hasEssentialTrustRegistry)) {
-      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-schemas-trust-registry' or '#vpr-essential-schemas-trust-registry'.");
-    }
-
-    return errors.length > 0
-      ? { result: false, didDocument, message: errors.join(" ") }
-      : { result: true, didDocument };
+    return errors.length ? { result: false, didDocument, message: errors.join(' ') } : { result: true, didDocument };
   }
 
   /**
-   * Fetches the Linked Verifiable Presentation (VP) from the provided service endpoint(s),
-   * validates its credential schema, and ensures it matches the expected trust registry credentials.
-   *
-   * @param serviceEndpoint - A single service endpoint or an array of endpoints to fetch the VP from.
-   * @returns A promise resolving to a `ResolveResult` object indicating whether the VP is valid.
+   * Resolves a Linked Verifiable Presentation (VP) from a service endpoint.
    */
   private async resolveLinkedVP(service: Service): Promise<VerifiableCredential | null> {
-    const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint]; // TODO: are more than one possible?
+    const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint];
     const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[];
-    if (!validEndpoints.length) {
-      console.warn(`No valid service endpoints found for service: ${service.id}`);
-      return null;
-    }
+    if (!validEndpoints.length) return null;
 
-    try {
-      for (const endpoint of validEndpoints) {
-        try {
-          const response = await fetch(endpoint);
-          if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
-  
-          const responseJson = await response.json() as { verifiableCredential: VerifiableCredential };
-          console.info(`Linked VP from ${endpoint}:`, responseJson.verifiableCredential);
-  
-          const verifiableCredential = responseJson.verifiableCredential;
-  
-          // Validate and return if necessary
-          if (
-            service.id.includes('#vpr-essential-schemas-service-credential-schema-credential')
-            || service.id.includes('#vpr-schemas')
-          ) {
-            const validationResult = await this.validateServiceTrustCredential(verifiableCredential);
-            if (validationResult.result) return verifiableCredential;
-          }
-        } catch (error) {
-          console.error(`Failed to fetch VP from ${endpoint}: ${error}`);
-        }
+    for (const endpoint of validEndpoints) {
+      try {
+        const response = await fetch(endpoint);
+        if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
+        const { verifiableCredential } = await response.json();
+        return await this.validateServiceTrustCredential(verifiableCredential);
+      } catch (error) {
+        console.error(`Failed to fetch VP from ${endpoint}: ${error}`);
       }
-  
-      // If no valid credential was found, return null
-      return null;
-    } catch (error) {
-      console.error(`Unexpected error fetching Linked VP: ${error}`);
-      return null;
     }
-  }  
+    return null;
+  }
 
   /**
-   * Fetches the schema from a given URL and returns the JSON response.
-   *
-   * @param url - The URL of the schema to fetch.
-   * @returns A promise resolving to the fetched schema or null if an error occurs.
+   * Fetches and returns a schema from a given URL.
    */
   private async fetchSchema(url: string): Promise<any> {
     try {
       const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch schema from ${url}`);
-      }
+      if (!response.ok) throw new Error(`Failed to fetch schema from ${url}`);
       return await response.json();
     } catch (error) {
       console.error("Error fetching schema:", error);
@@ -159,48 +112,38 @@ export class DidValidator {
     }
   }
 
-  private fetchTrustRegistry(service: Service): ResolveResult {
-    return { result: false, message: 'Method not implemented.' };
-  }
-
+  /**
+   * Validates a Verifiable Credential's schema against expected trust criteria.
+   */
   private async validateServiceTrustCredential(credential: VerifiableCredential): Promise<ResolveResult> {
-    const errors: string[] = [];
-
-    // Ensure credentialSchema exists
     if (!credential.credentialSchema) {
-        return { result: false, message: "Missing 'credentialSchema' property in the Verifiable Trust Credential." };
+      return { result: false, message: "Missing 'credentialSchema' in Verifiable Trust Credential." };
     }
 
-    // Handle cases where credentialSchema could be an object or an array
-    const credentialSchema = Array.isArray(credential.credentialSchema) 
-        ? credential.credentialSchema[0] // Take the first one if it's an array
-        : credential.credentialSchema;
-
-    // Validate credentialSchema properties
+    const credentialSchema = Array.isArray(credential.credentialSchema) ? credential.credentialSchema[0] : credential.credentialSchema;
     const { id, type } = credentialSchema as Record<string, any>;
-    if (!id || typeof id !== "string" || !id.startsWith("http")) {
-        errors.push("Invalid or missing 'id' in credentialSchema. It must be a valid URL.");
+    if (!id || typeof id !== 'string' || !id.startsWith('http')) {
+      return { result: false, message: "Invalid 'id' in credentialSchema. Must be a valid URL." };
     }
-    if (type !== "JsonSchemaCredential") {
-        errors.push("Invalid 'type' in credentialSchema. It must be 'JsonSchemaCredential'.");
+    if (type !== 'JsonSchemaCredential') {
+      return { result: false, message: "Invalid 'type' in credentialSchema. Must be 'JsonSchemaCredential'." };
     }
     const schema = await this.fetchSchema(id);
-    if (!schema) {
-      errors.push('Credential schema is not of type JsonSchemaCredential.');
-    }
-    console.info("✅ Credential schema is valid for service.");
+    if (!schema) return { result: false, message: 'Invalid schema format.' };
 
-    // Identify schema type and verify if it matches the expected type (ORG, PERSON, or SERVICE)
     const schemaMatch = identifySchema(schema);
-    if (!schemaMatch) {
-      errors.push('VP does not match any known schema.');
-    }
-    if (credential.issuer === credential.id &&
-      [ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v)))
-      errors.push('The schema must be of type "organization" or "person" if it is part of an essential service.');
+    if (!schemaMatch) return { result: false, message: 'VP does not match any known schema.' };
 
-    return errors.length > 0
-        ? { result: false, message: errors.join(" ") }
-        : { result: true };
+    if (credential.issuer === credential.id && [ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v))) {
+      return { result: false, message: 'Schema must be of type "organization" or "person" for essential services.' };
+    }
+    return { result: true };
+  }
+
+  /**
+   * Placeholder for trust registry fetching logic.
+   */
+  private fetchTrustRegistry(service: Service): ResolveResult {
+    return { result: false, message: 'Method not implemented.' };
   }
 }
