@@ -67,6 +67,20 @@ export class DidValidator {
       service.type === "VerifiablePublicRegistry" && service.id.includes("#vpr-essential-schemas-trust-registry")
     );
 
+    // Validate schema consistency
+    if (hasLinkedPresentation && !hasTrustRegistry) {
+      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-schemas-trust-registry' for existing '#vpr-schemas'.");
+    }
+    if (hasTrustRegistry && !hasLinkedPresentation) {
+      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-schemas' for existing '#vpr-schemas-trust-registry'.");
+    }
+    if (hasEssentialSchemas && !hasEssentialTrustRegistry) {
+      errors.push("Missing 'VerifiablePublicRegistry' entry with '#vpr-essential-schemas-trust-registry' for existing '#vpr-essential-schemas'.");
+    }
+    if (hasEssentialTrustRegistry && !hasEssentialSchemas) {
+      errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-essential-schemas' for existing '#vpr-essential-schemas-trust-registry'.");
+    }
+
     // Validate schema presence
     if (!(hasLinkedPresentation || hasEssentialSchemas)) {
       errors.push("Missing 'LinkedVerifiablePresentation' entry with '#vpr-schemas' or '#vpr-essential-schemas'.");
