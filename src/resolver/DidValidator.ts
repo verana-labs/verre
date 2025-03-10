@@ -1,8 +1,9 @@
 import { identifySchema } from '../utils';
 import * as didWeb from 'web-did-resolver';
-import { ECS, ResolveResult } from '../types';
+import { CredentialSchema, ECS, ResolveResult } from '../types';
 import { Resolver, Service } from 'did-resolver';
 import { VerifiableCredential } from '@transmute/verifiable-credentials';
+import Ajv, { ValidateFunction } from 'ajv';
 
 export class DidValidator {
   private resolverInstance: Resolver;
@@ -80,23 +81,25 @@ export class DidValidator {
   /**
    * Resolves a Linked Verifiable Presentation (VP) from a service endpoint.
    */
-  private async resolveLinkedVP(service: Service): Promise<VerifiableCredential | null> {
+  private async resolveLinkedVP(service: Service): Promise<VerifiableCredential> {
     const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint];
     const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[];
-    if (!validEndpoints.length) return null;
+    if (!validEndpoints.length) throw new Error("No valid endpoints found");
 
     for (const endpoint of validEndpoints) {
       try {
         const response = await fetch(endpoint);
-        if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
-        const { verifiableCredential } = await response.json() as { verifiableCredential: VerifiableCredential };
-        const validationResult = await this.validateServiceTrustCredential(verifiableCredential);
-        if (validationResult.result) return verifiableCredential;
+        if (response.ok) {
+          const { verifiableCredential } = await response.json() as { verifiableCredential: VerifiableCredential };
+          return await this.validateCredential(verifiableCredential);
+        }
+        throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
+        // const validationResult = await this.validateServiceTrustCredential(verifiableCredential);
       } catch (error) {
-        console.error(`Failed to fetch VP from ${endpoint}: ${error}`);
+        throw new Error(`Failed to fetch VP from ${endpoint}: ${error}`);
       }
     }
-    return null;
+    throw new Error('No valid endpoints found')
   }
 
   /**
@@ -114,37 +117,45 @@ export class DidValidator {
   }
 
   /**
+   * Placeholder for trust registry fetching logic.
+   */
+  private fetchTrustRegistry(service: Service): ResolveResult {
+    return { result: false, message: 'Method not implemented.' };
+  }
+
+  /**
    * Validates a Verifiable Credential's schema against expected trust criteria.
    */
-  private async validateServiceTrustCredential(credential: VerifiableCredential): Promise<ResolveResult> {
+  private async validateCredential(credential: VerifiableCredential): Promise<VerifiableCredential> {
     if (!credential.credentialSchema) {
-      return { result: false, message: "Missing 'credentialSchema' in Verifiable Trust Credential." };
+      throw new Error("Missing 'credentialSchema' in Verifiable Trust Credential.");
     }
 
     const credentialSchema = Array.isArray(credential.credentialSchema) ? credential.credentialSchema[0] : credential.credentialSchema;
     const { id, type } = credentialSchema as Record<string, any>;
     if (!id || typeof id !== 'string' || !id.startsWith('http')) {
-      return { result: false, message: "Invalid 'id' in credentialSchema. Must be a valid URL." };
+      throw new Error("Invalid 'id' in credentialSchema. Must be a valid URL.");
     }
     if (type !== 'JsonSchemaCredential') {
-      return { result: false, message: "Invalid 'type' in credentialSchema. Must be 'JsonSchemaCredential'." };
+      throw new Error("Invalid 'type' in credentialSchema. Must be 'JsonSchemaCredential'.");
     }
-    const schema = await this.fetchSchema(id);
-    if (!schema) return { result: false, message: 'Invalid schema format.' };
 
-    const schemaMatch = identifySchema(schema);
-    if (!schemaMatch) return { result: false, message: 'VP does not match any known schema.' };
-
-    if (credential.issuer === credential.id && [ECS.ORG, ECS.PERSON].some(v => schemaMatch?.includes(v))) {
-      return { result: false, message: 'Schema must be of type "organization" or "person" for essential services.' };
+    try {
+      const response = await fetch(id);
+      if (!response.ok) throw new Error(`Failed to fetch schema from ${id}`);
+      const data = (await response.json()) as { schema: CredentialSchema };
+      const schemaObject = JSON.parse(data.schema.json_schema);
+      
+      const ajv = new Ajv();
+      const validate: ValidateFunction = ajv.compile(schemaObject);
+      const isValid = validate(credentialSchema);
+  
+      if (!isValid) {
+        throw new Error(`Credential does not conform to schema: ${JSON.stringify(validate.errors)}`);
+      }  
+      return credential;
+    } catch (error) {
+      throw new Error(`Failed to validate credential: ${error.message}`);
     }
-    return { result: true };
-  }
-
-  /**
-   * Placeholder for trust registry fetching logic.
-   */
-  private fetchTrustRegistry(service: Service): ResolveResult {
-    return { result: false, message: 'Method not implemented.' };
   }
 }
