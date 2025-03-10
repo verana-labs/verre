@@ -89,8 +89,9 @@ export class DidValidator {
       try {
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
-        const { verifiableCredential } = await response.json();
-        return await this.validateServiceTrustCredential(verifiableCredential);
+        const { verifiableCredential } = await response.json() as { verifiableCredential: VerifiableCredential };
+        const validationResult = await this.validateServiceTrustCredential(verifiableCredential);
+        if (validationResult.result) return verifiableCredential;
       } catch (error) {
         console.error(`Failed to fetch VP from ${endpoint}: ${error}`);
       }

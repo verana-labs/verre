@@ -26,7 +26,7 @@ describe('DidValidator', () => {
 
       // Setup spy methods
       const resolveSpy = jest.spyOn(Resolver.prototype, 'resolve');
-      const fetchLinkedVPSpy = jest.spyOn(didValidator as any, 'fetchLinkedVP');
+      const fetchLinkedVPSpy = jest.spyOn(didValidator as any, 'resolveLinkedVP');
       const fetchTrustRegistrySpy = jest.spyOn(didValidator as any, 'fetchTrustRegistry');
 
 
