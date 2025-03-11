@@ -1,8 +1,7 @@
-import { identifySchema } from '../utils';
 import * as didWeb from 'web-did-resolver';
 import { CredentialSchema, ECS, ResolveResult } from '../types';
 import { Resolver, Service } from 'did-resolver';
-import { VerifiableCredential } from '@transmute/verifiable-credentials';
+import { JsonLdObject, VerifiableCredential } from '@transmute/verifiable-credentials';
 import Ajv, { ValidateFunction } from 'ajv';
 
 export class DidValidator {
@@ -19,6 +18,7 @@ export class DidValidator {
    * @returns A promise resolving to the resolution result.
    */
   public async resolve(did: string): Promise<ResolveResult> {
+    const verifiableCredentials: VerifiableCredential[] = [];
     if (!did) return { result: false, message: 'Invalid DID URL' };
 
     try {
@@ -29,7 +29,11 @@ export class DidValidator {
 
       for (const service of didDocument.service) {
         if (service.type === 'LinkedVerifiablePresentation') {
-          await this.resolveLinkedVP(service);
+          const credentials = await this.resolveLinkedVP(service);
+          if (!Array.isArray(credentials)) {
+            throw new Error('resolveLinkedVP must return an array of VerifiableCredential');
+          }
+          verifiableCredentials.push(...credentials);
         } else if (service.type === 'VerifiablePublicRegistry') {
           return this.fetchTrustRegistry(service);
         }
@@ -94,7 +98,6 @@ export class DidValidator {
           return await this.validateCredential(verifiableCredential);
         }
         throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
-        // const validationResult = await this.validateServiceTrustCredential(verifiableCredential);
       } catch (error) {
         throw new Error(`Failed to fetch VP from ${endpoint}: ${error}`);
       }
@@ -126,11 +129,12 @@ export class DidValidator {
    * Validates a Verifiable Credential's schema against expected trust criteria.
    */
   private async validateCredential(credential: VerifiableCredential): Promise<VerifiableCredential> {
-    if (!credential.credentialSchema) {
-      throw new Error("Missing 'credentialSchema' in Verifiable Trust Credential.");
+    if (!credential.credentialSchema || !credential.credentialSubject) {
+      throw new Error("Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.");
     }
 
     const credentialSchema = Array.isArray(credential.credentialSchema) ? credential.credentialSchema[0] : credential.credentialSchema;
+    let credentialSubject = Array.isArray(credential.credentialSubject) ? credential.credentialSubject[0] : credential.credentialSubject;
     const { id, type } = credentialSchema as Record<string, any>;
     if (!id || typeof id !== 'string' || !id.startsWith('http')) {
       throw new Error("Invalid 'id' in credentialSchema. Must be a valid URL.");
@@ -140,14 +144,25 @@ export class DidValidator {
     }
 
     try {
-      const response = await fetch(id);
-      if (!response.ok) throw new Error(`Failed to fetch schema from ${id}`);
-      const data = (await response.json()) as { schema: CredentialSchema };
+      // Check credential 
+      const schemaResponse = await fetch(id);
+      if (!schemaResponse.ok) throw new Error(`Failed to fetch schema from ${id}`);
+      const data = (await schemaResponse.json()) as { schema: CredentialSchema };
+
+      // Check Schema
+      const refUrl = credentialSubject && typeof credentialSubject === "object" &&
+            "jsonSchema" in credentialSubject && (credentialSubject as any).jsonSchema?.$ref;
+      if (refUrl) {
+        const refResponse = await fetch(refUrl);
+        if (!refResponse.ok) throw new Error(`Failed to fetch referenced schema from ${refUrl}`);
+        credentialSubject = (await refResponse.json()) as { credentialSubject: JsonLdObject };
+      }
+
+      // Validations
       const schemaObject = JSON.parse(data.schema.json_schema);
-      
       const ajv = new Ajv();
       const validate: ValidateFunction = ajv.compile(schemaObject);
-      const isValid = validate(credentialSchema);
+      const isValid = validate(credentialSubject);
   
       if (!isValid) {
         throw new Error(`Credential does not conform to schema: ${JSON.stringify(validate.errors)}`);
