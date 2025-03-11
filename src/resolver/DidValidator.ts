@@ -1,5 +1,5 @@
 import * as didWeb from 'web-did-resolver';
-import { CredentialSchema, ECS, ResolveResult } from '../types';
+import { CredentialSchema, ECS, Permission, PermissionType, ResolveResult } from '../types';
 import { Resolver, Service } from 'did-resolver';
 import { JsonLdObject, VerifiableCredential } from '@transmute/verifiable-credentials';
 import Ajv, { ValidateFunction } from 'ajv';
@@ -7,10 +7,12 @@ import { identifySchema } from '../utils';
 
 export class DidValidator {
   private resolverInstance: Resolver;
+  private trustRegistryUrl: String;
 
   constructor() {
     const webDidResolver = didWeb.getResolver();
     this.resolverInstance = new Resolver(webDidResolver);
+    this.trustRegistryUrl = 'http://testTrust.org/';
   }
 
   /**
@@ -43,6 +45,31 @@ export class DidValidator {
         const schema = identifySchema(vc.credentialSchema);
         return vc.issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema);
       });
+
+      if (!isValid) {
+        const permResponse = await fetch(`${this.trustRegistryUrl}/prem/v1/get`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ did }),
+        });
+        
+        if (!permResponse.ok) return { result: false, didDocument };
+        const permission: Permission = await permResponse.json() as Permission;
+        
+        if (permission.type !== PermissionType.ISSUER) return { result: false, didDocument };
+
+        const schemaResponse = await fetch(`${this.trustRegistryUrl}/cs/v1/get`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: permission.schema_id }),
+        });
+        
+        if (!schemaResponse.ok) return { result: false, didDocument };
+        const credentialSchema: CredentialSchema = await schemaResponse.json() as CredentialSchema;
+
+        const schemaType = identifySchema(credentialSchema.json_schema);
+        return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocument };
+      }
 
       return { result: isValid, didDocument };
     } catch (error) {
@@ -99,7 +126,7 @@ export class DidValidator {
       try {
         const response = await fetch(endpoint);
         if (response.ok) {
-          const { verifiableCredential } = await response.json() as { verifiableCredential: VerifiableCredential };
+          const verifiableCredential = await response.json() as VerifiableCredential;
           return await this.validateCredential(verifiableCredential);
         }
         throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
@@ -152,7 +179,7 @@ export class DidValidator {
       // Check credential 
       const schemaResponse = await fetch(id);
       if (!schemaResponse.ok) throw new Error(`Failed to fetch schema from ${id}`);
-      const data = (await schemaResponse.json()) as { schema: CredentialSchema };
+      const schema = (await schemaResponse.json()) as CredentialSchema;
 
       // Check Schema
       const refUrl = credentialSubject && typeof credentialSubject === "object" &&
@@ -160,11 +187,11 @@ export class DidValidator {
       if (refUrl) {
         const refResponse = await fetch(refUrl);
         if (!refResponse.ok) throw new Error(`Failed to fetch referenced schema from ${refUrl}`);
-        credentialSubject = (await refResponse.json()) as { credentialSubject: JsonLdObject };
+        credentialSubject = (await refResponse.json()) as JsonLdObject;
       }
 
       // Validations
-      const schemaObject = JSON.parse(data.schema.json_schema);
+      const schemaObject = JSON.parse(schema.json_schema);
       const ajv = new Ajv();
       const validate: ValidateFunction = ajv.compile(schemaObject);
       const isValid = validate(credentialSubject);
