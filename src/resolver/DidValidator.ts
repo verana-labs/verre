@@ -99,19 +99,19 @@ export class DidValidator {
 
     // Validate schema consistency
     if (hasLinkedPresentation && !hasTrustRegistry) {
-      errors.push("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas'.");
+      throw new Error("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas'.");
     }
     if (hasTrustRegistry && !hasLinkedPresentation) {
-      errors.push("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas-trust-registry'.");
+      throw new Error("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas'.");
     }
     if (hasEssentialSchemas && !hasEssentialTrustRegistry) {
-      errors.push("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-essential-schemas'.");
+      throw new Error("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-essential-schemas'.");
     }
     if (hasEssentialTrustRegistry && !hasEssentialSchemas) {
-      errors.push("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-essential-schemas-trust-registry'.");
+      throw new Error("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-essential-schemas-trust-registry'.");
     }
 
-    return errors.length ? { result: false, didDocument, message: errors.join(' ') } : { result: true, didDocument };
+    return { result: true, didDocument };
   }
 
   /**
