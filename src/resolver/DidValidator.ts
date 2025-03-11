@@ -103,20 +103,6 @@ export class DidValidator {
   }
 
   /**
-   * Fetches and returns a schema from a given URL.
-   */
-  private async fetchSchema(url: string): Promise<any> {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch schema from ${url}`);
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching schema:", error);
-      return null;
-    }
-  }
-
-  /**
    * Placeholder for trust registry fetching logic.
    */
   private async fetchTrustRegistry(service: Service): Promise<ResolveResult> {
