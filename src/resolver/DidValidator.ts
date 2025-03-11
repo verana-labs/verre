@@ -3,6 +3,7 @@ import { CredentialSchema, ECS, ResolveResult } from '../types';
 import { Resolver, Service } from 'did-resolver';
 import { JsonLdObject, VerifiableCredential } from '@transmute/verifiable-credentials';
 import Ajv, { ValidateFunction } from 'ajv';
+import { identifySchema } from '../utils';
 
 export class DidValidator {
   private resolverInstance: Resolver;
@@ -38,8 +39,12 @@ export class DidValidator {
           return this.fetchTrustRegistry(service);
         }
       }
+      const isServiceValid = verifiableCredentials.some(vc => {
+        const schema = identifySchema(vc.credentialSchema);
+        return vc.issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema);
+      });     
 
-      return { result: false, didDocument };
+      return { result: isServiceValid, didDocument };
     } catch (error) {
       return { result: false, message: `Error resolving DID Document: ${error}` };
     }
