@@ -13,10 +13,26 @@ export type ResolveResult = {
   message?: string;
 };
 
+export enum PermissionType {
+  ISSUER = "ISSUER",
+  VERIFIER = "VERIFIER",
+  ISSUER_GRANTOR = "ISSUER_GRANTOR",
+  VERIFIER_GRANTOR = "VERIFIER_GRANTOR",
+  TRUST_REGISTRY = "TRUST_REGISTRY",
+  HOLDER = "HOLDER"
+}
+
 export enum PermissionManagementMode {
   OPEN = "OPEN",
   GRANTOR_VALIDATION = "GRANTOR_VALIDATION",
   TRUST_REGISTRY_VALIDATION = "TRUST_REGISTRY_VALIDATION"
+}
+
+export enum VerifiablePresentationState {
+  PENDING = 'PENDING',
+  VALIDATED = 'VALIDATED',
+  TERMINATED = 'TERMINATED',
+  TERMINATION_REQUESTED = 'TERMINATION_REQUESTED'
 }
 
 export interface CredentialSchema {
@@ -34,4 +50,37 @@ export interface CredentialSchema {
   holder_validation_validity_period: number;
   issuer_perm_management_mode: PermissionManagementMode;
   verifier_perm_management_mode: PermissionManagementMode;
+}
+
+export interface Permission {
+  id: number;
+  schema_id: number;
+  type: PermissionType;
+  did?: string;
+  grantee: string;
+  created: number;
+  created_by: string;
+  extended: number;
+  extended_by: string;
+  effective_from?: number;
+  effective_until?: number;
+  modified: number;
+  validation_fees: number;
+  issuance_fees: number;
+  verification_fees: number;
+  deposit: number;
+  revoked?: number;
+  revoked_by: string;
+  terminated?: number;
+  terminated_by: string;
+  country?: string;
+  validator_perm_id?: number;
+  vp_state: VerifiablePresentationState;
+  vp_exp?: number;
+  vp_last_state_change: number;
+  vp_validator_deposit?: number;
+  vp_current_fees: number;
+  vp_current_deposit: number;
+  vp_summary_digest_sri?: string;
+  vp_term_requested?: number;
 }

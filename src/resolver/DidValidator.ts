@@ -39,12 +39,12 @@ export class DidValidator {
           return this.fetchTrustRegistry(service);
         }
       }
-      const isServiceValid = verifiableCredentials.some(vc => {
+      const isValid = verifiableCredentials.some(vc => {
         const schema = identifySchema(vc.credentialSchema);
         return vc.issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema);
-      });     
+      });
 
-      return { result: isServiceValid, didDocument };
+      return { result: isValid, didDocument };
     } catch (error) {
       return { result: false, message: `Error resolving DID Document: ${error}` };
     }
