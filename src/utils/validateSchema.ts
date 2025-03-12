@@ -1,11 +1,13 @@
-import Ajv from "ajv";
+import Ajv from "ajv/dist/2020";
+import addFormats from "ajv-formats";
 import fs from "fs";
 import path from "path";
 import { ECS } from '../types'
 
 const ajv = new Ajv();
+addFormats(ajv);
 
-const loadSchema = (schemaName: string) => {
+export const loadSchema = (schemaName: string) => {
   const schemaPath = path.join(__dirname, `../../public/schemas/${schemaName}`);
   return JSON.parse(fs.readFileSync(schemaPath, "utf-8"));
 };

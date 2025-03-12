@@ -1,6 +1,8 @@
 import { getResolver } from 'web-did-resolver';
 import { Resolver } from 'did-resolver';
-import { DidValidator } from '../src';
+import { DidValidator, ECS, loadSchema } from '../src';
+import { mockCredentialSchema, mockDidDocument, mockOrgVerifiableCredential, mockPermission, mockResolverInstance, mockServiceVerifiableCredential } from './__mocks__/object';
+import { fetchMocker } from './__mocks__/fetch';
 
 describe('DidValidator', () => {
   let didValidator: DidValidator;
@@ -9,12 +11,13 @@ describe('DidValidator', () => {
   beforeEach(() => {
     resolverInstance = new Resolver(getResolver());
     didValidator = new DidValidator();
-    
-    // Mock global fetch
-    global.fetch = jest.fn();
+
+    fetchMocker.enable();
   });
   
   afterEach(() => {
+    fetchMocker.reset();
+    fetchMocker.disable();
     jest.clearAllMocks();
   });
 
@@ -38,7 +41,29 @@ describe('DidValidator', () => {
       expect(resolveSpy).toHaveBeenCalledWith(did);
       expect(fetchTrustRegistrySpy).not.toHaveBeenCalled();
       expect(fetchLinkedVPSpy).not.toHaveBeenCalled();
-      expect(result.result).toBe(false);
+      expect(result).toEqual(expect.objectContaining({ result: false }));
+    });
+
+    it('should work correctly under expected conditions', async () => {
+      // Init values
+      const did = `did:web:example.com`;
+      
+      // mocked data
+      const resolverInstanceSpy = jest.spyOn(didValidator['resolverInstance'], 'resolve').mockResolvedValue({ ...mockResolverInstance });
+      fetchMocker.setMockResponses({
+        "https://example.com/vp-ser": { ok: true, status: 200, data: mockServiceVerifiableCredential },
+        "https://ecs-trust-registry/service-credential-schema-credential.json": { ok: true, status: 200, data: { json_schema: JSON.stringify(loadSchema(ECS.SERVICE)) }},
+        "https://example.com/vp-org": { ok: true, status: 200, data: mockOrgVerifiableCredential },
+        "https://ecs-trust-registry/organization-credential-schema-credential.json": { ok: true, status: 200, data: { json_schema: JSON.stringify(loadSchema(ECS.ORG)) }},
+        "https://example.com/trust-registry": { ok: true, status: 200, data: {} },
+        "http://testTrust.org/prem/v1/get": { ok: true, status: 200, data: mockPermission },
+        "http://testTrust.org/cs/v1/get": { ok: true, status: 200, data: mockCredentialSchema },
+      });
+
+      // Execute method under test
+      const result = await didValidator.resolve(did);
+      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com');
+      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
     });
   });
 });
