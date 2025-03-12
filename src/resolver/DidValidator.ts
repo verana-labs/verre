@@ -2,7 +2,8 @@ import * as didWeb from 'web-did-resolver';
 import { CredentialSchema, ECS, Permission, PermissionType, ResolveResult } from '../types';
 import { Resolver, Service } from 'did-resolver';
 import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials';
-import Ajv, { ValidateFunction } from 'ajv';
+import Ajv, { ValidateFunction } from 'ajv/dist/2020';
+import addFormats from "ajv-formats";
 import { identifySchema } from '../utils';
 
 export class DidValidator {
@@ -208,6 +209,7 @@ export class DidValidator {
       // Validations
       const schemaObject = JSON.parse(schema.json_schema);
       const ajv = new Ajv();
+      addFormats(ajv);
       const validate: ValidateFunction = ajv.compile(schemaObject);
       const isValid = validate(credentialSubject);
   

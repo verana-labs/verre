@@ -31,6 +31,7 @@
   "dependencies": {
     "@transmute/verifiable-credentials": "^0.3.4",
     "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "did-resolver": "^4.1.0",
     "web-did-resolver": "^2.0.29"
   },
