@@ -1,7 +1,7 @@
 import * as didWeb from 'web-did-resolver';
 import { CredentialSchema, ECS, Permission, PermissionType, ResolveResult } from '../types';
 import { Resolver, Service } from 'did-resolver';
-import { JsonLdObject, VerifiableCredential } from '@transmute/verifiable-credentials';
+import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials';
 import Ajv, { ValidateFunction } from 'ajv';
 import { identifySchema } from '../utils';
 
@@ -126,8 +126,9 @@ export class DidValidator {
       try {
         const response = await fetch(endpoint);
         if (response.ok) {
-          const verifiableCredential = await response.json() as VerifiableCredential;
-          return await this.validateCredential(verifiableCredential);
+          const vp = await response.json() as VerifiablePresentation;
+          const credential = this.extractValidCredential(vp); // TODO: handle many verifiableCredential??
+          return await this.validateCredential(credential);
         }
         throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
       } catch (error) {
@@ -155,6 +156,20 @@ export class DidValidator {
     } catch (error) {
         return { result: false, message: `Error querying the Trust Registry: ${error.message}` };
     }
+  }
+  
+  private extractValidCredential(vp: VerifiablePresentation): VerifiableCredential {
+    if (!vp.verifiableCredential || vp.verifiableCredential.length === 0) {
+      throw new Error('No verifiable credential found in the response');
+    }
+    const validCredential = vp.verifiableCredential.find(vc =>
+      vc.type.includes('VerifiableCredential')
+    ) as VerifiableCredential | undefined;          
+    if (!validCredential) {
+      throw new Error('No valid verifiable credential found in the response');
+    }
+
+    return validCredential;
   }
 
   /**
