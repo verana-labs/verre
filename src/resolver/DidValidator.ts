@@ -33,11 +33,8 @@ export class DidValidator {
 
       for (const service of didDocument.service) {
         if (service.type === 'LinkedVerifiablePresentation') {
-          const credentials = await this.resolveLinkedVP(service);
-          if (!Array.isArray(credentials)) {
-            throw new Error('resolveLinkedVP must return an array of VerifiableCredential');
-          }
-          verifiableCredentials.push(...credentials);
+          const credential = await this.resolveLinkedVP(service);
+          if (credential) verifiableCredentials.push(credential);
         } else if (service.type === 'VerifiablePublicRegistry') {
           return this.fetchTrustRegistry(service);
         }
