@@ -205,17 +205,14 @@ export class DidValidator {
    * @throws Error if validation fails.
    */
   private async checkCredentialSchema(credential: VerifiableCredential): Promise<VerifiableCredential> {
-    if (!credential.credentialSchema || !credential.credentialSubject) {
+    const { credentialSchema, credentialSubject } = credential
+    if (!credentialSchema || !credentialSubject) {
       throw new Error("Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.")
     }
 
-    const credentialSchema = Array.isArray(credential.credentialSchema)
-      ? credential.credentialSchema[0]
-      : credential.credentialSchema
-    let credentialSubject = Array.isArray(credential.credentialSubject)
-      ? credential.credentialSubject[0]
-      : credential.credentialSubject
-    const { id, type } = credentialSchema as Record<string, any>
+    const schema = Array.isArray(credentialSchema) ? credentialSchema[0] : credentialSchema
+    let subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
+    const { id, type } = schema as Record<string, any>
     if (!id?.startsWith('http') || type !== 'JsonSchemaCredential') {
       throw new Error(
         `Invalid credential schema: id must be a valid URL and type must be 'JsonSchemaCredential'.`,
@@ -230,14 +227,11 @@ export class DidValidator {
 
       // Check Schema
       const refUrl =
-        credentialSubject &&
-        typeof credentialSubject === 'object' &&
-        'jsonSchema' in credentialSubject &&
-        (credentialSubject as any).jsonSchema?.$ref
+        subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
       if (refUrl) {
         const refResponse = await fetch(refUrl)
         if (!refResponse.ok) throw new Error(`Failed to fetch referenced schema from ${refUrl}`)
-        credentialSubject = (await refResponse.json()) as JsonLdObject
+        subject = (await refResponse.json()) as JsonLdObject
       }
 
       // Validations
@@ -245,7 +239,7 @@ export class DidValidator {
       const ajv = new Ajv()
       addFormats(ajv)
       const validate: ValidateFunction = ajv.compile(schemaObject)
-      const isValid = validate(credentialSubject)
+      const isValid = validate(subject)
 
       if (!isValid) {
         throw new Error(`Credential does not conform to schema: ${JSON.stringify(validate.errors)}`)
