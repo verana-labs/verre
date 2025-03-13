@@ -146,7 +146,7 @@ export class DidValidator {
 
     // Validate schema consistency
     if (hasLinkedPresentation && !hasTrustRegistry) {
-      throw new Error("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas'.")
+      throw new Error("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas-trust-registry'.")
     }
     if (hasTrustRegistry && !hasLinkedPresentation) {
       throw new Error("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas'.")
