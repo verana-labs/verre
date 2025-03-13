@@ -77,6 +77,8 @@ export class DidValidator {
 
   /**
    * Fetches and validates a DID Document.
+   * @param did - The DID to fetch.
+   * @returns A promise resolving to the resolution result.
    */
   private async fetchDidDocument(did: string): Promise<ResolveResult> {
     const errors: string[] = [];
@@ -114,6 +116,8 @@ export class DidValidator {
 
   /**
    * Resolves a Linked Verifiable Presentation (VP) from a service endpoint.
+   * @param service - The service containing the VP.
+   * @returns A promise resolving to the verifiable credential.
    */
   private async resolveLinkedVP(service: Service): Promise<VerifiableCredential> {
     const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint];
@@ -137,7 +141,9 @@ export class DidValidator {
   }
 
   /**
-   * Placeholder for trust registry fetching logic.
+   * Fetches and validates exists data from a Trust Registry service.
+   * @param service - The Trust Registry service to query.
+   * @throws Error if the service endpoint is invalid or unreachable.
    */
   private async fetchTrustRegistry(service: Service) {
     if (!service.serviceEndpoint || !Array.isArray(service.serviceEndpoint) || service.serviceEndpoint.length === 0) {
@@ -155,6 +161,12 @@ export class DidValidator {
     }
   }
   
+  /**
+   * Extracts a valid verifiable credential from a Verifiable Presentation.
+   * @param vp - The Verifiable Presentation to parse.
+   * @returns A valid Verifiable Credential.
+   * @throws Error if no valid credential is found.
+   */
   private extractValidCredential(vp: VerifiablePresentation): VerifiableCredential {
     if (!vp.verifiableCredential || vp.verifiableCredential.length === 0) {
       throw new Error('No verifiable credential found in the response');
@@ -171,6 +183,9 @@ export class DidValidator {
 
   /**
    * Validates a Verifiable Credential's schema against expected trust criteria.
+   * @param credential - The Verifiable Credential to validate.
+   * @returns A promise resolving to the validated Verifiable Credential.
+   * @throws Error if validation fails.
    */
   private async validateCredential(credential: VerifiableCredential): Promise<VerifiableCredential> {
     if (!credential.credentialSchema || !credential.credentialSubject) {
