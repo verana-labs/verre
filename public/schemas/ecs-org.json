@@ -38,8 +38,8 @@
           "maxLength": 1024
         },
         "type": {
-          "type": "enum",
-          "value": ["PUBLIC", "PRIVATE", "FOUNDATION"]
+          "type": "string",
+          "enum": ["PUBLIC", "PRIVATE", "FOUNDATION"]
         },
         "countryCode": {
           "type": "string",
