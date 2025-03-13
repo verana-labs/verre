@@ -180,11 +180,8 @@ export class DidValidator {
     const credentialSchema = Array.isArray(credential.credentialSchema) ? credential.credentialSchema[0] : credential.credentialSchema;
     let credentialSubject = Array.isArray(credential.credentialSubject) ? credential.credentialSubject[0] : credential.credentialSubject;
     const { id, type } = credentialSchema as Record<string, any>;
-    if (!id || typeof id !== 'string' || !id.startsWith('http')) {
-      throw new Error("Invalid 'id' in credentialSchema. Must be a valid URL.");
-    }
-    if (type !== 'JsonSchemaCredential') {
-      throw new Error("Invalid 'type' in credentialSchema. Must be 'JsonSchemaCredential'.");
+    if (!id?.startsWith('http') || type !== 'JsonSchemaCredential') {
+      throw new Error(`Invalid credential schema: id must be a valid URL and type must be 'JsonSchemaCredential'.`);
     }
 
     try {

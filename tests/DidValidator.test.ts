@@ -44,7 +44,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(expect.objectContaining({ result: false }));
     });
 
-    it('It should work correctly when the issuer is equal to "did".', async () => {
+    it('should work correctly when the issuer is equal to "did".', async () => {
       // Init values
       const did = `did:web:example.com`;
       
@@ -64,7 +64,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
     });
 
-    it('It should work correctly when the issuer is not "did".', async () => {
+    it('should work correctly when the issuer is not "did".', async () => {
       // Init values
       const did = `did:web:example.com`;
       
