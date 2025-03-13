@@ -117,6 +117,23 @@ export const mockOrgVerifiableCredential = createMockVerifiableCredential(
   }  
 )
 
+export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCredential(
+  "did:example:123",
+  "did:example:123",
+  "https://ecs-trust-registry/organization-credential-schema-credential.json",
+  "schema:Organization",
+  {
+    id: "did:example:456",
+    name: "Example Corp",
+    logo: "iVBORw0KGgoAAAANSUhEUgAAAAUA...", 
+    registryId: "EX-123456",
+    registryUrl: "https://registry.example.com/org/EX-123456",
+    address: "123 Example Street, Example City, EX 10001",
+    type: ["PUBLIC"],
+    countryCode: "US"
+  }  
+)
+
 export const mockPermission = {
   id: 1,
   schema_id: 100,

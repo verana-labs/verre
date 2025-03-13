@@ -4,7 +4,7 @@ import { Resolver, Service } from 'did-resolver';
 import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials';
 import Ajv, { ValidateFunction } from 'ajv/dist/2020';
 import addFormats from "ajv-formats";
-import { identifySchema } from '../utils';
+import { checkSchemaMatch, identifySchema } from '../utils';
 
 export class DidValidator {
   private resolverInstance: Resolver;
@@ -65,7 +65,7 @@ export class DidValidator {
         if (!schemaResponse.ok) return { result: false, didDocument };
         const credentialSchema: CredentialSchema = await schemaResponse.json() as CredentialSchema;
 
-        const schemaType = identifySchema(credentialSchema.json_schema);
+        const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS);
         return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocument };
       }
 
