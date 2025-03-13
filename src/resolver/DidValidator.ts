@@ -215,7 +215,7 @@ export class DidValidator {
     const { id, type } = schema as Record<string, any>
     if (!id?.startsWith('http') || type !== 'JsonSchemaCredential') {
       throw new Error(
-        `Invalid credential schema: id must be a valid URL and type must be 'JsonSchemaCredential'.`,
+        "Invalid credential schema: id must be a valid URL and type must be 'JsonSchemaCredential'.",
       )
     }
 
@@ -223,8 +223,7 @@ export class DidValidator {
       // Check credential
       const schemaResponse = await fetch(id)
       if (!schemaResponse.ok) throw new Error(`Failed to fetch schema from ${id}`)
-      const schema = (await schemaResponse.json()) as CredentialSchema
-
+      const schemaData = (await schemaResponse.json()) as CredentialSchema
       // Check Schema
       const refUrl =
         subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
@@ -234,14 +233,12 @@ export class DidValidator {
         subject = (await refResponse.json()) as JsonLdObject
       }
 
-      // Validations
-      const schemaObject = JSON.parse(schema.json_schema)
+      const schemaObject = JSON.parse(schemaData.json_schema)
       const ajv = new Ajv()
       addFormats(ajv)
       const validate: ValidateFunction = ajv.compile(schemaObject)
-      const isValid = validate(subject)
 
-      if (!isValid) {
+      if (!validate(subject)) {
         throw new Error(`Credential does not conform to schema: ${JSON.stringify(validate.errors)}`)
       }
       return credential
