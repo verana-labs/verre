@@ -26,17 +26,17 @@ export class DidValidator {
     if (!did) return { result: false, message: 'Invalid DID URL' };
 
     try {
-      const { didDocument } = await this.fetchDidDocument(did);
+      const { didDocument } = await this.retrieveDidDocument(did);
       if (!didDocument?.service) {
         return { result: false, message: 'Failed to retrieve DID Document with service.' };
       }
 
       for (const service of didDocument.service) {
         if (service.type === 'LinkedVerifiablePresentation') {
-          const credential = await this.resolveLinkedVP(service);
+          const credential = await this.extractCredentialFromVP(service);
           if (credential) verifiableCredentials.push(credential);
         } else if (service.type === 'VerifiablePublicRegistry') {
-          await this.fetchTrustRegistry(service);
+          await this.queryTrustRegistry(service);
         }
       }
       const isValid = verifiableCredentials.some(vc => {
@@ -80,7 +80,7 @@ export class DidValidator {
    * @param did - The DID to fetch.
    * @returns A promise resolving to the resolution result.
    */
-  private async fetchDidDocument(did: string): Promise<ResolveResult> {
+  private async retrieveDidDocument(did: string): Promise<ResolveResult> {
     const errors: string[] = [];
     const resolutionResult = await this.resolverInstance.resolve(did);
     const didDocument = resolutionResult?.didDocument;
@@ -119,7 +119,7 @@ export class DidValidator {
    * @param service - The service containing the VP.
    * @returns A promise resolving to the verifiable credential.
    */
-  private async resolveLinkedVP(service: Service): Promise<VerifiableCredential> {
+  private async extractCredentialFromVP(service: Service): Promise<VerifiableCredential> {
     const endpoints = Array.isArray(service.serviceEndpoint) ? service.serviceEndpoint : [service.serviceEndpoint];
     const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[];
     if (!validEndpoints.length) throw new Error("No valid endpoints found");
@@ -129,8 +129,8 @@ export class DidValidator {
         const response = await fetch(endpoint);
         if (response.ok) {
           const vp = await response.json() as VerifiablePresentation;
-          const credential = this.extractValidCredential(vp); // TODO: handle many verifiableCredential??
-          return await this.validateCredential(credential);
+          const credential = this.getVerifiedCredential(vp); // TODO: handle many verifiableCredential??
+          return await this.checkCredentialSchema(credential);
         }
         throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`);
       } catch (error) {
@@ -145,7 +145,7 @@ export class DidValidator {
    * @param service - The Trust Registry service to query.
    * @throws Error if the service endpoint is invalid or unreachable.
    */
-  private async fetchTrustRegistry(service: Service) {
+  private async queryTrustRegistry(service: Service) {
     if (!service.serviceEndpoint || !Array.isArray(service.serviceEndpoint) || service.serviceEndpoint.length === 0) {
         throw new Error("The service does not have a valid endpoint.");
     }
@@ -167,7 +167,7 @@ export class DidValidator {
    * @returns A valid Verifiable Credential.
    * @throws Error if no valid credential is found.
    */
-  private extractValidCredential(vp: VerifiablePresentation): VerifiableCredential {
+  private getVerifiedCredential(vp: VerifiablePresentation): VerifiableCredential {
     if (!vp.verifiableCredential || vp.verifiableCredential.length === 0) {
       throw new Error('No verifiable credential found in the response');
     }
@@ -187,7 +187,7 @@ export class DidValidator {
    * @returns A promise resolving to the validated Verifiable Credential.
    * @throws Error if validation fails.
    */
-  private async validateCredential(credential: VerifiableCredential): Promise<VerifiableCredential> {
+  private async checkCredentialSchema(credential: VerifiableCredential): Promise<VerifiableCredential> {
     if (!credential.credentialSchema || !credential.credentialSubject) {
       throw new Error("Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.");
     }

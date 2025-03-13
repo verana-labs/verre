@@ -29,8 +29,8 @@ describe('DidValidator', () => {
 
       // Setup spy methods
       const resolveSpy = jest.spyOn(Resolver.prototype, 'resolve');
-      const fetchLinkedVPSpy = jest.spyOn(didValidator as any, 'resolveLinkedVP');
-      const fetchTrustRegistrySpy = jest.spyOn(didValidator as any, 'fetchTrustRegistry');
+      const fetchLinkedVPSpy = jest.spyOn(didValidator as any, 'extractCredentialFromVP');
+      const queryTrustRegistrySpy = jest.spyOn(didValidator as any, 'queryTrustRegistry');
 
 
       // Execute method under test
@@ -39,7 +39,7 @@ describe('DidValidator', () => {
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1);
       expect(resolveSpy).toHaveBeenCalledWith(did);
-      expect(fetchTrustRegistrySpy).not.toHaveBeenCalled();
+      expect(queryTrustRegistrySpy).not.toHaveBeenCalled();
       expect(fetchLinkedVPSpy).not.toHaveBeenCalled();
       expect(result).toEqual(expect.objectContaining({ result: false }));
     });
