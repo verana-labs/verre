@@ -4,6 +4,10 @@ import { DidValidator, ECS, loadSchema } from '../src';
 import { mockCredentialSchema, mockDidDocument, mockOrgVerifiableCredential, mockOrgVerifiableCredentialWithoutIssuer, mockPermission, mockResolverInstance, mockServiceVerifiableCredential } from './__mocks__/object';
 import { fetchMocker } from './__mocks__/fetch';
 
+jest.mock("../src/utils/signatureVerifier", () => ({
+  verifyLinkedVP: jest.fn().mockResolvedValue(true),
+}));
+
 describe('DidValidator', () => {
   let didValidator: DidValidator;
   let resolverInstance: Resolver;
@@ -83,6 +87,7 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await didValidator.resolve(did);
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com');
+      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
       expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
     });
   });

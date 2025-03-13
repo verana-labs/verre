@@ -5,7 +5,7 @@ import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
 import { CredentialSchema, ECS, Permission, PermissionType, ResolveResult } from '../types'
-import { checkSchemaMatch, identifySchema } from '../utils'
+import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../utils'
 
 export class DidValidator {
   private resolverInstance: Resolver
@@ -180,7 +180,7 @@ export class DidValidator {
         const response = await fetch(endpoint)
         if (response.ok) {
           const vp = (await response.json()) as VerifiablePresentation
-          const credential = this.getVerifiedCredential(vp) // TODO: handle many verifiableCredential??
+          const credential = await this.getVerifiedCredential(vp) // TODO: handle many verifiableCredential??
           return await this.checkCredentialSchema(credential)
         }
         throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`)
@@ -222,7 +222,7 @@ export class DidValidator {
    * @returns A valid Verifiable Credential.
    * @throws Error if no valid credential is found.
    */
-  private getVerifiedCredential(vp: VerifiablePresentation): VerifiableCredential {
+  private async getVerifiedCredential(vp: VerifiablePresentation): Promise<VerifiableCredential> {
     if (!vp.verifiableCredential || vp.verifiableCredential.length === 0) {
       throw new Error('No verifiable credential found in the response')
     }
@@ -231,6 +231,10 @@ export class DidValidator {
       | undefined
     if (!validCredential) {
       throw new Error('No valid verifiable credential found in the response')
+    }
+    const isVerified = await verifyLinkedVP(validCredential);
+    if (!isVerified) {
+      throw new Error("The verifiable credential proof is not valid.");
     }
 
     return validCredential
