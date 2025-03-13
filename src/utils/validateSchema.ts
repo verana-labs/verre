@@ -2,7 +2,7 @@ import Ajv from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import fs from "fs";
 import path from "path";
-import { ECS } from '../types'
+import { ECS } from "../types";
 
 const ajv = new Ajv();
 addFormats(ajv);
@@ -23,11 +23,17 @@ export const identifySchema = (vp: any): ECS | null => {
   for (const schemaName of Object.keys(schemas) as ECS[]) {
     const validate = ajv.compile(schemas[schemaName]);
     if (validate(vp)) {
-      console.log(`✅ VP matches schema: ${schemaName}`);
       return schemaName;
     }
   }
-  console.log("❌ VP does not match any known schema.");
   return null;
 };
 
+export const checkSchemaMatch = (vp: any): ECS | null => {
+  for (const [schemaName, schema] of Object.entries(schemas) as [ECS, any][]) {
+    if (vp === JSON.stringify(schema)) {
+      return schemaName;
+    }
+  }
+  return null;
+};
