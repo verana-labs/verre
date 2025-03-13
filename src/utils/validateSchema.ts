@@ -1,39 +1,40 @@
-import Ajv from "ajv/dist/2020";
-import addFormats from "ajv-formats";
-import fs from "fs";
-import path from "path";
-import { ECS } from "../types";
+import Ajv from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
+import fs from 'fs'
+import path from 'path'
 
-const ajv = new Ajv();
-addFormats(ajv);
+import { ECS } from '../types'
+
+const ajv = new Ajv()
+addFormats(ajv)
 
 export const loadSchema = (schemaName: string) => {
-  const schemaPath = path.join(__dirname, `../../public/schemas/${schemaName}`);
-  return JSON.parse(fs.readFileSync(schemaPath, "utf-8"));
-};
+  const schemaPath = path.join(__dirname, `../../public/schemas/${schemaName}`)
+  return JSON.parse(fs.readFileSync(schemaPath, 'utf-8'))
+}
 
 const schemas = {
   [ECS.ORG]: loadSchema(ECS.ORG),
   [ECS.PERSON]: loadSchema(ECS.PERSON),
   [ECS.SERVICE]: loadSchema(ECS.SERVICE),
   [ECS.USER_AGENT]: loadSchema(ECS.USER_AGENT),
-};
+}
 
 export const identifySchema = (vp: any): ECS | null => {
   for (const schemaName of Object.keys(schemas) as ECS[]) {
-    const validate = ajv.compile(schemas[schemaName]);
+    const validate = ajv.compile(schemas[schemaName])
     if (validate(vp)) {
-      return schemaName;
+      return schemaName
     }
   }
-  return null;
-};
+  return null
+}
 
 export const checkSchemaMatch = (vp: any): ECS | null => {
   for (const [schemaName, schema] of Object.entries(schemas) as [ECS, any][]) {
     if (vp === JSON.stringify(schema)) {
-      return schemaName;
+      return schemaName
     }
   }
-  return null;
-};
+  return null
+}

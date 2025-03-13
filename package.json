@@ -1,12 +1,22 @@
 {
   "name": "trust-resolution",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/verana-labs/verre"
+  },
   "scripts": {
     "build": "yarn run clean && yarn run compile",
     "clean": "rimraf -rf ./build",
     "compile": "tsc -p tsconfig.json",
     "prepublishOnly": "yarn run build",
-    "test": "jest"
+    "check-types": "yarn check-types:build",
+    "check-types:build": "yarn run tsc --noEmit -p tsconfig.json",
+    "format": "prettier \"src/**/*.ts\" --write",
+    "check-format": "prettier -c \"src/**/*.ts\"",
+    "test": "jest",
+    "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
+    "validate": "yarn lint && yarn check-types && yarn check-format"
   },
   "devDependencies": {
     "@types/eslint": "^8.56.2",
