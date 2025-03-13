@@ -32,6 +32,7 @@ export async function verifyLinkedVP(vp: VerifiablePresentation): Promise<boolea
   }
 }
 
+// TODO: Review this implementation to determine which one we can use.
 export const customDocumentLoader = documentLoaderFactory.build({
   restrictedTo: ["https://www.w3.org/2018/credentials/v1", "https://schema.org/"]
 });
