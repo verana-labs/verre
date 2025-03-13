@@ -1,7 +1,7 @@
 import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials'
 import Ajv, { ValidateFunction } from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
-import { Resolver, Service } from 'did-resolver'
+import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
 import { CredentialSchema, ECS, Permission, PermissionType, ResolveResult } from '../types'
@@ -23,7 +23,6 @@ export class DidValidator {
    * @returns A promise resolving to the resolution result.
    */
   public async resolve(did: string): Promise<ResolveResult> {
-    const verifiableCredentials: VerifiableCredential[] = []
     if (!did) return { result: false, message: 'Invalid DID URL' }
 
     try {
@@ -32,47 +31,86 @@ export class DidValidator {
         return { result: false, message: 'Failed to retrieve DID Document with service.' }
       }
 
-      for (const service of didDocument.service) {
-        if (service.type === 'LinkedVerifiablePresentation') {
-          const credential = await this.extractCredentialFromVP(service)
-          if (credential) verifiableCredentials.push(credential)
-        } else if (service.type === 'VerifiablePublicRegistry') {
-          await this.queryTrustRegistry(service)
-        }
-      }
+      const verifiableCredentials = await this.processDidServices(didDocument.service)
       const isValid = verifiableCredentials.some(vc => {
         const schema = identifySchema(vc.credentialSubject)
         return vc.issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema)
       })
 
       if (!isValid) {
-        const permResponse = await fetch(`${this.trustRegistryUrl}/prem/v1/get`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ did }),
-        })
-
-        if (!permResponse.ok) return { result: false, didDocument }
-        const permission: Permission = (await permResponse.json()) as Permission
-
-        if (permission.type !== PermissionType.ISSUER) return { result: false, didDocument }
-
-        const schemaResponse = await fetch(`${this.trustRegistryUrl}/cs/v1/get`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: permission.schema_id }),
-        })
-
-        if (!schemaResponse.ok) return { result: false, didDocument }
-        const credentialSchema: CredentialSchema = (await schemaResponse.json()) as CredentialSchema
-
-        const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS)
-        return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocument }
+        return this.checkTrustRegistry(did, didDocument)
       }
 
       return { result: isValid, didDocument }
     } catch (error) {
       return { result: false, message: `Error resolving DID Document: ${error}` }
+    }
+  }
+
+  /**
+   * Processes the DID Document services to extract verifiable credentials.
+   *
+   * @param {Service[]} services - The list of services from the DID Document.
+   * @returns {Promise<VerifiableCredential[]>} A list of extracted verifiable credentials.
+   *
+   * This method iterates through the services in the DID Document and:
+   * - Extracts credentials from Linked Verifiable Presentations.
+   * - Queries the Trust Registry for Verifiable Public Registries.
+   */
+  private async processDidServices(services: Service[]): Promise<VerifiableCredential[]> {
+    const verifiableCredentials: VerifiableCredential[] = []
+
+    for (const service of services) {
+      if (service.type === 'LinkedVerifiablePresentation') {
+        const credential = await this.extractCredentialFromVP(service)
+        if (credential) verifiableCredentials.push(credential)
+      } else if (service.type === 'VerifiablePublicRegistry') {
+        await this.queryTrustRegistry(service)
+      }
+    }
+
+    return verifiableCredentials
+  }
+
+  /**
+   * Checks the Trust Registry to verify if the DID is an authorized issuer.
+   *
+   * @param {string} did - The Decentralized Identifier (DID) to be checked.
+   * @param {DidDocument} didDocument - The resolved DID Document.
+   * @returns {Promise<ResolveResult>} A result indicating whether the DID is valid.
+   *
+   * This method performs the following steps:
+   * 1. Requests the Trust Registry to check if the DID is authorized.
+   * 2. If authorized, retrieves the associated credential schema.
+   * 3. Validates the schema against the expected types (ECS.ORG, ECS.PERSON).
+   * 4. Returns the validation result along with the DID Document.
+   */
+  private async checkTrustRegistry(did: string, didDocument: DIDDocument): Promise<ResolveResult> {
+    try {
+      const permResponse = await fetch(`${this.trustRegistryUrl}/prem/v1/get`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ did }),
+      })
+
+      if (!permResponse.ok) return { result: false, didDocument }
+      const permission: Permission = (await permResponse.json()) as Permission
+
+      if (permission.type !== PermissionType.ISSUER) return { result: false, didDocument }
+
+      const schemaResponse = await fetch(`${this.trustRegistryUrl}/cs/v1/get`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: permission.schema_id }),
+      })
+
+      if (!schemaResponse.ok) return { result: false, didDocument }
+      const credentialSchema: CredentialSchema = (await schemaResponse.json()) as CredentialSchema
+
+      const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS)
+      return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocument }
+    } catch (error) {
+      return { result: false, message: `Error checking trust registry: ${error}` }
     }
   }
 
