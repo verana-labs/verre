@@ -4,19 +4,22 @@ import addFormats from 'ajv-formats'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
-import { CredentialSchema, ECS, Permission, PermissionType, ResolveResult } from '../types'
+import { CredentialSchema, ECS, Permission, PermissionType, ResolverConfig, ResolveResult } from '../types'
 import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
-const trustRegistryUrl = 'http://testTrust.org' // TODO: check this URL
+const defaultOptions: Required<ResolverConfig> = {
+  trustRegistryUrl: 'http://testTrust.org', // TODO: check this URL
+}
 
 /**
  * Resolves a DID and validates its document and associated services.
  * @param did - The DID to resolve.
  * @returns A promise resolving to the resolution result.
  */
-export async function resolve(did: string): Promise<ResolveResult> {
+export async function resolve(did: string, options: ResolverConfig = {}): Promise<ResolveResult> {
   if (!did) return { result: false, message: 'Invalid DID URL' }
+  const { trustRegistryUrl } = { ...defaultOptions, ...options }
 
   try {
     const { didDocument } = await retrieveDidDocument(did)
@@ -31,7 +34,7 @@ export async function resolve(did: string): Promise<ResolveResult> {
     })
 
     if (!isValid) {
-      return checkTrustRegistry(did, didDocument)
+      return checkTrustRegistry(did, didDocument, trustRegistryUrl)
     }
 
     return { result: isValid, didDocument }
@@ -78,7 +81,11 @@ async function processDidServices(services: Service[]): Promise<VerifiableCreden
  * 3. Validates the schema against the expected types (ECS.ORG, ECS.PERSON).
  * 4. Returns the validation result along with the DID Document.
  */
-async function checkTrustRegistry(did: string, didDocument: DIDDocument): Promise<ResolveResult> {
+async function checkTrustRegistry(
+  did: string,
+  didDocument: DIDDocument,
+  trustRegistryUrl: string,
+): Promise<ResolveResult> {
   try {
     const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
       method: 'POST',
