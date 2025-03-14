@@ -1,1 +1,1 @@
-export * from './DidValidator'
+export * from './didValidator'
