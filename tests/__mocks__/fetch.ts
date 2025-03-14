@@ -1,57 +1,57 @@
 // __mocks__/fetch.ts
 
 type MockResponse = {
-  ok: boolean;
-  status?: number;
-  data: any;
-};
+  ok: boolean
+  status?: number
+  data: any
+}
 
 type MockConfig = {
-  [url: string]: MockResponse;
-};
+  [url: string]: MockResponse
+}
 
 export class FetchMocker {
-  private mockConfig: MockConfig = {};
-  private originalFetch: typeof global.fetch;
-  
+  private mockConfig: MockConfig = {}
+  private originalFetch: typeof global.fetch
+
   constructor() {
-    this.originalFetch = global.fetch;
+    this.originalFetch = global.fetch
   }
 
   // Configure responses for specific URLs
   setMockResponses(config: MockConfig) {
-    this.mockConfig = config;
+    this.mockConfig = config
   }
 
   // Add an individual response
   addMockResponse(url: string, response: MockResponse) {
-    this.mockConfig[url] = response;
+    this.mockConfig[url] = response
   }
 
   // Enable the mock
   enable() {
-    global.fetch = jest.fn(this.mockImplementation.bind(this));
+    global.fetch = jest.fn(this.mockImplementation.bind(this))
   }
 
   // Disable the mock and restore the original fetch
   disable() {
-    global.fetch = this.originalFetch;
+    global.fetch = this.originalFetch
   }
 
   // Mock implementation
-  private mockImplementation(url: string, options?: RequestInit): Promise<Response> {
+  private mockImplementation(url: string): Promise<Response> {
     if (url in this.mockConfig) {
-      const mockRes = this.mockConfig[url];
-      
+      const mockRes = this.mockConfig[url]
+
       return Promise.resolve({
         ok: mockRes.ok,
         status: mockRes.status || (mockRes.ok ? 200 : 400),
         json: () => Promise.resolve(mockRes.data),
         text: () => Promise.resolve(JSON.stringify(mockRes.data)),
         headers: new Headers(),
-      } as Response);
+      } as Response)
     }
-    
+
     // Unrecognized URL, return a default error
     return Promise.resolve({
       ok: false,
@@ -59,22 +59,22 @@ export class FetchMocker {
       json: () => Promise.resolve({ error: `URL not mocked: ${url}` }),
       text: () => Promise.resolve(JSON.stringify({ error: `URL not mocked: ${url}` })),
       headers: new Headers(),
-    } as Response);
+    } as Response)
   }
 
   // Reset the mock
   reset() {
-    this.mockConfig = {};
-    (global.fetch as jest.Mock).mockClear();
+    this.mockConfig = {}
+    ;(global.fetch as jest.Mock).mockClear()
   }
 }
 
 // Export a default instance for easier usage
-export const fetchMocker = new FetchMocker();
+export const fetchMocker = new FetchMocker()
 
 // Also export a convenience function to quickly set up mocks
 export function setupFetchMocks(config: MockConfig): FetchMocker {
-  fetchMocker.setMockResponses(config);
-  fetchMocker.enable();
-  return fetchMocker;
+  fetchMocker.setMockResponses(config)
+  fetchMocker.enable()
+  return fetchMocker
 }

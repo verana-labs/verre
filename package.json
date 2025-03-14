@@ -15,7 +15,7 @@
     "format": "prettier \"src/**/*.ts\" --write",
     "check-format": "prettier -c \"src/**/*.ts\"",
     "test": "jest",
-    "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,apps,libs,tests}/**/*.ts\" --fix",
     "validate": "yarn lint && yarn check-types && yarn check-format"
   },
   "devDependencies": {
