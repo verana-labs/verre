@@ -1,21 +1,13 @@
-import { getResolver } from 'web-did-resolver';
 import { Resolver } from 'did-resolver';
-import { DidValidator, ECS, loadSchema } from '../src';
-import { mockCredentialSchema, mockDidDocument, mockOrgVerifiableCredential, mockOrgVerifiableCredentialWithoutIssuer, mockPermission, mockResolverInstance, mockServiceVerifiableCredential } from './__mocks__/object';
-import { fetchMocker } from './__mocks__/fetch';
+import { ECS, loadSchema, resolve } from '../src';
+import { fetchMocker, mockCredentialSchema, mockDidDocument, mockOrgVerifiableCredential, mockOrgVerifiableCredentialWithoutIssuer, mockPermission, mockResolverInstance, mockServiceVerifiableCredential } from './__mocks__';
 
 jest.mock("../src/utils/signatureVerifier", () => ({
   verifyLinkedVP: jest.fn().mockResolvedValue(true),
 }));
 
 describe('DidValidator', () => {
-  let didValidator: DidValidator;
-  let resolverInstance: Resolver;
-
   beforeEach(() => {
-    resolverInstance = new Resolver(getResolver());
-    didValidator = new DidValidator();
-
     fetchMocker.enable();
   });
   
@@ -33,18 +25,13 @@ describe('DidValidator', () => {
 
       // Setup spy methods
       const resolveSpy = jest.spyOn(Resolver.prototype, 'resolve');
-      const fetchLinkedVPSpy = jest.spyOn(didValidator as any, 'extractCredentialFromVP');
-      const queryTrustRegistrySpy = jest.spyOn(didValidator as any, 'queryTrustRegistry');
-
 
       // Execute method under test
-      const result = await didValidator.resolve(did);
+      const result = await resolve(did);
 
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1);
       expect(resolveSpy).toHaveBeenCalledWith(did);
-      expect(queryTrustRegistrySpy).not.toHaveBeenCalled();
-      expect(fetchLinkedVPSpy).not.toHaveBeenCalled();
       expect(result).toEqual(expect.objectContaining({ result: false }));
     });
 
@@ -53,7 +40,7 @@ describe('DidValidator', () => {
       const did = `did:web:example.com`;
       
       // mocked data
-      const resolverInstanceSpy = jest.spyOn(didValidator['resolverInstance'], 'resolve').mockResolvedValue({ ...mockResolverInstance });
+      const resolverInstanceSpy = jest.spyOn(Resolver.prototype, 'resolve').mockResolvedValue({ ...mockResolverInstance });
       fetchMocker.setMockResponses({
         "https://example.com/vp-ser": { ok: true, status: 200, data: mockServiceVerifiableCredential },
         "https://ecs-trust-registry/service-credential-schema-credential.json": { ok: true, status: 200, data: { json_schema: JSON.stringify(loadSchema(ECS.SERVICE)) }},
@@ -63,7 +50,7 @@ describe('DidValidator', () => {
       });
 
       // Execute method under test
-      const result = await didValidator.resolve(did);
+      const result = await resolve(did);
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com');
       expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
     });
@@ -73,7 +60,7 @@ describe('DidValidator', () => {
       const did = `did:web:example.com`;
       
       // mocked data
-      const resolverInstanceSpy = jest.spyOn(didValidator['resolverInstance'], 'resolve').mockResolvedValue({ ...mockResolverInstance });
+      const resolverInstanceSpy = jest.spyOn(Resolver.prototype, 'resolve').mockResolvedValue({ ...mockResolverInstance });
       fetchMocker.setMockResponses({
         "https://example.com/vp-ser": { ok: true, status: 200, data: mockServiceVerifiableCredential },
         "https://ecs-trust-registry/service-credential-schema-credential.json": { ok: true, status: 200, data: { json_schema: JSON.stringify(loadSchema(ECS.SERVICE)) }},
@@ -85,7 +72,7 @@ describe('DidValidator', () => {
       });
 
       // Execute method under test
-      const result = await didValidator.resolve(did);
+      const result = await resolve(did);
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com');
       expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
       expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }));
