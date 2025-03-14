@@ -1,14 +1,30 @@
-import { DIDDocument } from 'did-resolver'
+import { VerifiablePresentation, VerifiableCredential } from '@transmute/verifiable-credentials'
+import { DIDDocument, ServiceEndpoint } from 'did-resolver'
 
 // types
 export type ResolveResult = {
   result: boolean
-  didDocument?: DIDDocument
+  didDocumentResolved?: DIDDocumentResolved
   message?: string
 }
 
 export type ResolverConfig = {
   trustRegistryUrl?: string
+}
+
+export type ServiceWithCredential = {
+  id: string
+  type: string
+  serviceEndpoint: ServiceEndpoint | ServiceEndpoint[]
+  verifiablePresentation?: VerifiablePresentation
+}
+
+export type DIDDocumentResolved = Omit<DIDDocument, 'service'> & {
+  service: ServiceWithCredential[]
+}
+export type DidDocumentResult = {
+  verifiableCredentials: VerifiableCredential[]
+  didDocumentResolved: DIDDocumentResolved
 }
 
 // Enums
@@ -41,6 +57,7 @@ export enum VerifiablePresentationState {
   TERMINATION_REQUESTED = 'TERMINATION_REQUESTED',
 }
 
+// interfaces
 export interface CredentialSchema {
   id: number
   tr_id: number

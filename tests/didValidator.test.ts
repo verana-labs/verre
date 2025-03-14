@@ -5,7 +5,8 @@ import { ECS, loadSchema, resolve } from '../src'
 import {
   fetchMocker,
   mockCredentialSchema,
-  mockDidDocument,
+  mockIssuerDidDoc,
+  mockNotIssuerDidDoc,
   mockOrgVerifiableCredential,
   mockOrgVerifiableCredentialWithoutIssuer,
   mockPermission,
@@ -73,7 +74,7 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did)
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }))
+      expect(result).toEqual(expect.objectContaining({ result: true, ...mockIssuerDidDoc }))
     })
 
     it('should work correctly when the issuer is not "did" without params.', async () => {
@@ -109,8 +110,7 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did)
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }))
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }))
+      expect(result).toEqual(expect.objectContaining({ result: true, ...mockNotIssuerDidDoc }))
     })
 
     it('should work correctly when the issuer is not "did" with different trustRegistryUrl.', async () => {
@@ -146,8 +146,7 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.com' })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }))
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockDidDocument }))
+      expect(result).toEqual(expect.objectContaining({ result: true, ...mockNotIssuerDidDoc }))
     })
   })
 })

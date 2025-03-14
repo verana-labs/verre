@@ -4,7 +4,17 @@ import addFormats from 'ajv-formats'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
-import { CredentialSchema, ECS, Permission, PermissionType, ResolverConfig, ResolveResult } from '../types'
+import {
+  CredentialSchema,
+  DidDocumentResult,
+  DIDDocumentResolved,
+  ECS,
+  Permission,
+  PermissionType,
+  ResolverConfig,
+  ResolveResult,
+  ServiceWithCredential,
+} from '../types'
 import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
@@ -22,50 +32,57 @@ export async function resolve(did: string, options: ResolverConfig = {}): Promis
   const { trustRegistryUrl } = { ...defaultOptions, ...options }
 
   try {
-    const { didDocument } = await retrieveDidDocument(did)
-    if (!didDocument?.service) {
-      return { result: false, message: 'Failed to retrieve DID Document with service.' }
-    }
-
-    const verifiableCredentials = await processDidServices(didDocument.service)
+    const didDocument = await retrieveDidDocument(did)
+    const { verifiableCredentials, didDocumentResolved } = await processDidDocument(didDocument)
     const isValid = verifiableCredentials.some(vc => {
       const schema = identifySchema(vc.credentialSubject)
       return vc.issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema)
     })
 
     if (!isValid) {
-      return checkTrustRegistry(did, didDocument, trustRegistryUrl)
+      return checkTrustRegistry(did, didDocumentResolved, trustRegistryUrl)
     }
 
-    return { result: isValid, didDocument }
+    return { result: isValid, didDocumentResolved }
   } catch (error) {
     return { result: false, message: `Error resolving DID Document: ${error}` }
   }
 }
 
 /**
- * Processes the DID Document services to extract verifiable credentials.
+ * Processes a DID Document to extract verifiable credentials, verifiable presentations,
+ * and updated services.
  *
- * @param {Service[]} services - The list of services from the DID Document.
- * @returns {Promise<VerifiableCredential[]>} A list of extracted verifiable credentials.
+ * @param {DIDDocument} didDocument - The DID Document containing services.
+ * @returns {Promise<DidDocumentResult>} An object containing verifiable credentials,
+ *          verifiable presentations, and the updated list of services.
  *
  * This method iterates through the services in the DID Document and:
  * - Extracts credentials from Linked Verifiable Presentations.
  * - Queries the Trust Registry for Verifiable Public Registries.
+ * - Collects the updated list of services, including those with extracted credentials.
+ *
+ * Note: If a Verifiable Presentation contains multiple credentials, only the first one is processed.
  */
-async function processDidServices(services: Service[]): Promise<VerifiableCredential[]> {
+async function processDidDocument(didDocument: DIDDocument): Promise<DidDocumentResult> {
+  if (!didDocument?.service) throw new Error('Failed to retrieve DID Document with service.')
+
   const verifiableCredentials: VerifiableCredential[] = []
+  const newServices = await Promise.all(
+    didDocument.service.map(async service => {
+      if (service.type === 'LinkedVerifiablePresentation') {
+        const serviceWithVP = await extractCredentialFromVP(service)
+        if (serviceWithVP.verifiablePresentation) {
+          verifiableCredentials.push(await getVerifiedCredential(serviceWithVP.verifiablePresentation))
+        }
+        return serviceWithVP
+      }
+      if (service.type === 'VerifiablePublicRegistry') await queryTrustRegistry(service)
+      return service
+    }),
+  )
 
-  for (const service of services) {
-    if (service.type === 'LinkedVerifiablePresentation') {
-      const credential = await extractCredentialFromVP(service)
-      if (credential) verifiableCredentials.push(credential)
-    } else if (service.type === 'VerifiablePublicRegistry') {
-      await queryTrustRegistry(service)
-    }
-  }
-
-  return verifiableCredentials
+  return { verifiableCredentials, didDocumentResolved: { ...didDocument, service: newServices } }
 }
 
 /**
@@ -83,7 +100,7 @@ async function processDidServices(services: Service[]): Promise<VerifiableCreden
  */
 async function checkTrustRegistry(
   did: string,
-  didDocument: DIDDocument,
+  didDocumentResolved: DIDDocumentResolved,
   trustRegistryUrl: string,
 ): Promise<ResolveResult> {
   try {
@@ -93,10 +110,10 @@ async function checkTrustRegistry(
       body: JSON.stringify({ did }),
     })
 
-    if (!permResponse.ok) return { result: false, didDocument }
+    if (!permResponse.ok) return { result: false, didDocumentResolved }
     const permission: Permission = (await permResponse.json()) as Permission
 
-    if (permission.type !== PermissionType.ISSUER) return { result: false, didDocument }
+    if (permission.type !== PermissionType.ISSUER) return { result: false, didDocumentResolved }
 
     const schemaResponse = await fetch(`${trustRegistryUrl}/cs/v1/get`, {
       method: 'POST',
@@ -104,11 +121,11 @@ async function checkTrustRegistry(
       body: JSON.stringify({ id: permission.schema_id }),
     })
 
-    if (!schemaResponse.ok) return { result: false, didDocument }
+    if (!schemaResponse.ok) return { result: false, didDocumentResolved }
     const credentialSchema: CredentialSchema = (await schemaResponse.json()) as CredentialSchema
 
     const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS)
-    return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocument }
+    return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocumentResolved }
   } catch (error) {
     return { result: false, message: `Error checking trust registry: ${error}` }
   }
@@ -119,14 +136,13 @@ async function checkTrustRegistry(
  * @param did - The DID to fetch.
  * @returns A promise resolving to the resolution result.
  */
-async function retrieveDidDocument(did: string): Promise<ResolveResult> {
+async function retrieveDidDocument(did: string): Promise<DIDDocument> {
   const resolutionResult = await resolverInstance.resolve(did)
   const didDocument = resolutionResult?.didDocument
-  if (!didDocument) return { result: false, message: `DID resolution failed for ${did}` }
+  if (!didDocument) throw new Error(`DID resolution failed for ${did}`)
 
   const serviceEntries = didDocument.service || []
-  if (!serviceEntries.length)
-    return { result: false, didDocument, message: 'No services found in the DID Document.' }
+  if (!serviceEntries.length) throw new Error('No services found in the DID Document.')
 
   // Validate presence of "vpr-schemas"
   const hasLinkedPresentation = serviceEntries.some(
@@ -160,15 +176,21 @@ async function retrieveDidDocument(did: string): Promise<ResolveResult> {
     )
   }
 
-  return { result: true, didDocument }
+  return didDocument
 }
 
 /**
- * Resolves a Linked Verifiable Presentation (VP) from a service endpoint.
- * @param service - The service containing the VP.
- * @returns A promise resolving to the verifiable credential.
+ * Extracts a Linked Verifiable Presentation (VP) from a service endpoint.
+ * 
+ * This function retrieves a Verifiable Presentation from the provided service's 
+ * endpoint(s). It filters out invalid endpoints, attempts to fetch the VP, and 
+ * returns the service enriched with the retrieved VP.
+ * 
+ * @param service - The service containing the endpoint(s) pointing to a Verifiable Presentation.
+ * @returns A promise resolving to the service with an attached Verifiable Presentation.
+ * @throws An error if no valid endpoints are found or if the request fails.
  */
-async function extractCredentialFromVP(service: Service): Promise<VerifiableCredential> {
+async function extractCredentialFromVP(service: Service): Promise<ServiceWithCredential> {
   const endpoints = Array.isArray(service.serviceEndpoint)
     ? service.serviceEndpoint
     : [service.serviceEndpoint]
@@ -179,9 +201,8 @@ async function extractCredentialFromVP(service: Service): Promise<VerifiableCred
     try {
       const response = await fetch(endpoint)
       if (response.ok) {
-        const vp = (await response.json()) as VerifiablePresentation
-        const credential = await getVerifiedCredential(vp) // TODO: handle many verifiableCredential??
-        return await checkCredentialSchema(credential)
+        const verifiablePresentation = (await response.json()) as VerifiablePresentation
+        return { ...service, verifiablePresentation }
       }
       throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`)
     } catch (error) {
@@ -237,7 +258,7 @@ async function getVerifiedCredential(vp: VerifiablePresentation): Promise<Verifi
     throw new Error('The verifiable credential proof is not valid.')
   }
 
-  return validCredential
+  return await checkCredentialSchema(validCredential)
 }
 
 /**
