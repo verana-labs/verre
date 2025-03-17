@@ -1,16 +1,22 @@
-import Ajv from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
-import fs from 'fs'
-import path from 'path'
+import Ajv2020 from 'ajv/dist/2020.js'
+import addFormatsModule from 'ajv-formats'
+import { readFileSync } from 'fs'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
 
-import { ECS } from '../types'
+import { ECS } from '../types.js'
 
-const ajv = new Ajv()
+const Ajv = Ajv2020.default
+const addFormats = addFormatsModule.default
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+
+const ajv = new Ajv({ strict: false })
 addFormats(ajv)
 
 export const loadSchema = (schemaName: string) => {
-  const schemaPath = path.join(__dirname, `../../public/schemas/${schemaName}`)
-  return JSON.parse(fs.readFileSync(schemaPath, 'utf-8'))
+  const schemaPath = join(__dirname, `../../public/schemas/${schemaName}`)
+  return JSON.parse(readFileSync(schemaPath, 'utf-8'))
 }
 
 const schemas = {

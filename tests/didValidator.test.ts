@@ -1,6 +1,7 @@
 import { Resolver } from 'did-resolver'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, loadSchema, resolve } from '../src'
+import { ECS, loadSchema, resolve } from '../src/index.js'
 
 import {
   fetchMocker,
@@ -14,8 +15,8 @@ import {
   mockServiceVerifiableCredential,
 } from './__mocks__'
 
-jest.mock('../src/utils/signatureVerifier', () => ({
-  verifyLinkedVP: jest.fn().mockResolvedValue(true),
+vi.mock('../src/utils/signatureVerifier', () => ({
+  verifyLinkedVP: vi.fn().mockResolvedValue(true),
 }))
 
 describe('DidValidator', () => {
@@ -26,7 +27,7 @@ describe('DidValidator', () => {
   afterEach(() => {
     fetchMocker.reset()
     fetchMocker.disable()
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   describe('resolver method', () => {
@@ -36,7 +37,7 @@ describe('DidValidator', () => {
       const did = `did:web:${domain}`
 
       // Setup spy methods
-      const resolveSpy = jest.spyOn(Resolver.prototype, 'resolve')
+      const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
       // Execute method under test
       const result = await resolve(did)
@@ -52,7 +53,7 @@ describe('DidValidator', () => {
       const did = `did:web:example.com`
 
       // mocked data
-      const resolverInstanceSpy = jest
+      const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
         .mockResolvedValue({ ...mockResolverInstance })
       fetchMocker.setMockResponses({
@@ -82,7 +83,7 @@ describe('DidValidator', () => {
       const did = `did:web:example.com`
 
       // mocked data
-      const resolverInstanceSpy = jest
+      const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
         .mockResolvedValue({ ...mockResolverInstance })
       fetchMocker.setMockResponses({
@@ -118,7 +119,7 @@ describe('DidValidator', () => {
       const did = `did:web:example.com`
 
       // mocked data
-      const resolverInstanceSpy = jest
+      const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
         .mockResolvedValue({ ...mockResolverInstance })
       fetchMocker.setMockResponses({

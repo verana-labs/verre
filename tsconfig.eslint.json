@@ -2,12 +2,11 @@
   "extends": "./tsconfig.json",
 
   "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
     "baseUrl": "."
   },
   "include": [
-    "./.eslintrc.js",
-    "./jest.config.ts",
-    "./jest.config.base.ts",
+    "src",
     "types",
     "tests",
     "samples",

@@ -1,9 +1,10 @@
 import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials'
-import Ajv, { ValidateFunction } from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
+import Ajv2020, { ValidateFunction } from 'ajv/dist/2020.js'
+import addFormatsModule from 'ajv-formats'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
+import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../index.js'
 import {
   CredentialSchema,
   DidDocumentResult,
@@ -14,8 +15,10 @@ import {
   ResolverConfig,
   ResolveResult,
   ServiceWithCredential,
-} from '../types'
-import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../utils'
+} from '../types.js'
+
+const Ajv = Ajv2020.default
+const addFormats = addFormatsModule.default
 
 const resolverInstance = new Resolver(didWeb.getResolver())
 const defaultOptions: Required<ResolverConfig> = {
@@ -181,11 +184,11 @@ async function retrieveDidDocument(did: string): Promise<DIDDocument> {
 
 /**
  * Extracts a Linked Verifiable Presentation (VP) from a service endpoint.
- * 
- * This function retrieves a Verifiable Presentation from the provided service's 
- * endpoint(s). It filters out invalid endpoints, attempts to fetch the VP, and 
+ *
+ * This function retrieves a Verifiable Presentation from the provided service's
+ * endpoint(s). It filters out invalid endpoints, attempts to fetch the VP, and
  * returns the service enriched with the retrieved VP.
- * 
+ *
  * @param service - The service containing the endpoint(s) pointing to a Verifiable Presentation.
  * @returns A promise resolving to the service with an attached Verifiable Presentation.
  * @throws An error if no valid endpoints are found or if the request fails.
@@ -297,7 +300,7 @@ async function checkCredentialSchema(credential: VerifiableCredential): Promise<
     }
 
     const schemaObject = JSON.parse(schemaData.json_schema)
-    const ajv = new Ajv()
+    const ajv = new Ajv({ strict: false })
     addFormats(ajv)
     const validate: ValidateFunction = ajv.compile(schemaObject)
 

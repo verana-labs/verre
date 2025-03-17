@@ -1,5 +1,7 @@
 // __mocks__/fetch.ts
 
+import { vi } from 'vitest'
+
 type MockResponse = {
   ok: boolean
   status?: number
@@ -30,7 +32,7 @@ export class FetchMocker {
 
   // Enable the mock
   enable() {
-    global.fetch = jest.fn(this.mockImplementation.bind(this))
+    global.fetch = vi.fn(this.mockImplementation.bind(this))
   }
 
   // Disable the mock and restore the original fetch
@@ -65,7 +67,7 @@ export class FetchMocker {
   // Reset the mock
   reset() {
     this.mockConfig = {}
-    ;(global.fetch as jest.Mock).mockClear()
+    ;(global.fetch as any)?.mockClear()
   }
 }
 

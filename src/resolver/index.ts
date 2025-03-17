@@ -1,1 +1,1 @@
-export * from './didValidator'
+export * from './didValidator.js'
