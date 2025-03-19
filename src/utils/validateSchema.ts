@@ -13,7 +13,7 @@ const ajv = new Ajv({ strict: false })
 addFormats(ajv)
 
 export const loadSchema = (schemaName: string) => {
-  const schemaPath = join(__dirname, `../../public/schemas/${schemaName}`)
+  const schemaPath = join(__dirname, `../data/${schemaName}`)
   return JSON.parse(readFileSync(schemaPath, 'utf-8'))
 }
 
