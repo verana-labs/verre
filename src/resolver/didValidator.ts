@@ -1,10 +1,9 @@
 import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials'
-import Ajv2020, { ValidateFunction } from 'ajv/dist/2020.js'
-import addFormatsModule from 'ajv-formats'
+import Ajv, { ValidateFunction } from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
-import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../index.js'
 import {
   CredentialSchema,
   DidDocumentResult,
@@ -15,10 +14,8 @@ import {
   ResolverConfig,
   ResolveResult,
   ServiceWithCredential,
-} from '../types.js'
-
-const Ajv = Ajv2020.default
-const addFormats = addFormatsModule.default
+} from '../types'
+import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
 const defaultOptions: Required<ResolverConfig> = {

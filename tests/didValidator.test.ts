@@ -1,7 +1,7 @@
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, loadSchema, resolve } from '../src/index.js'
+import { ECS, loadSchema, resolve } from '../src'
 
 import {
   fetchMocker,

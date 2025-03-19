@@ -1,13 +1,11 @@
-import Ajv2020 from 'ajv/dist/2020.js'
-import addFormatsModule from 'ajv-formats'
+import Ajv from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
 import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
-import { ECS } from '../types.js'
+import { ECS } from '../types'
 
-const Ajv = Ajv2020.default
-const addFormats = addFormatsModule.default
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
