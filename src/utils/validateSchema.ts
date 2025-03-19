@@ -5,6 +5,7 @@ import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
 import { ECS } from '../types'
+import { essentialSchemas } from './data'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -12,10 +13,9 @@ const __dirname = dirname(__filename)
 const ajv = new Ajv({ strict: false })
 addFormats(ajv)
 
-export const loadSchema = (schemaName: string) => {
-  const schemaPath = join(__dirname, `../data/${schemaName}`)
-  return JSON.parse(readFileSync(schemaPath, 'utf-8'))
-}
+export const loadSchema = (schemaName: keyof typeof essentialSchemas) => {
+  return essentialSchemas[schemaName];
+};
 
 const schemas = {
   [ECS.ORG]: loadSchema(ECS.ORG),

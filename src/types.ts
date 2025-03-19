@@ -29,10 +29,10 @@ export type DidDocumentResult = {
 
 // Enums
 export enum ECS {
-  ORG = 'ecs-org.json',
-  PERSON = 'ecs-person.json',
-  SERVICE = 'ecs-service.json',
-  USER_AGENT = 'ecs-user-agent.json',
+  ORG = "ecs-org",
+  PERSON = "ecs-person",
+  SERVICE = "ecs-service",
+  USER_AGENT = "ecs-user-agent",
 }
 
 export enum PermissionType {
