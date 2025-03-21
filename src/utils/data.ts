@@ -1,248 +1,234 @@
 export const essentialSchemas = {
-  "ecs-org": {
-    "$id": "vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "OrganizationCredential",
-    "description": "OrganizationCredential using JsonSchema",
-    "type": "object",
-    "properties": {
-      "credentialSubject": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uri"
+  'ecs-org': {
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'OrganizationCredential',
+    description: 'OrganizationCredential using JsonSchema',
+    type: 'object',
+    properties: {
+      credentialSubject: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uri',
           },
-          "name": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 256
+          name: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 256,
           },
-          "logo": {
-            "type": "string",
-            "contentEncoding": "base64",
-            "contentMediaType": "image/png"
+          logo: {
+            type: 'string',
+            contentEncoding: 'base64',
+            contentMediaType: 'image/png',
           },
-          "registryId": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 256
+          registryId: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 256,
           },
-          "registryUrl": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 256
+          registryUrl: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 256,
           },
-          "address": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 1024
+          address: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 1024,
           },
-          "type": {
-            "type": "string",
-            "enum": ["PUBLIC", "PRIVATE", "FOUNDATION"]
+          type: {
+            type: 'string',
+            enum: ['PUBLIC', 'PRIVATE', 'FOUNDATION'],
           },
-          "countryCode": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 2
-          }
+          countryCode: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 2,
+          },
         },
-        "required": [
-          "id",
-          "name",
-          "logo",
-          "registryId",
-          "registryUrl",
-          "address",
-          "type",
-          "countryCode"
-        ]
-      }
-    }
+        required: ['id', 'name', 'logo', 'registryId', 'registryUrl', 'address', 'type', 'countryCode'],
+      },
+    },
   },
-  "ecs-person": {
-    "$id": "vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "PersonCredential",
-    "description": "PersonCredential using JsonSchema",
-    "type": "object",
-    "properties": {
-      "credentialSubject": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uri"
+  'ecs-person': {
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'PersonCredential',
+    description: 'PersonCredential using JsonSchema',
+    type: 'object',
+    properties: {
+      credentialSubject: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uri',
           },
-          "firstName": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 256
+          firstName: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 256,
           },
-          "lastName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256
+          lastName: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 256,
           },
-          "avatar": {
-            "type": "string",
-            "contentEncoding": "base64",
-            "contentMediaType": "image/png"
+          avatar: {
+            type: 'string',
+            contentEncoding: 'base64',
+            contentMediaType: 'image/png',
           },
-          "birthDate": {
-            "type": "string",
-            "format": "date"
+          birthDate: {
+            type: 'string',
+            format: 'date',
           },
-          "countryOfResidence": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 2
-          }
+          countryOfResidence: {
+            type: 'string',
+            minLength: 2,
+            maxLength: 2,
+          },
         },
-        "required": [
-          "id",
-          "lastName",
-          "birthDate",
-          "countryOfResidence"
-        ]
-      }
-    }
+        required: ['id', 'lastName', 'birthDate', 'countryOfResidence'],
+      },
+    },
   },
-  "ecs-service": {
-    "$id": "vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "ServiceCredential",
-    "description": "ServiceCredential using JsonSchema",
-    "type": "object",
-    "properties": {
-      "credentialSubject": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uri"
+  'ecs-service': {
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'ServiceCredential',
+    description: 'ServiceCredential using JsonSchema',
+    type: 'object',
+    properties: {
+      credentialSubject: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uri',
           },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 512
+          name: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 512,
           },
-          "type": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+          type: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 128,
           },
-          "description": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 4096
+          description: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 4096,
           },
-          "logo": {
-            "type": "string",
-            "contentEncoding": "base64",
-            "contentMediaType": "image/png"
+          logo: {
+            type: 'string',
+            contentEncoding: 'base64',
+            contentMediaType: 'image/png',
           },
-          "minimumAgeRequired": {
-            "type": "number",
-            "minimum": 0,
-            "exclusiveMaximum": 150
+          minimumAgeRequired: {
+            type: 'number',
+            minimum: 0,
+            exclusiveMaximum: 150,
           },
-          "termsAndConditions": {
-            "type": "string",
-            "format": "uri",
-            "maxLength": 2048
+          termsAndConditions: {
+            type: 'string',
+            format: 'uri',
+            maxLength: 2048,
           },
-          "termsAndConditionsHash": {
-            "type": "string"
+          termsAndConditionsHash: {
+            type: 'string',
           },
-          "privacyPolicy": {
-            "type": "string",
-            "format": "uri",
-            "maxLength": 2048
+          privacyPolicy: {
+            type: 'string',
+            format: 'uri',
+            maxLength: 2048,
           },
-          "privacyPolicyHash": {
-            "type": "string"
-          }
+          privacyPolicyHash: {
+            type: 'string',
+          },
         },
-        "required": [
-          "id",
-          "name",
-          "type",
-          "description",
-          "logo",
-          "minimumAgeRequired",
-          "termsAndConditions",
-          "privacyPolicy"
-        ]
-      }
-    }
+        required: [
+          'id',
+          'name',
+          'type',
+          'description',
+          'logo',
+          'minimumAgeRequired',
+          'termsAndConditions',
+          'privacyPolicy',
+        ],
+      },
+    },
   },
-  "ecs-user-agent": {
-    "$id": "vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "UserAgentCredential",
-    "description": "UserAgentCredential using JsonSchema",
-    "type": "object",
-    "properties": {
-      "credentialSubject": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uri"
+  'ecs-user-agent': {
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'UserAgentCredential',
+    description: 'UserAgentCredential using JsonSchema',
+    type: 'object',
+    properties: {
+      credentialSubject: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uri',
           },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 512
+          name: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 512,
           },
-          "description": {
-            "type": "string",
-            "minLength": 0,
-            "maxLength": 4096
+          description: {
+            type: 'string',
+            minLength: 0,
+            maxLength: 4096,
           },
-          "category": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
+          category: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 128,
           },
-          "logo": {
-            "type": "string",
-            "contentEncoding": "base64",
-            "contentMediaType": "image/png"
+          logo: {
+            type: 'string',
+            contentEncoding: 'base64',
+            contentMediaType: 'image/png',
           },
-          "wallet": {
-            "type": "boolean"
+          wallet: {
+            type: 'boolean',
           },
-          "termsAndConditions": {
-            "type": "string",
-            "format": "uri",
-            "maxLength": 2048
+          termsAndConditions: {
+            type: 'string',
+            format: 'uri',
+            maxLength: 2048,
           },
-          "termsAndConditionsHash": {
-            "type": "string"
+          termsAndConditionsHash: {
+            type: 'string',
           },
-          "privacyPolicy": {
-            "type": "string",
-            "format": "uri",
-            "maxLength": 2048
+          privacyPolicy: {
+            type: 'string',
+            format: 'uri',
+            maxLength: 2048,
           },
-          "privacyPolicyHash": {
-            "type": "string"
-          }
+          privacyPolicyHash: {
+            type: 'string',
+          },
         },
-        "required": [
-          "id",
-          "name",
-          "description",
-          "category",
-          "logo",
-          "wallet",
-          "termsAndConditions",
-          "privacyPolicy"
-        ]
-      }
-    }
+        required: [
+          'id',
+          'name',
+          'description',
+          'category',
+          'logo',
+          'wallet',
+          'termsAndConditions',
+          'privacyPolicy',
+        ],
+      },
+    },
   },
-} as const;
+} as const
