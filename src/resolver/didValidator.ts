@@ -24,49 +24,53 @@ const defaultOptions: Required<ResolverConfig> = {
 }
 
 /**
- * Resolves a DID and validates its document and associated services.
+ * Resolves a DID, validates its document, and associated services.
+ * Retrieves the DID document, processes its verifiable credentials, and checks its trust status.
  * @param did - The DID to resolve.
- * @returns A promise resolving to the resolution result.
+ * @param options - Configuration options for the resolver, including the trust registry URL.
+ * @returns A promise that resolves to the trust resolution.
  */
 export async function resolve(did: string, options: ResolverConfig = {}): Promise<TrustedResolution> {
-  if (!did) return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
-  const { trustRegistryUrl } = { ...defaultOptions, ...options }
+  if (!did) {
+    return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') };
+  }
+
+  const { trustRegistryUrl } = { ...defaultOptions, ...options };
 
   try {
-    const didDocument = await retrieveDidDocument(did)
-    const { verifiableCredentials, resolvedDidDocument } = await processDidDocument(didDocument)
-    const proofOfTrust: Record<string, string> | null =
-      (verifiableCredentials
-        .map(vc => ({
-          credentialSubject: vc.credentialSubject,
-          schema: identifySchema(vc.credentialSubject),
-          issuer: vc.issuer,
-        }))
-        .find(
-          ({ schema, issuer }) => issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema),
-        )?.credentialSubject as Record<string, string>) || null
+    const didDocument = await retrieveDidDocument(did);
+    const { verifiableCredentials, resolvedDidDocument } = await processDidDocument(didDocument);
 
-    // Only by Verifiable Service
-    const provider: Record<string, string> | null =
-      (verifiableCredentials
-        .map(vc => ({
-          credentialSubject: vc.credentialSubject,
-          schema: identifySchema(vc.credentialSubject),
-        }))
-        .find(({ schema }) => schema === ECS.SERVICE)?.credentialSubject as Record<string, string>) || null
+    let proofOfTrust: Record<string, string> | undefined;
+    let provider: Record<string, string> | undefined;
 
-    if (!proofOfTrust) {
-      return checkTrustRegistry(did, resolvedDidDocument, trustRegistryUrl, provider)
+    for (const vc of verifiableCredentials) {
+      const schema = identifySchema(vc.credentialSubject);
+      if (schema && [ECS.ORG, ECS.PERSON].includes(schema) && vc.issuer === did) {
+        proofOfTrust = vc.credentialSubject as Record<string, string>;
+      }
+      if (schema === ECS.SERVICE) {
+        provider = vc.credentialSubject as Record<string, string>;
+      }
+      if (proofOfTrust && provider) break; // Exit early if both are found
     }
 
-    return { resolvedDidDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider }
+    // If proof of trust exists, return the result with the provider (issuer equals did)
+    if (proofOfTrust) {
+      return { resolvedDidDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider };
+    }
+
+    // Otherwise, check the trust registry
+    return checkTrustRegistry(did, resolvedDidDocument, trustRegistryUrl, provider);
+
   } catch (error) {
     if (error instanceof TrustError) {
-      return { metadata: error.metadata }
+      return { metadata: error.metadata };
     }
-    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) }
+    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) };
   }
 }
+
 
 /**
  * Processes a DID Document to extract verifiable credentials, verifiable presentations,
@@ -122,7 +126,7 @@ async function checkTrustRegistry(
   did: string,
   resolvedDidDocument: ResolvedDidDocument,
   trustRegistryUrl: string,
-  provider: Record<string, string>,
+  provider?: Record<string, string>,
 ): Promise<TrustedResolution> {
   try {
     const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
