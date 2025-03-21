@@ -1,3 +1,5 @@
 export * from './data'
+export * from './helper'
 export * from './signatureVerifier'
+export * from './trustError'
 export * from './validateSchema'
