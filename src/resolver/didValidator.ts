@@ -7,15 +7,16 @@ import * as didWeb from 'web-did-resolver'
 import {
   CredentialSchema,
   DidDocumentResult,
-  DIDDocumentResolved,
+  ResolvedDidDocument,
   ECS,
   Permission,
   PermissionType,
   ResolverConfig,
-  ResolveResult,
+  TrustedResolution,
   ServiceWithCredential,
+  TrustErrorCode,
 } from '../types'
-import { checkSchemaMatch, identifySchema, verifyLinkedVP } from '../utils'
+import { buildMetadata, checkSchemaMatch, identifySchema, TrustError, verifyLinkedVP } from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
 const defaultOptions: Required<ResolverConfig> = {
@@ -27,25 +28,43 @@ const defaultOptions: Required<ResolverConfig> = {
  * @param did - The DID to resolve.
  * @returns A promise resolving to the resolution result.
  */
-export async function resolve(did: string, options: ResolverConfig = {}): Promise<ResolveResult> {
-  if (!did) return { result: false, message: 'Invalid DID URL' }
+export async function resolve(did: string, options: ResolverConfig = {}): Promise<TrustedResolution> {
+  if (!did) return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   const { trustRegistryUrl } = { ...defaultOptions, ...options }
 
   try {
     const didDocument = await retrieveDidDocument(did)
-    const { verifiableCredentials, didDocumentResolved } = await processDidDocument(didDocument)
-    const isValid = verifiableCredentials.some(vc => {
-      const schema = identifySchema(vc.credentialSubject)
-      return vc.issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema)
-    })
+    const { verifiableCredentials, resolvedDidDocument } = await processDidDocument(didDocument)
+    const proofOfTrust: Record<string, string> | null =
+      (verifiableCredentials
+        .map(vc => ({
+          credentialSubject: vc.credentialSubject,
+          schema: identifySchema(vc.credentialSubject),
+          issuer: vc.issuer,
+        }))
+        .find(
+          ({ schema, issuer }) => issuer === did && schema !== null && [ECS.ORG, ECS.PERSON].includes(schema),
+        )?.credentialSubject as Record<string, string>) || null
 
-    if (!isValid) {
-      return checkTrustRegistry(did, didDocumentResolved, trustRegistryUrl)
+    // Only by Verifiable Service
+    const provider: Record<string, string> | null =
+      (verifiableCredentials
+        .map(vc => ({
+          credentialSubject: vc.credentialSubject,
+          schema: identifySchema(vc.credentialSubject),
+        }))
+        .find(({ schema }) => schema === ECS.SERVICE)?.credentialSubject as Record<string, string>) || null
+
+    if (!proofOfTrust) {
+      return checkTrustRegistry(did, resolvedDidDocument, trustRegistryUrl, provider)
     }
 
-    return { result: isValid, didDocumentResolved }
+    return { resolvedDidDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider }
   } catch (error) {
-    return { result: false, message: `Error resolving DID Document: ${error}` }
+    if (error instanceof TrustError) {
+      return { metadata: error.metadata }
+    }
+    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) }
   }
 }
 
@@ -65,7 +84,8 @@ export async function resolve(did: string, options: ResolverConfig = {}): Promis
  * Note: If a Verifiable Presentation contains multiple credentials, only the first one is processed.
  */
 async function processDidDocument(didDocument: DIDDocument): Promise<DidDocumentResult> {
-  if (!didDocument?.service) throw new Error('Failed to retrieve DID Document with service.')
+  if (!didDocument?.service)
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
 
   const verifiableCredentials: VerifiableCredential[] = []
   const newServices = await Promise.all(
@@ -82,7 +102,7 @@ async function processDidDocument(didDocument: DIDDocument): Promise<DidDocument
     }),
   )
 
-  return { verifiableCredentials, didDocumentResolved: { ...didDocument, service: newServices } }
+  return { verifiableCredentials, resolvedDidDocument: { ...didDocument, service: newServices } }
 }
 
 /**
@@ -100,9 +120,10 @@ async function processDidDocument(didDocument: DIDDocument): Promise<DidDocument
  */
 async function checkTrustRegistry(
   did: string,
-  didDocumentResolved: DIDDocumentResolved,
+  resolvedDidDocument: ResolvedDidDocument,
   trustRegistryUrl: string,
-): Promise<ResolveResult> {
+  provider: Record<string, string>,
+): Promise<TrustedResolution> {
   try {
     const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
       method: 'POST',
@@ -110,10 +131,18 @@ async function checkTrustRegistry(
       body: JSON.stringify({ did }),
     })
 
-    if (!permResponse.ok) return { result: false, didDocumentResolved }
+    if (!permResponse.ok)
+      return {
+        resolvedDidDocument,
+        metadata: buildMetadata(TrustErrorCode.NOT_FOUND, 'No data found in the trust registry.'),
+      }
     const permission: Permission = (await permResponse.json()) as Permission
 
-    if (permission.type !== PermissionType.ISSUER) return { result: false, didDocumentResolved }
+    if (permission.type !== PermissionType.ISSUER)
+      return {
+        resolvedDidDocument,
+        metadata: buildMetadata(TrustErrorCode.INVALID_ISSUER, 'The provided DID is not a valid issuer.'),
+      }
 
     const schemaResponse = await fetch(`${trustRegistryUrl}/cs/v1/get`, {
       method: 'POST',
@@ -121,13 +150,28 @@ async function checkTrustRegistry(
       body: JSON.stringify({ id: permission.schema_id }),
     })
 
-    if (!schemaResponse.ok) return { result: false, didDocumentResolved }
+    if (!schemaResponse.ok)
+      return {
+        resolvedDidDocument,
+        metadata: buildMetadata(
+          TrustErrorCode.INVALID_REQUEST,
+          `HTTP error ${schemaResponse.status}: Request to trust registry failed.`,
+        ),
+      }
     const credentialSchema: CredentialSchema = (await schemaResponse.json()) as CredentialSchema
 
     const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS)
-    return { result: schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType), didDocumentResolved }
+    const isValid = schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType)
+    return {
+      resolvedDidDocument,
+      metadata: isValid
+        ? buildMetadata()
+        : buildMetadata(TrustErrorCode.INVALID, 'Schema type does not match.'),
+      provider,
+      type: ECS.SERVICE
+    } // TODO: where is the credential subject for 'proofOfTrust'??
   } catch (error) {
-    return { result: false, message: `Error checking trust registry: ${error}` }
+    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Error checking trust registry: ${error}.`) }
   }
 }
 
@@ -139,10 +183,11 @@ async function checkTrustRegistry(
 async function retrieveDidDocument(did: string): Promise<DIDDocument> {
   const resolutionResult = await resolverInstance.resolve(did)
   const didDocument = resolutionResult?.didDocument
-  if (!didDocument) throw new Error(`DID resolution failed for ${did}`)
+  if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
 
   const serviceEntries = didDocument.service || []
-  if (!serviceEntries.length) throw new Error('No services found in the DID Document.')
+  if (!serviceEntries.length)
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'No services found in the DID Document.')
 
   // Validate presence of "vpr-schemas"
   const hasLinkedPresentation = serviceEntries.some(
@@ -162,16 +207,26 @@ async function retrieveDidDocument(did: string): Promise<DIDDocument> {
 
   // Validate schema consistency
   if (hasLinkedPresentation && !hasTrustRegistry) {
-    throw new Error("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas-trust-registry'.")
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas-trust-registry'.",
+    )
   }
   if (hasTrustRegistry && !hasLinkedPresentation) {
-    throw new Error("Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas'.")
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas'.",
+    )
   }
   if (hasEssentialSchemas && !hasEssentialTrustRegistry) {
-    throw new Error("Missing 'VerifiablePublicRegistry' entry for existing '#vpr-essential-schemas'.")
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Missing 'VerifiablePublicRegistry' entry for existing '#vpr-essential-schemas'.",
+    )
   }
   if (hasEssentialTrustRegistry && !hasEssentialSchemas) {
-    throw new Error(
+    throw new TrustError(
+      TrustErrorCode.INVALID,
       "Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-essential-schemas-trust-registry'.",
     )
   }
@@ -195,7 +250,7 @@ async function extractCredentialFromVP(service: Service): Promise<ServiceWithCre
     ? service.serviceEndpoint
     : [service.serviceEndpoint]
   const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[]
-  if (!validEndpoints.length) throw new Error('No valid endpoints found')
+  if (!validEndpoints.length) throw new TrustError(TrustErrorCode.NOT_FOUND, 'No valid endpoints found')
 
   for (const endpoint of validEndpoints) {
     try {
@@ -204,12 +259,15 @@ async function extractCredentialFromVP(service: Service): Promise<ServiceWithCre
         const verifiablePresentation = (await response.json()) as VerifiablePresentation
         return { ...service, verifiablePresentation }
       }
-      throw new Error(`Error fetching VP from ${endpoint}: ${response.statusText}`)
+      throw new TrustError(
+        TrustErrorCode.INVALID_REQUEST,
+        `Error fetching VP from ${endpoint}: ${response.statusText}`,
+      )
     } catch (error) {
-      throw new Error(`Failed to fetch VP from ${endpoint}: ${error}`)
+      throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Failed to fetch VP from ${endpoint}: ${error}`)
     }
   }
-  throw new Error('No valid endpoints found')
+  throw new TrustError(TrustErrorCode.INVALID, 'No valid endpoints found')
 }
 
 /**
@@ -223,17 +281,23 @@ async function queryTrustRegistry(service: Service) {
     !Array.isArray(service.serviceEndpoint) ||
     service.serviceEndpoint.length === 0
   ) {
-    throw new Error('The service does not have a valid endpoint.')
+    throw new TrustError(TrustErrorCode.INVALID, 'The service does not have a valid endpoint.')
   }
 
   try {
     const response = await fetch(service.serviceEndpoint[0], { method: 'GET' })
 
     if (!response.ok) {
-      throw new Error(`The service responded with code ${response.status}.`)
+      throw new TrustError(
+        TrustErrorCode.INVALID_REQUEST,
+        `The service responded with code ${response.status}.`,
+      )
     }
   } catch (error) {
-    throw new Error(`Error querying the Trust Registry: ${error.message}`)
+    throw new TrustError(
+      TrustErrorCode.INVALID_REQUEST,
+      `Error querying the Trust Registry: ${error.message}`,
+    )
   }
 }
 
@@ -245,17 +309,17 @@ async function queryTrustRegistry(service: Service) {
  */
 async function getVerifiedCredential(vp: VerifiablePresentation): Promise<VerifiableCredential> {
   if (!vp.verifiableCredential || vp.verifiableCredential.length === 0) {
-    throw new Error('No verifiable credential found in the response')
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'No verifiable credential found in the response')
   }
   const validCredential = vp.verifiableCredential.find(vc => vc.type.includes('VerifiableCredential')) as
     | VerifiableCredential
     | undefined
   if (!validCredential) {
-    throw new Error('No valid verifiable credential found in the response')
+    throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
   const isVerified = await verifyLinkedVP(validCredential)
   if (!isVerified) {
-    throw new Error('The verifiable credential proof is not valid.')
+    throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }
 
   return await checkCredentialSchema(validCredential)
@@ -270,14 +334,18 @@ async function getVerifiedCredential(vp: VerifiablePresentation): Promise<Verifi
 async function checkCredentialSchema(credential: VerifiableCredential): Promise<VerifiableCredential> {
   const { credentialSchema, credentialSubject } = credential
   if (!credentialSchema || !credentialSubject) {
-    throw new Error("Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.")
+    throw new TrustError(
+      TrustErrorCode.NOT_FOUND,
+      "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
+    )
   }
 
   const schema = Array.isArray(credentialSchema) ? credentialSchema[0] : credentialSchema
   let subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
   const { id, type } = schema as Record<string, any>
   if (!id?.startsWith('http') || type !== 'JsonSchemaCredential') {
-    throw new Error(
+    throw new TrustError(
+      TrustErrorCode.INVALID,
       "Invalid credential schema: id must be a valid URL and type must be 'JsonSchemaCredential'.",
     )
   }
@@ -285,27 +353,35 @@ async function checkCredentialSchema(credential: VerifiableCredential): Promise<
   try {
     // Check credential
     const schemaResponse = await fetch(id)
-    if (!schemaResponse.ok) throw new Error(`Failed to fetch schema from ${id}`)
+    if (!schemaResponse.ok)
+      throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Failed to fetch schema from ${id}`)
     const schemaData = (await schemaResponse.json()) as CredentialSchema
     // Check Schema
     const refUrl =
       subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
     if (refUrl) {
       const refResponse = await fetch(refUrl)
-      if (!refResponse.ok) throw new Error(`Failed to fetch referenced schema from ${refUrl}`)
+      if (!refResponse.ok)
+        throw new TrustError(
+          TrustErrorCode.INVALID_REQUEST,
+          `Failed to fetch referenced schema from ${refUrl}`,
+        )
       subject = (await refResponse.json()) as JsonLdObject
     }
 
     const schemaObject = JSON.parse(schemaData.json_schema)
-    const ajv = new Ajv({ strict: false })
+    const ajv = new Ajv()
     addFormats(ajv)
     const validate: ValidateFunction = ajv.compile(schemaObject)
 
     if (!validate(subject)) {
-      throw new Error(`Credential does not conform to schema: ${JSON.stringify(validate.errors)}`)
+      throw new TrustError(
+        TrustErrorCode.SCHEMA_MISMATCH,
+        `Credential does not conform to schema: ${JSON.stringify(validate.errors)}`,
+      )
     }
     return credential
   } catch (error) {
-    throw new Error(`Failed to validate credential: ${error.message}`)
+    throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
   }
 }

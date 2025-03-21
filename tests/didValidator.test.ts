@@ -1,7 +1,7 @@
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, loadSchema, resolve } from '../src'
+import { ECS, loadSchema, resolve, TrustErrorCode, TrustStatus } from '../src'
 
 import {
   fetchMocker,
@@ -45,7 +45,9 @@ describe('DidValidator', () => {
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1)
       expect(resolveSpy).toHaveBeenCalledWith(did)
-      expect(result).toEqual(expect.objectContaining({ result: false }))
+      expect(result.metadata).toEqual(
+        expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_FOUND }),
+      )
     })
 
     it('should work correctly when the issuer is equal to "did".', async () => {
@@ -75,7 +77,15 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did)
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockIssuerDidDoc }))
+      expect(result).toEqual(
+        expect.objectContaining({
+          metadata: { status: TrustStatus.RESOLVED },
+          ...mockIssuerDidDoc,
+          provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          proofOfTrust: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
+          type: ECS.SERVICE,
+        }),
+      )
     })
 
     it('should work correctly when the issuer is not "did" without params.', async () => {
@@ -111,7 +121,14 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did)
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockNotIssuerDidDoc }))
+      expect(result).toEqual(
+        expect.objectContaining({
+          metadata: { status: TrustStatus.RESOLVED },
+          ...mockNotIssuerDidDoc,
+          provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          type: ECS.SERVICE,
+        }),
+      )
     })
 
     it('should work correctly when the issuer is not "did" with different trustRegistryUrl.', async () => {
@@ -147,7 +164,14 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.com' })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
-      expect(result).toEqual(expect.objectContaining({ result: true, ...mockNotIssuerDidDoc }))
+      expect(result).toEqual(
+        expect.objectContaining({
+          metadata: { status: TrustStatus.RESOLVED },
+          ...mockNotIssuerDidDoc,
+          provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          type: ECS.SERVICE,
+        }),
+      )
     })
   })
 })

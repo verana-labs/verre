@@ -2,10 +2,12 @@ import { VerifiablePresentation, VerifiableCredential } from '@transmute/verifia
 import { DIDDocument, ServiceEndpoint } from 'did-resolver'
 
 // types
-export type ResolveResult = {
-  result: boolean
-  didDocumentResolved?: DIDDocumentResolved
-  message?: string
+export type TrustedResolution = {
+  resolvedDidDocument?: ResolvedDidDocument
+  metadata: TrustedResolutionMetadata
+  provider?: Record<string, string>
+  proofOfTrust?: Record<string, string>
+  type?: ECS
 }
 
 export type ResolverConfig = {
@@ -19,20 +21,20 @@ export type ServiceWithCredential = {
   verifiablePresentation?: VerifiablePresentation
 }
 
-export type DIDDocumentResolved = Omit<DIDDocument, 'service'> & {
+export type ResolvedDidDocument = Omit<DIDDocument, 'service'> & {
   service: ServiceWithCredential[]
 }
 export type DidDocumentResult = {
   verifiableCredentials: VerifiableCredential[]
-  didDocumentResolved: DIDDocumentResolved
+  resolvedDidDocument: ResolvedDidDocument
 }
 
 // Enums
 export enum ECS {
-  ORG = "ecs-org",
-  PERSON = "ecs-person",
-  SERVICE = "ecs-service",
-  USER_AGENT = "ecs-user-agent",
+  ORG = 'ecs-org',
+  PERSON = 'ecs-person',
+  SERVICE = 'ecs-service',
+  USER_AGENT = 'ecs-user-agent',
 }
 
 export enum PermissionType {
@@ -55,6 +57,19 @@ export enum VerifiablePresentationState {
   VALIDATED = 'VALIDATED',
   TERMINATED = 'TERMINATED',
   TERMINATION_REQUESTED = 'TERMINATION_REQUESTED',
+}
+
+export enum TrustStatus {
+  RESOLVED = 'resolved',
+  ERROR = 'error',
+}
+
+export enum TrustErrorCode {
+  INVALID = 'invalid',
+  NOT_FOUND = 'not_found',
+  INVALID_ISSUER = 'invalid_issuer',
+  INVALID_REQUEST = 'invalid_request',
+  SCHEMA_MISMATCH = 'schema_mismatch',
 }
 
 // interfaces
@@ -106,4 +121,10 @@ export interface Permission {
   vp_current_deposit: number
   vp_summary_digest_sri?: string
   vp_term_requested?: number
+}
+
+export interface TrustedResolutionMetadata {
+  content?: string
+  status: TrustStatus
+  errorCode?: TrustErrorCode
 }
