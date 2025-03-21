@@ -78,7 +78,7 @@ Returns a `Promise<TrustedResolution>` that resolves to an object containing:
 ```
 
 ## Notes
-- The method supports ECS (Entity Credential Schema) identifiers such as `ECS.ORG`, `ECS.PERSON`, and `ECS.SERVICE`.
+- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USAR-AGENT`, and `SERVICE`.
 - The function exits early if both `proofOfTrust` and `provider` are found during credential processing.
 
 This method is essential for resolving and validating DIDs in a trusted ecosystem.
