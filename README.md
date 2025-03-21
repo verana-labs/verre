@@ -46,14 +46,19 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustedRe
 ## Parameters
 - `did` (**string**, required): The Decentralized Identifier (DID) to resolve.
 - `options` (**ResolverConfig**, optional): Configuration options for the resolver, including the trust registry URL.
+  - `trustRegistryUrl` (string, optional): The URL of the trust registry used for DID resolution
 
 ## Return Value
 Returns a `Promise<TrustedResolution>` that resolves to an object containing:
-- `resolvedDidDocument` - The resolved DID document.
-- `metadata` - Metadata related to the resolution, including error codes if applicable.
-- `type` (optional) - The type of resolved entity.
-- `proofOfTrust` (optional) - A record indicating trust proof, if available.
-- `provider` (optional) - The provider information, if applicable.
+
+- `resolvedDidDocument` (**ResolvedDidDocument**, optional): The resolved DID document.
+- `metadata` (**TrustedResolutionMetadata**, required): Metadata related to the resolution, including possible states and error codes.
+  - `content`
+  - `status`
+  - `errorCode`
+- `provider` (**Record<string, string>**, optional): The entity that provided the credential.
+- `proofOfTrust` (**Record<string, string>**, optional): A record indicating the approved issuer.
+- `type` (**ECS**, optional): The type of resolved entity, representing essential credentials.
 
 ## Usage Example
 ```typescript
