@@ -2,14 +2,15 @@ import Ajv from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 
 import { ECS } from '../types'
+
 import { essentialSchemas } from './data'
 
 const ajv = new Ajv({ strict: false })
 addFormats(ajv)
 
 export const loadSchema = (schemaName: keyof typeof essentialSchemas) => {
-  return essentialSchemas[schemaName];
-};
+  return essentialSchemas[schemaName]
+}
 
 const schemas = {
   [ECS.ORG]: loadSchema(ECS.ORG),
@@ -20,7 +21,7 @@ const schemas = {
 
 export const identifySchema = (vp: any): ECS | null => {
   for (const schemaName of Object.keys(schemas) as ECS[]) {
-    const validate = ajv.compile(schemas[schemaName])
+    const validate = ajv.compile(schemas[schemaName].properties.credentialSubject)
     if (validate(vp)) {
       return schemaName
     }

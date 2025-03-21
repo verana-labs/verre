@@ -1,6 +1,6 @@
 export const essentialSchemas = {
   'ecs-org': {
-    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/org',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: 'OrganizationCredential',
     description: 'OrganizationCredential using JsonSchema',
@@ -53,7 +53,7 @@ export const essentialSchemas = {
     },
   },
   'ecs-person': {
-    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/person',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: 'PersonCredential',
     description: 'PersonCredential using JsonSchema',
@@ -96,7 +96,7 @@ export const essentialSchemas = {
     },
   },
   'ecs-service': {
-    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/service',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: 'ServiceCredential',
     description: 'ServiceCredential using JsonSchema',
@@ -165,7 +165,7 @@ export const essentialSchemas = {
     },
   },
   'ecs-user-agent': {
-    $id: 'vpr-mainnet:/vpr/v1/cs/js/VPR_CREDENTIAL_SCHEMA_ID',
+    $id: 'vpr-mainnet:/vpr/v1/cs/js/user-agent',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: 'UserAgentCredential',
     description: 'UserAgentCredential using JsonSchema',
