@@ -32,45 +32,43 @@ const defaultOptions: Required<ResolverConfig> = {
  */
 export async function resolve(did: string, options: ResolverConfig = {}): Promise<TrustedResolution> {
   if (!did) {
-    return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') };
+    return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl } = { ...defaultOptions, ...options };
+  const { trustRegistryUrl } = { ...defaultOptions, ...options }
 
   try {
-    const didDocument = await retrieveDidDocument(did);
-    const { verifiableCredentials, resolvedDidDocument } = await processDidDocument(didDocument);
+    const didDocument = await retrieveDidDocument(did)
+    const { verifiableCredentials, resolvedDidDocument } = await processDidDocument(didDocument)
 
-    let proofOfTrust: Record<string, string> | undefined;
-    let provider: Record<string, string> | undefined;
+    let proofOfTrust: Record<string, string> | undefined
+    let provider: Record<string, string> | undefined
 
     for (const vc of verifiableCredentials) {
-      const schema = identifySchema(vc.credentialSubject);
+      const schema = identifySchema(vc.credentialSubject)
       if (schema && [ECS.ORG, ECS.PERSON].includes(schema) && vc.issuer === did) {
-        proofOfTrust = vc.credentialSubject as Record<string, string>;
+        proofOfTrust = vc.credentialSubject as Record<string, string>
       }
       if (schema === ECS.SERVICE) {
-        provider = vc.credentialSubject as Record<string, string>;
+        provider = vc.credentialSubject as Record<string, string>
       }
-      if (proofOfTrust && provider) break; // Exit early if both are found
+      if (proofOfTrust && provider) break // Exit early if both are found
     }
 
     // If proof of trust exists, return the result with the provider (issuer equals did)
     if (proofOfTrust) {
-      return { resolvedDidDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider };
+      return { resolvedDidDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider }
     }
 
     // Otherwise, check the trust registry
-    return checkTrustRegistry(did, resolvedDidDocument, trustRegistryUrl, provider);
-
+    return checkTrustRegistry(did, resolvedDidDocument, trustRegistryUrl, provider)
   } catch (error) {
     if (error instanceof TrustError) {
-      return { metadata: error.metadata };
+      return { metadata: error.metadata }
     }
-    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) };
+    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) }
   }
 }
-
 
 /**
  * Processes a DID Document to extract verifiable credentials, verifiable presentations,
@@ -172,7 +170,7 @@ async function checkTrustRegistry(
         ? buildMetadata()
         : buildMetadata(TrustErrorCode.INVALID, 'Schema type does not match.'),
       provider,
-      type: ECS.SERVICE
+      type: ECS.SERVICE,
     } // TODO: where is the credential subject for 'proofOfTrust'??
   } catch (error) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, `Error checking trust registry: ${error}.`) }
