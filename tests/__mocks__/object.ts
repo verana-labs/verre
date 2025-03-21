@@ -89,7 +89,10 @@ export const mockServiceVerifiableCredential = createMockVerifiableCredential(
     name: 'Example LLC',
     type: 'ServiceCredential',
     description: 'Example service credential',
+    logo: 'iVBORw0KGgoAAAANSUhEUgAAA...',
     minimumAgeRequired: 18,
+    termsAndConditions: 'https://example.com/terms',
+    privacyPolicy: 'https://example.com/privacy',
   },
 )
 
@@ -105,7 +108,7 @@ export const mockOrgVerifiableCredential = createMockVerifiableCredential(
     registryId: 'EX-123456',
     registryUrl: 'https://registry.example.com/org/EX-123456',
     address: '123 Example Street, Example City, EX 10001',
-    type: ['PUBLIC'],
+    type: 'PUBLIC',
     countryCode: 'US',
   },
 )
@@ -122,13 +125,13 @@ export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCred
     registryId: 'EX-123456',
     registryUrl: 'https://registry.example.com/org/EX-123456',
     address: '123 Example Street, Example City, EX 10001',
-    type: ['PUBLIC'],
+    type: 'PUBLIC',
     countryCode: 'US',
   },
 )
 
 export const mockIssuerDidDoc = {
-  didDocumentResolved: {
+  resolvedDidDocument: {
     id: 'did:web:example.com',
     service: [
       {
@@ -152,7 +155,7 @@ export const mockIssuerDidDoc = {
   },
 }
 export const mockNotIssuerDidDoc = {
-  didDocumentResolved: {
+  resolvedDidDocument: {
     id: 'did:web:example.com',
     service: [
       {
