@@ -11,7 +11,7 @@ export type TrustedResolution = {
 }
 
 export type ResolverConfig = {
-  trustRegistryUrl?: string
+  trustRegistryUrl: string
 }
 
 export type ServiceWithCredential = {

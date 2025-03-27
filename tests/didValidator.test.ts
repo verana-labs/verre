@@ -40,7 +40,7 @@ describe('DidValidator', () => {
       const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
       // Execute method under test
-      const result = await resolve(did)
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
 
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1)
@@ -75,7 +75,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did)
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({
@@ -119,7 +119,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did)
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({

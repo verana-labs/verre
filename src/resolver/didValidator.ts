@@ -19,9 +19,6 @@ import {
 import { buildMetadata, checkSchemaMatch, identifySchema, TrustError, verifyLinkedVP } from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
-const defaultOptions: Required<ResolverConfig> = {
-  trustRegistryUrl: 'http://testTrust.org', // TODO: check this URL
-}
 
 /**
  * Resolves a DID, validates its document, and associated services.
@@ -30,12 +27,12 @@ const defaultOptions: Required<ResolverConfig> = {
  * @param options - Configuration options for the resolver, including the trust registry URL.
  * @returns A promise that resolves to the trust resolution.
  */
-export async function resolve(did: string, options: ResolverConfig = {}): Promise<TrustedResolution> {
+export async function resolve(did: string, options: ResolverConfig): Promise<TrustedResolution> {
   if (!did) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl } = { ...defaultOptions, ...options }
+  const { trustRegistryUrl } = options
 
   try {
     const didDocument = await retrieveDidDocument(did)
