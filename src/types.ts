@@ -124,7 +124,7 @@ export interface Permission {
 }
 
 export interface TrustedResolutionMetadata {
-  content?: string
+  errorMessage?: string
   status: TrustStatus
   errorCode?: TrustErrorCode
 }
