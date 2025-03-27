@@ -1,4 +1,4 @@
-# Verana Trust Resolver Library Documentation (verre)
+# Verana Trust Resolver (VerRe)
 
 The **Verana Trust Resolver** library provides a set of functions to resolve Decentralized Identifiers (DIDs), validate their associated documents, process Verifiable Credentials, and check their trust status according to the [**Verifiable Trust** specifications](https://verana-labs.github.io/verifiable-trust-spec/#vt-json-schema-cred-verifiable-trust-json-schema-credential) of the Verana blockchain.
 
