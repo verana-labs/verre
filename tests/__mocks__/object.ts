@@ -130,55 +130,6 @@ export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCred
   },
 )
 
-export const mockIssuerDidDoc = {
-  resolvedDidDocument: {
-    id: 'did:web:example.com',
-    service: [
-      {
-        id: 'did:web:example.com#vpr-schemas',
-        type: 'LinkedVerifiablePresentation',
-        serviceEndpoint: ['https://example.com/vp-ser'],
-        verifiablePresentation: mockServiceVerifiableCredential,
-      },
-      {
-        id: 'did:web:example.com#vpr-schemas',
-        type: 'LinkedVerifiablePresentation',
-        serviceEndpoint: ['https://example.com/vp-org'],
-        verifiablePresentation: mockOrgVerifiableCredential,
-      },
-      {
-        id: 'did:web:example.com#vpr-schemas-trust-registry',
-        type: 'VerifiablePublicRegistry',
-        serviceEndpoint: ['https://example.com/trust-registry'],
-      },
-    ],
-  },
-}
-export const mockNotIssuerDidDoc = {
-  resolvedDidDocument: {
-    id: 'did:web:example.com',
-    service: [
-      {
-        id: 'did:web:example.com#vpr-schemas',
-        type: 'LinkedVerifiablePresentation',
-        serviceEndpoint: ['https://example.com/vp-ser'],
-        verifiablePresentation: mockServiceVerifiableCredential,
-      },
-      {
-        id: 'did:web:example.com#vpr-schemas',
-        type: 'LinkedVerifiablePresentation',
-        serviceEndpoint: ['https://example.com/vp-org'],
-        verifiablePresentation: mockOrgVerifiableCredentialWithoutIssuer,
-      },
-      {
-        id: 'did:web:example.com#vpr-schemas-trust-registry',
-        type: 'VerifiablePublicRegistry',
-        serviceEndpoint: ['https://example.com/trust-registry'],
-      },
-    ],
-  },
-}
-
 export const mockPermission = {
   id: 1,
   schema_id: 100,

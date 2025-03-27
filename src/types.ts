@@ -3,7 +3,7 @@ import { DIDDocument, ServiceEndpoint } from 'did-resolver'
 
 // types
 export type TrustedResolution = {
-  resolvedDidDocument?: ResolvedDidDocument
+  didDocument?: DIDDocument
   metadata: TrustedResolutionMetadata
   provider?: Record<string, string>
   proofOfTrust?: Record<string, string>
@@ -21,12 +21,8 @@ export type ServiceWithCredential = {
   verifiablePresentation?: VerifiablePresentation
 }
 
-export type ResolvedDidDocument = Omit<DIDDocument, 'service'> & {
-  service: ServiceWithCredential[]
-}
 export type DidDocumentResult = {
   verifiableCredentials: VerifiableCredential[]
-  resolvedDidDocument: ResolvedDidDocument
 }
 
 // Enums

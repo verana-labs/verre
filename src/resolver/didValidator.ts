@@ -6,8 +6,6 @@ import * as didWeb from 'web-did-resolver'
 
 import {
   CredentialSchema,
-  DidDocumentResult,
-  ResolvedDidDocument,
   ECS,
   Permission,
   PermissionType,
@@ -15,6 +13,7 @@ import {
   TrustedResolution,
   ServiceWithCredential,
   TrustErrorCode,
+  DidDocumentResult,
 } from '../types'
 import { buildMetadata, checkSchemaMatch, identifySchema, TrustError, verifyLinkedVP } from '../utils'
 
@@ -36,7 +35,7 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
 
   try {
     const didDocument = await retrieveDidDocument(did)
-    const { verifiableCredentials, resolvedDidDocument } = await processDidDocument(didDocument)
+    const { verifiableCredentials } = await processDidDocument(didDocument)
 
     let proofOfTrust: Record<string, string> | undefined
     let provider: Record<string, string> | undefined
@@ -54,11 +53,11 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
 
     // If proof of trust exists, return the result with the provider (issuer equals did)
     if (proofOfTrust) {
-      return { resolvedDidDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider }
+      return { didDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider }
     }
 
     // Otherwise, check the trust registry
-    return checkTrustRegistry(did, resolvedDidDocument, trustRegistryUrl, provider)
+    return checkTrustRegistry(did, didDocument, trustRegistryUrl, provider)
   } catch (error) {
     if (error instanceof TrustError) {
       return { metadata: error.metadata }
@@ -87,21 +86,20 @@ async function processDidDocument(didDocument: DIDDocument): Promise<DidDocument
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
 
   const verifiableCredentials: VerifiableCredential[] = []
-  const newServices = await Promise.all(
+  await Promise.all(
     didDocument.service.map(async service => {
       if (service.type === 'LinkedVerifiablePresentation') {
         const serviceWithVP = await extractCredentialFromVP(service)
         if (serviceWithVP.verifiablePresentation) {
           verifiableCredentials.push(await getVerifiedCredential(serviceWithVP.verifiablePresentation))
         }
-        return serviceWithVP
       }
       if (service.type === 'VerifiablePublicRegistry') await queryTrustRegistry(service)
       return service
     }),
   )
 
-  return { verifiableCredentials, resolvedDidDocument: { ...didDocument, service: newServices } }
+  return { verifiableCredentials }
 }
 
 /**
@@ -119,7 +117,7 @@ async function processDidDocument(didDocument: DIDDocument): Promise<DidDocument
  */
 async function checkTrustRegistry(
   did: string,
-  resolvedDidDocument: ResolvedDidDocument,
+  didDocument: DIDDocument,
   trustRegistryUrl: string,
   provider?: Record<string, string>,
 ): Promise<TrustedResolution> {
@@ -132,14 +130,14 @@ async function checkTrustRegistry(
 
     if (!permResponse.ok)
       return {
-        resolvedDidDocument,
+        didDocument,
         metadata: buildMetadata(TrustErrorCode.NOT_FOUND, 'No data found in the trust registry.'),
       }
     const permission: Permission = (await permResponse.json()) as Permission
 
     if (permission.type !== PermissionType.ISSUER)
       return {
-        resolvedDidDocument,
+        didDocument,
         metadata: buildMetadata(TrustErrorCode.INVALID_ISSUER, 'The provided DID is not a valid issuer.'),
       }
 
@@ -151,7 +149,7 @@ async function checkTrustRegistry(
 
     if (!schemaResponse.ok)
       return {
-        resolvedDidDocument,
+        didDocument,
         metadata: buildMetadata(
           TrustErrorCode.INVALID_REQUEST,
           `HTTP error ${schemaResponse.status}: Request to trust registry failed.`,
@@ -162,7 +160,7 @@ async function checkTrustRegistry(
     const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS)
     const isValid = schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType)
     return {
-      resolvedDidDocument,
+      didDocument,
       metadata: isValid
         ? buildMetadata()
         : buildMetadata(TrustErrorCode.INVALID, 'Schema type does not match.'),

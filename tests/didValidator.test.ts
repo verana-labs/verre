@@ -6,8 +6,7 @@ import { ECS, loadSchema, resolve, TrustErrorCode, TrustStatus } from '../src'
 import {
   fetchMocker,
   mockCredentialSchema,
-  mockIssuerDidDoc,
-  mockNotIssuerDidDoc,
+  mockDidDocument,
   mockOrgVerifiableCredential,
   mockOrgVerifiableCredentialWithoutIssuer,
   mockPermission,
@@ -80,7 +79,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockIssuerDidDoc,
+          ...mockDidDocument,
           provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           proofOfTrust: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
           type: ECS.SERVICE,
@@ -124,7 +123,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockNotIssuerDidDoc,
+          ...mockDidDocument,
           provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           type: ECS.SERVICE,
         }),
@@ -167,7 +166,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockNotIssuerDidDoc,
+          ...mockDidDocument,
           provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           type: ECS.SERVICE,
         }),
