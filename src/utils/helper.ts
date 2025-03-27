@@ -1,16 +1,16 @@
 import { TrustedResolutionMetadata, TrustErrorCode, TrustStatus } from '../types'
 
-export function buildMetadata(errorCode?: TrustErrorCode, content?: string): TrustedResolutionMetadata {
+export function buildMetadata(errorCode?: TrustErrorCode, errorMessage?: string): TrustedResolutionMetadata {
   if (!errorCode) {
     return {
       status: TrustStatus.RESOLVED,
-      content,
+      errorMessage,
     }
   }
 
   return {
     status: TrustStatus.ERROR,
     errorCode,
-    content,
+    errorMessage,
   }
 }
