@@ -24,7 +24,12 @@ jobs:
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org/'
-          cache: yarn
+
+      - name: Enable Corepack and Setup Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@3.6.1 --activate
+          yarn --version
 
       - name: Install dependencies
         run: yarn install --ignore-scripts
