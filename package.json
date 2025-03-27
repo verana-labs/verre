@@ -1,5 +1,5 @@
 {
-  "name": "verre",
+  "name": "@verana-labs/verre",
   "version": "0.0.1",
   "type": "module",
   "publishConfig": {
