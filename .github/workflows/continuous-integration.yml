@@ -32,16 +32,10 @@ jobs:
           yarn --version
 
       - name: Install dependencies
-        run: yarn install --ignore-scripts
+        run: yarn install --immutable
 
-      - name: Linting
-        run: yarn lint
-
-      - name: Prettier
-        run: yarn check-format
-
-      - name: Compile
-        run: yarn check-types
+      - name: Validate
+        run: yarn validate
 
   release-please:
     runs-on: ubuntu-latest
