@@ -80,8 +80,8 @@ describe('DidValidator', () => {
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
-          provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
-          proofOfTrust: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
+          verifiableService: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          issuerCredential: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
           type: ECS.SERVICE,
         }),
       )
@@ -124,7 +124,7 @@ describe('DidValidator', () => {
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
-          provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          verifiableService: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           type: ECS.SERVICE,
         }),
       )
@@ -167,7 +167,7 @@ describe('DidValidator', () => {
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
-          provider: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          verifiableService: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           type: ECS.SERVICE,
         }),
       )

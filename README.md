@@ -56,8 +56,8 @@ Returns a `Promise<TrustedResolution>` that resolves to an object containing:
   - `content`
   - `status`
   - `errorCode`
-- `provider` (**Record<string, string>**, optional): The entity that provided the credential.
-- `proofOfTrust` (**Record<string, string>**, optional): A record indicating the approved issuer.
+- `verifiableService` (**Record<string, string>**, optional): The entity that provided the credential.
+- `issuerCredential` (**Record<string, string>**, optional): A record indicating the approved issuer.
 - `type` (**ECS**, optional): The type of resolved entity, representing essential credentials.
 
 ## Usage Example
@@ -79,7 +79,7 @@ Returns a `Promise<TrustedResolution>` that resolves to an object containing:
 
 ## Notes
 - The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USAR-AGENT`, and `SERVICE`.
-- The function exits early if both `proofOfTrust` and `provider` are found during credential processing.
+- The function exits early if both `issuerCredential` and `verifiableService` are found during credential processing.
 
 This method is essential for resolving and validating DIDs in a trusted ecosystem.
 

@@ -5,8 +5,8 @@ import { DIDDocument, ServiceEndpoint } from 'did-resolver'
 export type TrustedResolution = {
   didDocument?: DIDDocument
   metadata: TrustedResolutionMetadata
-  provider?: Record<string, string>
-  proofOfTrust?: Record<string, string>
+  verifiableService?: Record<string, string>
+  issuerCredential?: Record<string, string>
   type?: ECS
 }
 

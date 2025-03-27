@@ -37,27 +37,33 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     const didDocument = await retrieveDidDocument(did)
     const { verifiableCredentials } = await processDidDocument(didDocument)
 
-    let proofOfTrust: Record<string, string> | undefined
-    let provider: Record<string, string> | undefined
+    let issuerCredential: Record<string, string> | undefined
+    let verifiableService: Record<string, string> | undefined
 
     for (const vc of verifiableCredentials) {
       const schema = identifySchema(vc.credentialSubject)
       if (schema && [ECS.ORG, ECS.PERSON].includes(schema) && vc.issuer === did) {
-        proofOfTrust = vc.credentialSubject as Record<string, string>
+        issuerCredential = vc.credentialSubject as Record<string, string>
       }
       if (schema === ECS.SERVICE) {
-        provider = vc.credentialSubject as Record<string, string>
+        verifiableService = vc.credentialSubject as Record<string, string>
       }
-      if (proofOfTrust && provider) break // Exit early if both are found
+      if (issuerCredential && verifiableService) break // Exit early if both are found
     }
 
-    // If proof of trust exists, return the result with the provider (issuer equals did)
-    if (proofOfTrust) {
-      return { didDocument, metadata: buildMetadata(), type: ECS.SERVICE, proofOfTrust, provider }
+    // If proof of trust exists, return the result with the verifiableService (issuer equals did)
+    if (issuerCredential) {
+      return {
+        didDocument,
+        metadata: buildMetadata(),
+        type: ECS.SERVICE,
+        issuerCredential,
+        verifiableService,
+      }
     }
 
     // Otherwise, check the trust registry
-    return checkTrustRegistry(did, didDocument, trustRegistryUrl, provider)
+    return checkTrustRegistry(did, didDocument, trustRegistryUrl, verifiableService)
   } catch (error) {
     if (error instanceof TrustError) {
       return { metadata: error.metadata }
@@ -119,7 +125,7 @@ async function checkTrustRegistry(
   did: string,
   didDocument: DIDDocument,
   trustRegistryUrl: string,
-  provider?: Record<string, string>,
+  verifiableService?: Record<string, string>,
 ): Promise<TrustedResolution> {
   try {
     const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
@@ -164,9 +170,9 @@ async function checkTrustRegistry(
       metadata: isValid
         ? buildMetadata()
         : buildMetadata(TrustErrorCode.INVALID, 'Schema type does not match.'),
-      provider,
+      verifiableService,
       type: ECS.SERVICE,
-    } // TODO: where is the credential subject for 'proofOfTrust'??
+    } // TODO: where is the credential subject for 'issuerCredential'??
   } catch (error) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, `Error checking trust registry: ${error}.`) }
   }
