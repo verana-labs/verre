@@ -75,6 +75,8 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
+      console.log(result.issuerCredential)
+      console.log(result.issuerCredential?.ecsType)
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({

@@ -14,6 +14,8 @@ import {
   ServiceWithCredential,
   TrustErrorCode,
   DidDocumentResult,
+  IService,
+  ICredential,
 } from '../types'
 import { buildMetadata, checkSchemaMatch, identifySchema, TrustError, verifyLinkedVP } from '../utils'
 
@@ -37,16 +39,16 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     const didDocument = await retrieveDidDocument(did)
     const { verifiableCredentials } = await processDidDocument(didDocument)
 
-    let issuerCredential: Record<string, string> | undefined
-    let verifiableService: Record<string, string> | undefined
+    let issuerCredential: ICredential | undefined
+    let verifiableService: IService | undefined
 
     for (const vc of verifiableCredentials) {
       const schema = identifySchema(vc.credentialSubject)
       if (schema && [ECS.ORG, ECS.PERSON].includes(schema) && vc.issuer === did) {
-        issuerCredential = vc.credentialSubject as Record<string, string>
+        issuerCredential = vc.credentialSubject as ICredential
       }
       if (schema === ECS.SERVICE) {
-        verifiableService = vc.credentialSubject as Record<string, string>
+        verifiableService = vc.credentialSubject as unknown as IService
       }
       if (issuerCredential && verifiableService) break // Exit early if both are found
     }
@@ -125,7 +127,7 @@ async function checkTrustRegistry(
   did: string,
   didDocument: DIDDocument,
   trustRegistryUrl: string,
-  verifiableService?: Record<string, string>,
+  verifiableService?: IService,
 ): Promise<TrustedResolution> {
   try {
     const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {

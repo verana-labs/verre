@@ -5,8 +5,8 @@ import { DIDDocument, ServiceEndpoint } from 'did-resolver'
 export type TrustedResolution = {
   didDocument?: DIDDocument
   metadata: TrustedResolutionMetadata
-  verifiableService?: Record<string, string>
-  issuerCredential?: Record<string, string>
+  verifiableService?: IService
+  issuerCredential?: ICredential
   type?: ECS
 }
 
@@ -124,3 +124,56 @@ export interface TrustedResolutionMetadata {
   status: TrustStatus
   errorCode?: TrustErrorCode
 }
+
+export interface BaseCredential {
+  id: string
+  ecsType: string
+}
+
+export interface IOrg extends BaseCredential {
+  name: string
+  logo: string
+  registryId: string
+  registryUrl: string
+  address: string
+  type: string
+  countryCode: string
+}
+
+export interface IPerson extends BaseCredential {
+  firstName: string
+  lastName: string
+  avatar: string
+  birthDate: string
+  countryOfResidence: string
+}
+
+export interface IService extends BaseCredential {
+  name: string
+  type: string
+  description: string
+  logo: string
+  minimumAgeRequired: number
+  termsAndConditions: string
+  termsAndConditionsHash?: string
+  privacyPolicy: string
+  privacyPolicyHash?: string
+}
+
+export interface IUserAgent extends BaseCredential {
+  name: string
+  description: string
+  category: string
+  wallet: string
+  logo: string
+  termsAndConditions: string
+  termsAndConditionsHash?: string
+  privacyPolicy: string
+  privacyPolicyHash?: string
+}
+
+export interface IUnknownCredential extends BaseCredential {
+  [key: string]: any
+}
+
+export type ICredential = IOrg | IPerson | IService | IUserAgent | IUnknownCredential
