@@ -7,7 +7,6 @@ export type TrustedResolution = {
   metadata: TrustedResolutionMetadata
   verifiableService?: IService
   issuerCredential?: ICredential
-  type?: ECS
 }
 
 export type ResolverConfig = {
@@ -126,54 +125,69 @@ export interface TrustedResolutionMetadata {
 }
 
 export interface BaseCredential {
-  id: string
-  ecsType: string
+  type: ECS | 'unknown'
+  credentialSubject: Record<string, unknown>
 }
 
 export interface IOrg extends BaseCredential {
-  name: string
-  logo: string
-  registryId: string
-  registryUrl: string
-  address: string
-  type: string
-  countryCode: string
+  type: typeof ECS.ORG
+  credentialSubject: {
+    name: string
+    logo: string
+    registryId: string
+    registryUrl: string
+    address: string
+    type: string
+    countryCode: string
+  }
 }
 
 export interface IPerson extends BaseCredential {
-  firstName: string
-  lastName: string
-  avatar: string
-  birthDate: string
-  countryOfResidence: string
+  type: typeof ECS.PERSON
+  credentialSubject: {
+    firstName: string
+    lastName: string
+    avatar: string
+    birthDate: string
+    countryOfResidence: string
+  }
 }
 
 export interface IService extends BaseCredential {
-  name: string
-  type: string
-  description: string
-  logo: string
-  minimumAgeRequired: number
-  termsAndConditions: string
-  termsAndConditionsHash?: string
-  privacyPolicy: string
-  privacyPolicyHash?: string
+  type: typeof ECS.SERVICE
+  credentialSubject: {
+    name: string
+    type: string
+    description: string
+    logo: string
+    minimumAgeRequired: number
+    termsAndConditions: string
+    termsAndConditionsHash?: string
+    privacyPolicy: string
+    privacyPolicyHash?: string
+  }
 }
 
 export interface IUserAgent extends BaseCredential {
-  name: string
-  description: string
-  category: string
-  wallet: string
-  logo: string
-  termsAndConditions: string
-  termsAndConditionsHash?: string
-  privacyPolicy: string
-  privacyPolicyHash?: string
+  type: typeof ECS.USER_AGENT
+  credentialSubject: {
+    name: string
+    description: string
+    category: string
+    wallet: string
+    logo: string
+    termsAndConditions: string
+    termsAndConditionsHash?: string
+    privacyPolicy: string
+    privacyPolicyHash?: string
+  }
 }
 
 export interface IUnknownCredential extends BaseCredential {
-  [key: string]: any
+  type: 'unknown'
+  credentialSubject: {
+    [key: string]: any
+  }
 }
 
 export type ICredential = IOrg | IPerson | IService | IUserAgent | IUnknownCredential

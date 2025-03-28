@@ -45,10 +45,13 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     for (const vc of verifiableCredentials) {
       const schema = identifySchema(vc.credentialSubject)
       if (schema && [ECS.ORG, ECS.PERSON].includes(schema) && vc.issuer === did) {
-        issuerCredential = vc.credentialSubject as ICredential
+        issuerCredential = {
+          type: schema ?? 'unknown',
+          credentialSubject: vc.credentialSubject,
+        } as ICredential
       }
       if (schema === ECS.SERVICE) {
-        verifiableService = vc.credentialSubject as unknown as IService
+        verifiableService = { type: ECS.SERVICE, credentialSubject: vc.credentialSubject } as IService
       }
       if (issuerCredential && verifiableService) break // Exit early if both are found
     }
@@ -58,7 +61,6 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
       return {
         didDocument,
         metadata: buildMetadata(),
-        type: ECS.SERVICE,
         issuerCredential,
         verifiableService,
       }
@@ -173,7 +175,6 @@ async function checkTrustRegistry(
         ? buildMetadata()
         : buildMetadata(TrustErrorCode.INVALID, 'Schema type does not match.'),
       verifiableService,
-      type: ECS.SERVICE,
     } // TODO: where is the credential subject for 'issuerCredential'??
   } catch (error) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, `Error checking trust registry: ${error}.`) }

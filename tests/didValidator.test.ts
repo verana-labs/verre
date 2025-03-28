@@ -75,16 +75,19 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
-      console.log(result.issuerCredential)
-      console.log(result.issuerCredential?.ecsType)
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
-          verifiableService: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
-          issuerCredential: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
-          type: ECS.SERVICE,
+          verifiableService: {
+            type: ECS.SERVICE,
+            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          },
+          issuerCredential: {
+            type: ECS.ORG,
+            credentialSubject: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
+          },
         }),
       )
     })
@@ -126,8 +129,10 @@ describe('DidValidator', () => {
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
-          verifiableService: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
-          type: ECS.SERVICE,
+          verifiableService: {
+            type: ECS.SERVICE,
+            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          },
         }),
       )
     })
@@ -169,8 +174,10 @@ describe('DidValidator', () => {
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
-          verifiableService: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
-          type: ECS.SERVICE,
+          verifiableService: {
+            type: ECS.SERVICE,
+            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+          },
         }),
       )
     })
