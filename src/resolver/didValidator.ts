@@ -1,4 +1,4 @@
-import { JsonLdObject, VerifiableCredential, VerifiablePresentation } from '@transmute/verifiable-credentials'
+import type { W3cVerifiableCredential, W3cPresentation, W3cCredentialSubject } from '@credo-ts/core'
 import Ajv, { ValidateFunction } from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
@@ -33,10 +33,10 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl } = options
+  const { trustRegistryUrl, resolver } = options
 
   try {
-    const didDocument = await retrieveDidDocument(did)
+    const didDocument = await retrieveDidDocument(did, resolver)
     const { verifiableCredentials } = await processDidDocument(didDocument)
 
     let issuerCredential: ICredential | undefined
@@ -95,7 +95,7 @@ async function processDidDocument(didDocument: DIDDocument): Promise<DidDocument
   if (!didDocument?.service)
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
 
-  const verifiableCredentials: VerifiableCredential[] = []
+  const verifiableCredentials: W3cVerifiableCredential[] = []
   await Promise.all(
     didDocument.service.map(async service => {
       if (service.type === 'LinkedVerifiablePresentation') {
@@ -186,8 +186,10 @@ async function checkTrustRegistry(
  * @param did - The DID to fetch.
  * @returns A promise resolving to the resolution result.
  */
-async function retrieveDidDocument(did: string): Promise<DIDDocument> {
-  const resolutionResult = await resolverInstance.resolve(did)
+async function retrieveDidDocument(did: string, resolver?: Resolver): Promise<DIDDocument> {
+  // const didResolverService = agentContext.dependencyManager.resolve(DidResolverService);
+  // const didDocument = await didResolverService.resolveDidDocument(agentContext, did)
+  const resolutionResult = await (resolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
 
@@ -262,7 +264,7 @@ async function extractCredentialFromVP(service: Service): Promise<ServiceWithCre
     try {
       const response = await fetch(endpoint)
       if (response.ok) {
-        const verifiablePresentation = (await response.json()) as VerifiablePresentation
+        const verifiablePresentation = (await response.json()) as W3cPresentation
         return { ...service, verifiablePresentation }
       }
       throw new TrustError(
@@ -313,17 +315,21 @@ async function queryTrustRegistry(service: Service) {
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-async function getVerifiedCredential(vp: VerifiablePresentation): Promise<VerifiableCredential> {
-  if (!vp.verifiableCredential || vp.verifiableCredential.length === 0) {
+async function getVerifiedCredential(vp: W3cPresentation): Promise<W3cVerifiableCredential> {
+  if (
+    !vp.verifiableCredential ||
+    !Array.isArray(vp.verifiableCredential) ||
+    vp.verifiableCredential.length === 0
+  ) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'No verifiable credential found in the response')
   }
   const validCredential = vp.verifiableCredential.find(vc => vc.type.includes('VerifiableCredential')) as
-    | VerifiableCredential
+    | W3cVerifiableCredential
     | undefined
   if (!validCredential) {
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
-  const isVerified = await verifyLinkedVP(validCredential)
+  const isVerified = await verifyLinkedVP(vp)
   if (!isVerified) {
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }
@@ -337,7 +343,7 @@ async function getVerifiedCredential(vp: VerifiablePresentation): Promise<Verifi
  * @returns A promise resolving to the validated Verifiable Credential.
  * @throws Error if validation fails.
  */
-async function checkCredentialSchema(credential: VerifiableCredential): Promise<VerifiableCredential> {
+async function checkCredentialSchema(credential: W3cVerifiableCredential): Promise<W3cVerifiableCredential> {
   const { credentialSchema, credentialSubject } = credential
   if (!credentialSchema || !credentialSubject) {
     throw new TrustError(
@@ -372,7 +378,7 @@ async function checkCredentialSchema(credential: VerifiableCredential): Promise<
           TrustErrorCode.INVALID_REQUEST,
           `Failed to fetch referenced schema from ${refUrl}`,
         )
-      subject = (await refResponse.json()) as JsonLdObject
+      subject = (await refResponse.json()) as W3cCredentialSubject
     }
 
     const schemaObject = JSON.parse(schemaData.json_schema)

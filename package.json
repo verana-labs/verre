@@ -25,6 +25,7 @@
     "validate": "yarn lint && yarn check-types && yarn check-format"
   },
   "devDependencies": {
+    "@credo-ts/core": "^0.5.13",
     "@eslint/js": "^9.22.0",
     "@types/eslint": "^8.56.2",
     "@types/node": "^18.0.0",
@@ -47,9 +48,6 @@
     "vitest": "^3.0.9"
   },
   "dependencies": {
-    "@transmute/ed25519-signature-2018": "^0.7.0-unstable.82",
-    "@transmute/jsonld-document-loader": "^0.7.0-unstable.82",
-    "@transmute/verifiable-credentials": "^0.3.4",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "did-resolver": "^4.1.0",

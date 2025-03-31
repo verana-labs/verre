@@ -1,5 +1,5 @@
-import { VerifiablePresentation, VerifiableCredential } from '@transmute/verifiable-credentials'
-import { DIDDocument, ServiceEndpoint } from 'did-resolver'
+import type { W3cVerifiableCredential, W3cPresentation } from '@credo-ts/core'
+import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 
 // types
 export type TrustedResolution = {
@@ -11,17 +11,18 @@ export type TrustedResolution = {
 
 export type ResolverConfig = {
   trustRegistryUrl: string
+  resolver?: Resolver
 }
 
 export type ServiceWithCredential = {
   id: string
   type: string
   serviceEndpoint: ServiceEndpoint | ServiceEndpoint[]
-  verifiablePresentation?: VerifiablePresentation
+  verifiablePresentation?: W3cPresentation
 }
 
 export type DidDocumentResult = {
-  verifiableCredentials: VerifiableCredential[]
+  verifiableCredentials: W3cVerifiableCredential[]
 }
 
 // Enums
