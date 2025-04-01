@@ -1,19 +1,12 @@
-import {
-  CacheModuleConfig,
-  DidRepository,
-  DidResolver,
-  DidResolverService,
-  DidsModuleConfig,
-  InMemoryLruCache,
-} from '@credo-ts/core'
-import { Resolver, ResolverRegistry } from 'did-resolver'
+import { Agent, AgentContext, DidResolverService } from '@credo-ts/core'
+import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { ECS, loadSchema, resolve, TrustErrorCode, TrustStatus } from '../src'
 
 import {
+  didDocumentChatbot,
   fetchMocker,
-  getAgentContext,
   mockCredentialSchema,
   mockDidDocument,
   mockOrgVerifiableCredential,
@@ -21,62 +14,34 @@ import {
   mockPermission,
   mockResolverInstance,
   mockServiceVerifiableCredential,
+  setupAgent,
 } from './__mocks__'
 
 vi.mock('../src/utils/signatureVerifier', () => ({
   verifyLinkedVP: vi.fn().mockResolvedValue(true),
 }))
 
-const didResolverMock = {
-  allowsCaching: true,
-  allowsLocalDidRecord: false,
-  supportedMethods: ['key'],
-  resolve: vi.fn(),
-} as DidResolver
-
-const recordResolverMock = {
-  allowsCaching: false,
-  allowsLocalDidRecord: true,
-  supportedMethods: ['record'],
-  resolve: vi.fn(),
-} as DidResolver
-
-const didRepositoryMock = {
-  getCreatedDids: vi.fn(),
-} as unknown as DidRepository
-
-const cache = new InMemoryLruCache({ limit: 10 })
-const agentContext = getAgentContext({
-  registerInstances: [[CacheModuleConfig, new CacheModuleConfig({ cache })]],
-})
-
-/**
- * Creates a resolver registry that integrates multiple DID resolution strategies.
- *
- * This function returns an object mapping DID methods to their respective resolvers.
- * Currently, it supports the `did:credo:` method, which utilizes the `DidResolverService`
- * to resolve DIDs using predefined resolvers.
- *
- * @returns {ResolverRegistry} An object containing resolver methods for specific DID methods.
- */
-const getResolver = (): ResolverRegistry => {
-  return {
-    credo: async (did: string) => {
-      const didResolverService = new DidResolverService(
-        agentContext.config.logger,
-        new DidsModuleConfig({ resolvers: [didResolverMock, recordResolverMock] }),
-        didRepositoryMock,
-      )
-      return await didResolverService.resolve(agentContext, did)
-    },
-  }
-}
-
 describe('DidValidator', () => {
-  const didResolver = new Resolver(getResolver())
+  let agent: Agent
+  let didResolverService: DidResolverService
+  let agentContext: AgentContext
+  let didResolver: Resolver
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    agent = await setupAgent({
+      name: 'did service test',
+    })
+    didResolverService = agent.dependencyManager.resolve(DidResolverService)
+    agentContext = agent.dependencyManager.resolve(AgentContext)
     fetchMocker.enable()
+
+    // Creates a resolver registry that integrates DID resolution strategies
+    didResolver = new Resolver({
+      web: async (did: string) => didResolverService.resolve(agentContext, did),
+      key: async (did: string) => didResolverService.resolve(agentContext, did),
+      peer: async (did: string) => didResolverService.resolve(agentContext, did),
+      jwk: async (did: string) => didResolverService.resolve(agentContext, did),
+    })
   })
 
   afterEach(() => {
@@ -88,8 +53,7 @@ describe('DidValidator', () => {
   describe('resolver method', () => {
     it('should fail for a valid web DID without LinkedVerifiablePresentation', async () => {
       // Real case with 'chatbot-demo.dev.2060.io'
-      const domain = 'chatbot-demo.dev.2060.io'
-      const did = `did:web:${domain}`
+      const did = 'did:web:chatbot-demo.dev.2060.io'
 
       // Setup spy methods
       const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
@@ -103,6 +67,7 @@ describe('DidValidator', () => {
       expect(result.metadata).toEqual(
         expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_FOUND }),
       )
+      expect(result.didDocument).toEqual({ ...didDocumentChatbot })
     })
 
     it('should work correctly when the issuer is equal to "did".', async () => {

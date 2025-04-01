@@ -25,8 +25,11 @@
     "validate": "yarn lint && yarn check-types && yarn check-format"
   },
   "devDependencies": {
+    "@credo-ts/askar": "^0.5.13",
     "@credo-ts/core": "^0.5.13",
+    "@credo-ts/node": "^0.5.13",
     "@eslint/js": "^9.22.0",
+    "@hyperledger/aries-askar-nodejs": "^0.2.3",
     "@types/eslint": "^8.56.2",
     "@types/node": "^18.0.0",
     "@typescript-eslint/eslint-plugin": "^7.0.1",

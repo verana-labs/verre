@@ -25,6 +25,48 @@ export const mockDidDocument = {
   },
 }
 
+export const didDocumentChatbot = {
+  context: [
+    'https://w3id.org/did/v1',
+    'https://w3id.org/security/suites/ed25519-2018/v1',
+    'https://w3id.org/security/suites/x25519-2019/v1',
+  ],
+  id: 'did:web:chatbot-demo.dev.2060.io',
+  verificationMethod: [
+    {
+      id: 'did:web:chatbot-demo.dev.2060.io#verkey',
+      type: 'Ed25519VerificationKey2018',
+      controller: 'did:web:chatbot-demo.dev.2060.io',
+      publicKeyBase58: '4MNFY8hDy5o6eZj6DojRA2N41peJTZT61dwR4zRGoVKi',
+    },
+    {
+      id: 'did:web:chatbot-demo.dev.2060.io#key-agreement-1',
+      type: 'X25519KeyAgreementKey2019',
+      controller: 'did:web:chatbot-demo.dev.2060.io',
+      publicKeyBase58: 'CtoYyZd3GWEBH2n8j5LcasFxRVofpYkcp6qDjukiRSxR',
+    },
+  ],
+  service: [
+    {
+      id: 'did:web:chatbot-demo.dev.2060.io#did-communication',
+      serviceEndpoint: 'wss://chatbot-demo.dev.2060.io:443',
+      type: 'did-communication',
+      priority: 0,
+      recipientKeys: ['did:web:chatbot-demo.dev.2060.io#key-agreement-1'],
+      routingKeys: [],
+      accept: ['didcomm/aip2;env=rfc19'],
+    },
+    {
+      id: 'did:web:chatbot-demo.dev.2060.io#anoncreds',
+      serviceEndpoint: 'https://chatbot-demo.dev.2060.io/anoncreds/v1',
+      type: 'AnonCredsRegistry',
+    },
+  ],
+  authentication: ['did:web:chatbot-demo.dev.2060.io#verkey'],
+  assertionMethod: ['did:web:chatbot-demo.dev.2060.io#verkey'],
+  keyAgreement: ['did:web:chatbot-demo.dev.2060.io#key-agreement-1'],
+}
+
 export const mockResolverInstance = {
   didResolutionMetadata: {},
   didDocumentMetadata: {},

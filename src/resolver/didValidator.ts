@@ -193,8 +193,6 @@ async function checkTrustRegistry(
  * @returns A promise resolving to the resolution result.
  */
 async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
-  // const didResolverService = agentContext.dependencyManager.resolve(DidResolverService);
-  // const didDocument = await didResolverService.resolveDidDocument(agentContext, did)
   const resolutionResult = await (didResolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
