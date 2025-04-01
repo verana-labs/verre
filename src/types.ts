@@ -1,4 +1,5 @@
 import type { W3cVerifiableCredential, W3cPresentation } from '@credo-ts/core'
+
 import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 
 // types
@@ -11,7 +12,7 @@ export type TrustedResolution = {
 
 export type ResolverConfig = {
   trustRegistryUrl: string
-  resolver?: Resolver
+  didResolver?: Resolver
 }
 
 export type ServiceWithCredential = {

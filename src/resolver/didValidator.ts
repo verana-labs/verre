@@ -1,4 +1,10 @@
-import type { W3cVerifiableCredential, W3cPresentation, W3cCredentialSubject } from '@credo-ts/core'
+import type {
+  W3cVerifiableCredential,
+  W3cPresentation,
+  W3cCredentialSubject,
+  W3cJsonLdVerifiablePresentation,
+} from '@credo-ts/core'
+
 import Ajv, { ValidateFunction } from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
@@ -33,10 +39,10 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl, resolver } = options
+  const { trustRegistryUrl, didResolver } = options
 
   try {
-    const didDocument = await retrieveDidDocument(did, resolver)
+    const didDocument = await retrieveDidDocument(did, didResolver)
     const { verifiableCredentials } = await processDidDocument(didDocument)
 
     let issuerCredential: ICredential | undefined
@@ -186,10 +192,10 @@ async function checkTrustRegistry(
  * @param did - The DID to fetch.
  * @returns A promise resolving to the resolution result.
  */
-async function retrieveDidDocument(did: string, resolver?: Resolver): Promise<DIDDocument> {
+async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
   // const didResolverService = agentContext.dependencyManager.resolve(DidResolverService);
   // const didDocument = await didResolverService.resolveDidDocument(agentContext, did)
-  const resolutionResult = await (resolver?.resolve(did) ?? resolverInstance.resolve(did))
+  const resolutionResult = await (didResolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
 
@@ -329,7 +335,7 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<W3cVerifiable
   if (!validCredential) {
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
-  const isVerified = await verifyLinkedVP(vp)
+  const isVerified = await verifyLinkedVP(vp as W3cJsonLdVerifiablePresentation)
   if (!isVerified) {
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }

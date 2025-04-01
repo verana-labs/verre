@@ -1,10 +1,19 @@
-import { Resolver } from 'did-resolver'
+import {
+  CacheModuleConfig,
+  DidRepository,
+  DidResolver,
+  DidResolverService,
+  DidsModuleConfig,
+  InMemoryLruCache,
+} from '@credo-ts/core'
+import { Resolver, ResolverRegistry } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { ECS, loadSchema, resolve, TrustErrorCode, TrustStatus } from '../src'
 
 import {
   fetchMocker,
+  getAgentContext,
   mockCredentialSchema,
   mockDidDocument,
   mockOrgVerifiableCredential,
@@ -18,7 +27,54 @@ vi.mock('../src/utils/signatureVerifier', () => ({
   verifyLinkedVP: vi.fn().mockResolvedValue(true),
 }))
 
+const didResolverMock = {
+  allowsCaching: true,
+  allowsLocalDidRecord: false,
+  supportedMethods: ['key'],
+  resolve: vi.fn(),
+} as DidResolver
+
+const recordResolverMock = {
+  allowsCaching: false,
+  allowsLocalDidRecord: true,
+  supportedMethods: ['record'],
+  resolve: vi.fn(),
+} as DidResolver
+
+const didRepositoryMock = {
+  getCreatedDids: vi.fn(),
+} as unknown as DidRepository
+
+const cache = new InMemoryLruCache({ limit: 10 })
+const agentContext = getAgentContext({
+  registerInstances: [[CacheModuleConfig, new CacheModuleConfig({ cache })]],
+})
+
+/**
+ * Creates a resolver registry that integrates multiple DID resolution strategies.
+ *
+ * This function returns an object mapping DID methods to their respective resolvers.
+ * Currently, it supports the `did:credo:` method, which utilizes the `DidResolverService`
+ * to resolve DIDs using predefined resolvers.
+ *
+ * @returns {ResolverRegistry} An object containing resolver methods for specific DID methods.
+ */
+const getResolver = (): ResolverRegistry => {
+  return {
+    credo: async (did: string) => {
+      const didResolverService = new DidResolverService(
+        agentContext.config.logger,
+        new DidsModuleConfig({ resolvers: [didResolverMock, recordResolverMock] }),
+        didRepositoryMock,
+      )
+      return await didResolverService.resolve(agentContext, did)
+    },
+  }
+}
+
 describe('DidValidator', () => {
+  const didResolver = new Resolver(getResolver())
+
   beforeEach(() => {
     fetchMocker.enable()
   })
@@ -39,7 +95,7 @@ describe('DidValidator', () => {
       const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
 
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1)
@@ -74,7 +130,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({
@@ -123,7 +179,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({
@@ -168,7 +224,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.com' })
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.com', didResolver })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
       expect(result).toEqual(
         expect.objectContaining({
