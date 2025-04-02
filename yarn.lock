@@ -503,6 +503,28 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@digitalcredentials/http-client@npm:^5.0.1":
+  version: 5.0.4
+  resolution: "@digitalcredentials/http-client@npm:5.0.4"
+  dependencies:
+    ky: ^1.0.1
+    undici: ^6.6.2
+  checksum: 488dfa74d046b3d13bd6d5932c6c9bf9384db30061df0f93c2c0d808f51491da5bfde004bc13a43fced12a6c1c425aa1ef43357e095c0ce65433a66cb18adf65
+  languageName: node
+  linkType: hard
+
+"@digitalcredentials/jsonld-signatures@npm:^12.0.1":
+  version: 12.0.1
+  resolution: "@digitalcredentials/jsonld-signatures@npm:12.0.1"
+  dependencies:
+    "@digitalbazaar/security-context": ^1.0.0
+    "@digitalcredentials/jsonld": ^9.0.0
+    fast-text-encoding: ^1.0.3
+    serialize-error: ^8.0.1
+  checksum: 3286eeaf94f124813094dd559191321bea1da0e09ea8b9d906cf05496cb6545e184b1e6139cbb45ec9114b718db771c335dcb702ae59857b60326b0fe375cfd6
+  languageName: node
+  linkType: hard
+
 "@digitalcredentials/jsonld-signatures@npm:^9.3.1, @digitalcredentials/jsonld-signatures@npm:^9.3.2, @digitalcredentials/jsonld-signatures@npm:^9.4.0":
   version: 9.4.0
   resolution: "@digitalcredentials/jsonld-signatures@npm:9.4.0"
@@ -537,6 +559,18 @@ __metadata:
     canonicalize: ^1.0.1
     lru-cache: ^6.0.0
   checksum: 67392a90861b487e23e7984ad89c3ce7a9ecc4b1c4af0cfae62bb301501e78eef84c83588ef02117a1d19936c5ee129e5937320c235ef3ee8fc2bdd5e5f4195c
+  languageName: node
+  linkType: hard
+
+"@digitalcredentials/jsonld@npm:^9.0.0":
+  version: 9.0.0
+  resolution: "@digitalcredentials/jsonld@npm:9.0.0"
+  dependencies:
+    "@digitalcredentials/http-client": ^5.0.1
+    canonicalize: ^1.0.1
+    lru-cache: ^6.0.0
+    rdf-canonize: ^3.4.0
+  checksum: 2a72cc4e6d4a7e28db662fd8817b0820f13585fdc642aa05b369751b72a91dd92afb187fbdaec652715620375273a2c57d87743496720c5069846a3ece6a049f
   languageName: node
   linkType: hard
 
@@ -1761,6 +1795,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/jsonld@npm:^1.5.15":
+  version: 1.5.15
+  resolution: "@types/jsonld@npm:1.5.15"
+  checksum: 677eb17382725315fb761b19c3c92ffaed9906e1951923ede2f438a68b78d20975dae10b76e14d356ca671be0006c9f1b18c795c3a225f4d22731ef893d20bb7
+  languageName: node
+  linkType: hard
+
 "@types/mime@npm:^1":
   version: 1.3.5
   resolution: "@types/mime@npm:1.3.5"
@@ -2093,9 +2134,11 @@ __metadata:
     "@credo-ts/askar": ^0.5.13
     "@credo-ts/core": ^0.5.13
     "@credo-ts/node": ^0.5.13
+    "@digitalcredentials/jsonld-signatures": ^12.0.1
     "@eslint/js": ^9.22.0
     "@hyperledger/aries-askar-nodejs": ^0.2.3
     "@types/eslint": ^8.56.2
+    "@types/jsonld": ^1.5.15
     "@types/node": ^18.0.0
     "@typescript-eslint/eslint-plugin": ^7.0.1
     "@typescript-eslint/parser": ^7.0.1
@@ -2110,6 +2153,7 @@ __metadata:
     eslint-plugin-import: ^2.29.1
     eslint-plugin-prettier: ^5.1.3
     globals: ^16.0.0
+    jsonld: ^8.3.3
     prettier: ^3.2.5
     rimraf: ^6.0.1
     ts-node: ^10.9.2
@@ -5296,7 +5340,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsonld@npm:^8.0.0":
+"jsonld@npm:^8.0.0, jsonld@npm:^8.3.3":
   version: 8.3.3
   resolution: "jsonld@npm:8.3.3"
   dependencies:
@@ -5378,6 +5422,13 @@ __metadata:
   version: 0.33.3
   resolution: "ky@npm:0.33.3"
   checksum: d1869e1f33c0165355f621b6726fcc1a9de20a31f4a826ca0cfd5753d83b9cba8723402d554a00194e0ee3959e0dda0638f4b99d54a3a7de928b55ff870b0bcc
+  languageName: node
+  linkType: hard
+
+"ky@npm:^1.0.1":
+  version: 1.8.0
+  resolution: "ky@npm:1.8.0"
+  checksum: 589ecdc46670a1928d19c61501831443d2a8448ef4861e1beca88e0fcbc28f8f47f223601e92188eccfc4e2a2471b371981c30c47ac5482a19888d33bf34a593
   languageName: node
   linkType: hard
 
@@ -7575,6 +7626,13 @@ __metadata:
   dependencies:
     "@fastify/busboy": ^2.0.0
   checksum: a25b5462c1b6ffb974f5ffc492ffd64146a9983aad0cbda6fde65e2b22f6f1acd43f09beacc66cc47624a113bd0c684ffc60366102b6a21b038fbfafb7d75195
+  languageName: node
+  linkType: hard
+
+"undici@npm:^6.6.2":
+  version: 6.21.2
+  resolution: "undici@npm:6.21.2"
+  checksum: 4d7227910bfee0703ea5c5c9d4343bcb2a80d2ce2eb64698b6fb8cc48852e29f7c7c623126161a5073fd594c9040ae7e7ecc8e093fe6e84a9394dd2595754ec5
   languageName: node
   linkType: hard
 
