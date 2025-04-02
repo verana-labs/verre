@@ -41,7 +41,7 @@ export class FetchMocker {
   }
 
   // Mock implementation
-  private mockImplementation(url: string): Promise<Response> {
+  private async mockImplementation(url: string): Promise<Response> {
     if (url in this.mockConfig) {
       const mockRes = this.mockConfig[url]
 
@@ -55,13 +55,17 @@ export class FetchMocker {
     }
 
     // Unrecognized URL, return a default error
-    return Promise.resolve({
-      ok: false,
-      status: 404,
-      json: () => Promise.resolve({ error: `URL not mocked: ${url}` }),
-      text: () => Promise.resolve(JSON.stringify({ error: `URL not mocked: ${url}` })),
-      headers: new Headers(),
-    } as Response)
+    try {
+      return await this.originalFetch(url)
+    } catch {
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: () => Promise.resolve({ error: `URL not mocked: ${url}` }),
+        text: () => Promise.resolve(JSON.stringify({ error: `URL not mocked: ${url}` })),
+        headers: new Headers(),
+      } as Response)
+    }
   }
 
   // Reset the mock
