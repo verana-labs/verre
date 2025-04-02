@@ -10,3 +10,10 @@ export class TrustError extends Error {
     this.metadata = buildMetadata(code, message)
   }
 }
+
+export function handleTrustError(error: unknown, extraData: Record<string, unknown> = {}) {
+  if (error instanceof TrustError) {
+    return { ...extraData, metadata: error.metadata }
+  }
+  return { ...extraData, metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) }
+}
