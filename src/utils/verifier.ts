@@ -39,7 +39,7 @@ export async function verifySignature(document: W3cJsonLdVerifiablePresentation)
 /**
  * Asynchronous document loader function for resolving JSON-LD contexts.
  *
- * This function returns predefined contexts for specific URLs used in 
+ * This function returns predefined contexts for specific URLs used in
  * decentralized identity and verifiable credentials standards.
  *
  * @param {string} url - The URL of the JSON-LD context to retrieve.
@@ -57,7 +57,6 @@ const documentLoader = async (url: string): Promise<{ document: any }> => {
   }
   throw new Error(`Context not found: ${url}`)
 }
-
 
 /**
  * Verifies the integrity of a given JSON schema string using a Subresource Integrity (SRI) digest.

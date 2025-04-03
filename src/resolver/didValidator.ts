@@ -31,6 +31,7 @@ import {
   verifySignature,
 } from '../utils'
 
+// Generic resolver for DID Web only
 const resolverInstance = new Resolver(didWeb.getResolver())
 
 /**
@@ -52,7 +53,7 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     try {
       return await processDidDocument(did, didDocument, trustRegistryUrl)
     } catch (error) {
-      return handleTrustError(error, { didDocument })
+      return handleTrustError(error, didDocument)
     }
   } catch (error) {
     return handleTrustError(error)
@@ -356,22 +357,27 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
   const { id: subjectId, digestSRI: subjectDigestSRI } = subject as Record<string, any>
 
   try {
-    // Check credential
+    // Fetch and verify the credential schema integrity
     const schemaData = await fetchSchema(schemaId)
     verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+
+    // Validate the credential against the schema
     validateSchemaContent(schemaData, credential)
 
-    // Check subject
+    // Extract the reference URL from the subject if it contains a JSON Schema reference
     const refUrl =
       subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
+
+    // If a reference URL exists, fetch the referenced schema; otherwise, use the subject as-is
     if (refUrl) {
       subjectContent = await fetchSchema<Record<string, string>>(refUrl)
     } else subjectContent = subject
 
+    // Fetch the credential schema that models the subject using the subject ID
+    // and Verify the integrity
     const schemaSubject = await fetchSchema<CredentialSchema>(subjectId)
     verifyDigestSRI(JSON.stringify(schemaSubject), subjectDigestSRI, 'Credential Subject')
-    const schemaObject = JSON.parse(schemaSubject.json_schema)
-    validateSchemaContent(schemaObject, subjectContent)
+    validateSchemaContent(JSON.parse(schemaSubject.json_schema), subjectContent)
     return { type: identifySchema(subjectContent), credentialSubject: subjectContent } as ICredential
   } catch (error) {
     throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
