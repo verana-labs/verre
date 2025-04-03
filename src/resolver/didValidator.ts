@@ -359,7 +359,7 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
     // Check credential
     const schemaData = await fetchSchema(schemaId)
     verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
-    // validateSchemaContent(schemaData, credential) // TODO: validate credential schema
+    validateSchemaContent(schemaData, credential)
 
     // Check subject
     const refUrl =

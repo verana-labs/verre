@@ -76,8 +76,6 @@ export const mockResolverInstance = {
 export const createMockVerifiableCredential = (
   holder: string,
   issuer: string,
-  schemaId: string,
-  schemaType: string,
   credentialSubject: Record<string, any>,
 ) => ({
   '@context': ['https://www.w3.org/2018/credentials/v1'],
@@ -94,12 +92,12 @@ export const createMockVerifiableCredential = (
       issuer: issuer,
       issuanceDate: '2024-02-08T18:38:46+01:00',
       expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString(),
-      type: ['VerifiableCredential', schemaType],
+      type: ['VerifiableCredential', 'JsonSchemaCredential'],
       credentialSubject: {
         ...credentialSubject,
       },
       credentialSchema: {
-        id: schemaId,
+        id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
         type: 'JsonSchema',
         digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
       },
@@ -125,8 +123,6 @@ export const createMockVerifiableCredential = (
 export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   'did:example:123',
   'did:example:123',
-  'https://w3c.github.io/vc-json-schema/schema/json-schema-credential-schema.json',
-  'schema:Service',
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     type: 'JsonSchema',
@@ -151,8 +147,6 @@ export const mockServiceValues = {
 export const mockOrgVerifiableCredential = createMockVerifiableCredential(
   'did:web:example.com',
   'did:web:example.com',
-  'https://w3c.github.io/vc-json-schema/schema/json-schema-credential-schema.json',
-  'schema:Organization',
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
     type: 'JsonSchema',
@@ -177,8 +171,6 @@ export const mockOrgValues = {
 export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCredential(
   'did:example:123',
   'did:example:123',
-  'https://w3c.github.io/vc-json-schema/schema/json-schema-credential-schema.json',
-  'schema:Organization',
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
     type: 'JsonSchema',
