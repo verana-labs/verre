@@ -4,6 +4,7 @@ import type {
   W3cJsonLdVerifiablePresentation,
   W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
+
 import { createHash } from 'crypto'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'

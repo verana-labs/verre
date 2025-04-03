@@ -2,6 +2,7 @@
   "name": "@verana-labs/verre",
   "version": "0.0.1",
   "type": "module",
+  "packageManager": "pnpm@9.15.3",
   "publishConfig": {
     "access": "public"
   },
@@ -10,19 +11,20 @@
     "url": "https://github.com/verana-labs/verre"
   },
   "scripts": {
-    "build": "yarn run clean && yarn run compile",
+    "build": "pnpm run clean && pnpm run compile",
     "clean": "rimraf -rf ./build",
     "compile": "tsc -p tsconfig.json",
-    "prepublishOnly": "yarn run build",
-    "check-types": "yarn check-types:build",
-    "check-types:build": "yarn run tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "pnpm run build",
+    "check-types": "pnpm run check-types:build",
+    "check-types:build": "pnpm run tsc --noEmit -p tsconfig.json",
     "format": "prettier \"src/**/*.ts\" --write",
     "check-format": "prettier -c \"src/**/*.ts\"",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "lint": "eslint \"{src,apps,libs,tests}/**/*.ts\" --fix",
-    "validate": "yarn lint && yarn check-types && yarn check-format"
+    "validate": "pnpm run lint && pnpm run check-types && pnpm run check-format",
+    "prepare": "corepack enable"
   },
   "devDependencies": {
     "@credo-ts/askar": "^0.5.13",
@@ -63,5 +65,10 @@
   "engines": {
     "node": ">= 18"
   },
-  "packageManager": "yarn@3.6.1"
+  "resolutions": {
+    "@credo-ts/askar": "0.5.13",
+    "@credo-ts/core": "0.5.13",
+    "@credo-ts/node": "0.5.13",
+    "@hyperledger/aries-askar-nodejs": "0.2.3"
+  }
 }
