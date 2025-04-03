@@ -1,6 +1,11 @@
 import type { W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 
+import { createHash } from 'crypto'
+
 import { purposes, suites, verify } from '../libraries'
+import { TrustErrorCode } from '../types'
+
+import { TrustError } from './trustError'
 
 /**
  * Validates the proof of a Linked Verifiable Presentation (VP).
@@ -41,4 +46,13 @@ const documentLoader = async (url: string): Promise<{ document: any }> => {
     return { document: contexts[url] }
   }
   throw new Error(`Context not found: ${url}`)
+}
+
+export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
+  const [algorithm, expectedHash] = expectedDigestSRI.split('-')
+  const computedHash = createHash(algorithm).update(schemaJson).digest('base64')
+
+  if (computedHash !== expectedHash) {
+    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
+  }
 }

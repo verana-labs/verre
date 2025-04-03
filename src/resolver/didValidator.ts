@@ -5,7 +5,6 @@ import type {
   W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
 
-import { createHash } from 'crypto'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
@@ -28,6 +27,7 @@ import {
   identifySchema,
   TrustError,
   validateSchemaContent,
+  verifyDigestSRI,
   verifyLinkedVP,
 } from '../utils'
 
@@ -401,14 +401,5 @@ function validateSubject(subject: Record<string, any>) {
       TrustErrorCode.INVALID,
       "Invalid credential subject schema: 'id' must be a valid URL and 'type' must be 'JsonSchema'.",
     )
-  }
-}
-
-function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
-  const [algorithm, expectedHash] = expectedDigestSRI.split('-')
-  const computedHash = createHash(algorithm).update(schemaJson).digest('base64')
-
-  if (computedHash !== expectedHash) {
-    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
   }
 }

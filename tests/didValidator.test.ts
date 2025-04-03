@@ -3,6 +3,7 @@ import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { ECS, resolve, TrustErrorCode, TrustStatus } from '../src'
+import * as signatureVerifier from '../src/utils/verifier'
 
 import {
   didDocumentChatbot,
@@ -20,10 +21,6 @@ import {
   setupAgent,
 } from './__mocks__'
 
-vi.mock('../src/utils/signatureVerifier', () => ({
-  verifyLinkedVP: vi.fn().mockResolvedValue(true),
-}))
-
 describe('DidValidator', () => {
   let agent: Agent
   let didResolverService: DidResolverService
@@ -36,6 +33,7 @@ describe('DidValidator', () => {
     })
     didResolverService = agent.dependencyManager.resolve(DidResolverService)
     agentContext = agent.dependencyManager.resolve(AgentContext)
+    vi.spyOn(signatureVerifier, 'verifyLinkedVP').mockResolvedValue(true)
     fetchMocker.enable()
 
     // Creates a resolver registry that integrates DID resolution strategies
