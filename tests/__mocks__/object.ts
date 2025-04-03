@@ -85,7 +85,7 @@ export const createMockVerifiableCredential = (
   type: ['VerifiablePresentation'],
   verifiableCredential: [
     {
-      '@context': [
+      context: [
         'https://www.w3.org/2018/credentials/v1',
         {
           schema: 'https://schema.org/',
@@ -100,7 +100,8 @@ export const createMockVerifiableCredential = (
       },
       credentialSchema: {
         id: schemaId,
-        type: 'JsonSchemaCredential',
+        type: 'JsonSchema',
+        digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
       },
       proof: {
         type: 'Ed25519Signature2018',
@@ -124,51 +125,67 @@ export const createMockVerifiableCredential = (
 export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   'did:example:123',
   'did:example:123',
-  'https://ecs-trust-registry/service-credential-schema-credential.json',
+  'https://w3c.github.io/vc-json-schema/schema/json-schema-credential-schema.json',
   'schema:Service',
   {
-    id: 'did:example:123',
-    name: 'Example LLC',
-    type: 'ServiceCredential',
-    description: 'Example service credential',
-    logo: 'iVBORw0KGgoAAAANSUhEUgAAA...',
-    minimumAgeRequired: 18,
-    termsAndConditions: 'https://example.com/terms',
-    privacyPolicy: 'https://example.com/privacy',
+    id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+    type: 'JsonSchema',
+    jsonSchema: {
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345679',
+    },
+    digestSRI: 'sha384-57G/HBKgp3Pd2TsDegvouVagiWpbE8dW8as4zw/tkRg288SWqOZNi4ZIySRvdfnt',
   },
 )
+
+export const mockServiceValues = {
+  id: 'did:example:123',
+  name: 'Example LLC',
+  type: 'ServiceCredential',
+  description: 'Example service credential',
+  logo: 'iVBORw0KGgoAAAANSUhEUgAAA...',
+  minimumAgeRequired: 18,
+  termsAndConditions: 'https://example.com/terms',
+  privacyPolicy: 'https://example.com/privacy',
+}
 
 export const mockOrgVerifiableCredential = createMockVerifiableCredential(
   'did:web:example.com',
   'did:web:example.com',
-  'https://ecs-trust-registry/organization-credential-schema-credential.json',
+  'https://w3c.github.io/vc-json-schema/schema/json-schema-credential-schema.json',
   'schema:Organization',
   {
-    id: 'did:example:456',
-    name: 'Example Corp',
-    logo: 'iVBORw0KGgoAAAANSUhEUgAAAAUA...',
-    registryId: 'EX-123456',
-    registryUrl: 'https://registry.example.com/org/EX-123456',
-    address: '123 Example Street, Example City, EX 10001',
-    type: 'PUBLIC',
-    countryCode: 'US',
+    id: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
+    type: 'JsonSchema',
+    jsonSchema: {
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345672',
+    },
+    digestSRI: 'sha384-v2VdV9qYgGCe1qyerE7jY8LTfvgD88UgqNgDpPjDD0yTWt5P81PUjhyZZnpRjh3P',
   },
 )
+
+export const mockOrgValues = {
+  id: 'did:example:456',
+  name: 'Example Corp',
+  logo: 'iVBORw0KGgoAAAANSUhEUgAAAAUA...',
+  registryId: 'EX-123456',
+  registryUrl: 'https://registry.example.com/org/EX-123456',
+  address: '123 Example Street, Example City, EX 10001',
+  type: 'PUBLIC',
+  countryCode: 'US',
+}
 
 export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCredential(
   'did:example:123',
   'did:example:123',
-  'https://ecs-trust-registry/organization-credential-schema-credential.json',
+  'https://w3c.github.io/vc-json-schema/schema/json-schema-credential-schema.json',
   'schema:Organization',
   {
-    id: 'did:example:456',
-    name: 'Example Corp',
-    logo: 'iVBORw0KGgoAAAANSUhEUgAAAAUA...',
-    registryId: 'EX-123456',
-    registryUrl: 'https://registry.example.com/org/EX-123456',
-    address: '123 Example Street, Example City, EX 10001',
-    type: 'PUBLIC',
-    countryCode: 'US',
+    id: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
+    type: 'JsonSchema',
+    jsonSchema: {
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345674',
+    },
+    digestSRI: 'sha384-v2VdV9qYgGCe1qyerE7jY8LTfvgD88UgqNgDpPjDD0yTWt5P81PUjhyZZnpRjh3P',
   },
 )
 
@@ -194,7 +211,7 @@ export const mockPermission = {
   vp_current_deposit: 20,
 }
 
-export const mockCredentialSchema = {
+export const mockCredentialSchemaOrg = {
   id: 100,
   tr_id: 1001,
   created: '2024-03-12T12:00:00Z',
@@ -202,6 +219,23 @@ export const mockCredentialSchema = {
   archived: '',
   deposit: 5000,
   json_schema: JSON.stringify(loadSchema(ECS.ORG)),
+  issuer_grantor_validation_validity_period: 365,
+  verifier_grantor_validation_validity_period: 180,
+  issuer_validation_validity_period: 730,
+  verifier_validation_validity_period: 90,
+  holder_validation_validity_period: 60,
+  issuer_perm_management_mode: 'STRICT',
+  verifier_perm_management_mode: 'FLEXIBLE',
+}
+
+export const mockCredentialSchemaSer = {
+  id: 101,
+  tr_id: 1002,
+  created: '2024-03-12T12:00:00Z',
+  modified: '2024-03-12T12:30:00Z',
+  archived: '',
+  deposit: 5000,
+  json_schema: JSON.stringify(loadSchema(ECS.SERVICE)),
   issuer_grantor_validation_validity_period: 365,
   verifier_grantor_validation_validity_period: 180,
   issuer_validation_validity_period: 730,

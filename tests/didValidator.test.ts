@@ -2,17 +2,20 @@ import { Agent, AgentContext, DidResolverService } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, loadSchema, resolve, TrustErrorCode, TrustStatus } from '../src'
+import { ECS, resolve, TrustErrorCode, TrustStatus } from '../src'
 
 import {
   didDocumentChatbot,
   fetchMocker,
-  mockCredentialSchema,
+  mockCredentialSchemaOrg,
+  mockCredentialSchemaSer,
   mockDidDocument,
+  mockOrgValues,
   mockOrgVerifiableCredential,
   mockOrgVerifiableCredentialWithoutIssuer,
   mockPermission,
   mockResolverInstance,
+  mockServiceValues,
   mockServiceVerifiableCredential,
   setupAgent,
 } from './__mocks__'
@@ -80,17 +83,19 @@ describe('DidValidator', () => {
         .mockResolvedValue({ ...mockResolverInstance })
       fetchMocker.setMockResponses({
         'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
-        'https://ecs-trust-registry/service-credential-schema-credential.json': {
-          ok: true,
-          status: 200,
-          data: { json_schema: JSON.stringify(loadSchema(ECS.SERVICE)) },
-        },
         'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVerifiableCredential },
-        'https://ecs-trust-registry/organization-credential-schema-credential.json': {
+        'https://vpr-hostname/vpr/v1/cs/js/12345671': {
           ok: true,
           status: 200,
-          data: { json_schema: JSON.stringify(loadSchema(ECS.ORG)) },
+          data: mockCredentialSchemaOrg,
         },
+        'https://vpr-hostname/vpr/v1/cs/js/12345672': { ok: true, status: 200, data: mockOrgValues },
+        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+          ok: true,
+          status: 200,
+          data: mockCredentialSchemaSer,
+        },
+        'https://vpr-hostname/vpr/v1/cs/js/12345679': { ok: true, status: 200, data: mockServiceValues },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
       })
 
@@ -103,11 +108,11 @@ describe('DidValidator', () => {
           ...mockDidDocument,
           verifiableService: {
             type: ECS.SERVICE,
-            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+            credentialSubject: mockServiceValues,
           },
           issuerCredential: {
             type: ECS.ORG,
-            credentialSubject: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
+            credentialSubject: mockOrgValues,
           },
         }),
       )
@@ -123,24 +128,26 @@ describe('DidValidator', () => {
         .mockResolvedValue({ ...mockResolverInstance })
       fetchMocker.setMockResponses({
         'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
-        'https://ecs-trust-registry/service-credential-schema-credential.json': {
-          ok: true,
-          status: 200,
-          data: { json_schema: JSON.stringify(loadSchema(ECS.SERVICE)) },
-        },
         'https://example.com/vp-org': {
           ok: true,
           status: 200,
           data: mockOrgVerifiableCredentialWithoutIssuer,
         },
-        'https://ecs-trust-registry/organization-credential-schema-credential.json': {
+        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
           ok: true,
           status: 200,
-          data: { json_schema: JSON.stringify(loadSchema(ECS.ORG)) },
+          data: mockCredentialSchemaOrg,
         },
+        'https://vpr-hostname/vpr/v1/cs/js/12345674': { ok: true, status: 200, data: mockOrgValues },
+        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+          ok: true,
+          status: 200,
+          data: mockCredentialSchemaSer,
+        },
+        'https://vpr-hostname/vpr/v1/cs/js/12345679': { ok: true, status: 200, data: mockServiceValues },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
         'http://testTrust.org/prem/v1/get': { ok: true, status: 200, data: mockPermission },
-        'http://testTrust.org/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchema },
+        'http://testTrust.org/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
       // Execute method under test
@@ -152,7 +159,7 @@ describe('DidValidator', () => {
           ...mockDidDocument,
           verifiableService: {
             type: ECS.SERVICE,
-            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+            credentialSubject: mockServiceValues,
           },
         }),
       )
@@ -168,24 +175,26 @@ describe('DidValidator', () => {
         .mockResolvedValue({ ...mockResolverInstance })
       fetchMocker.setMockResponses({
         'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
-        'https://ecs-trust-registry/service-credential-schema-credential.json': {
-          ok: true,
-          status: 200,
-          data: { json_schema: JSON.stringify(loadSchema(ECS.SERVICE)) },
-        },
         'https://example.com/vp-org': {
           ok: true,
           status: 200,
           data: mockOrgVerifiableCredentialWithoutIssuer,
         },
-        'https://ecs-trust-registry/organization-credential-schema-credential.json': {
+        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
           ok: true,
           status: 200,
-          data: { json_schema: JSON.stringify(loadSchema(ECS.ORG)) },
+          data: mockCredentialSchemaOrg,
         },
+        'https://vpr-hostname/vpr/v1/cs/js/12345674': { ok: true, status: 200, data: mockOrgValues },
+        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+          ok: true,
+          status: 200,
+          data: mockCredentialSchemaSer,
+        },
+        'https://vpr-hostname/vpr/v1/cs/js/12345679': { ok: true, status: 200, data: mockServiceValues },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
         'http://testTrust.com/prem/v1/get': { ok: true, status: 200, data: mockPermission },
-        'http://testTrust.com/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchema },
+        'http://testTrust.com/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
       // Execute method under test
@@ -197,7 +206,7 @@ describe('DidValidator', () => {
           ...mockDidDocument,
           verifiableService: {
             type: ECS.SERVICE,
-            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+            credentialSubject: mockServiceValues,
           },
         }),
       )

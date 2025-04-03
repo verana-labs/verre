@@ -1,12 +1,10 @@
-import type {
-  W3cVerifiableCredential,
-  W3cPresentation,
-  W3cCredentialSubject,
+import {
+  type W3cVerifiableCredential,
+  type W3cPresentation,
   W3cJsonLdVerifiablePresentation,
+  W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
-
-import Ajv, { ValidateFunction } from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
+import { createHash } from 'crypto'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
@@ -17,13 +15,20 @@ import {
   PermissionType,
   ResolverConfig,
   TrustedResolution,
-  ServiceWithCredential,
   TrustErrorCode,
-  DidDocumentResult,
   IService,
   ICredential,
 } from '../types'
-import { buildMetadata, checkSchemaMatch, identifySchema, TrustError, verifyLinkedVP } from '../utils'
+import {
+  buildMetadata,
+  checkSchemaMatch,
+  fetchSchema,
+  handleTrustError,
+  identifySchema,
+  TrustError,
+  validateSchemaContent,
+  verifyLinkedVP,
+} from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
 
@@ -40,45 +45,16 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
   }
 
   const { trustRegistryUrl, didResolver } = options
-
   try {
     const didDocument = await retrieveDidDocument(did, didResolver)
-    const { verifiableCredentials } = await processDidDocument(didDocument)
 
-    let issuerCredential: ICredential | undefined
-    let verifiableService: IService | undefined
-
-    for (const vc of verifiableCredentials) {
-      const schema = identifySchema(vc.credentialSubject)
-      if (schema && [ECS.ORG, ECS.PERSON].includes(schema) && vc.issuer === did) {
-        issuerCredential = {
-          type: schema ?? 'unknown',
-          credentialSubject: vc.credentialSubject,
-        } as ICredential
-      }
-      if (schema === ECS.SERVICE) {
-        verifiableService = { type: ECS.SERVICE, credentialSubject: vc.credentialSubject } as IService
-      }
-      if (issuerCredential && verifiableService) break // Exit early if both are found
+    try {
+      return await processDidDocument(did, didDocument, trustRegistryUrl)
+    } catch (error) {
+      return handleTrustError(error, { didDocument })
     }
-
-    // If proof of trust exists, return the result with the verifiableService (issuer equals did)
-    if (issuerCredential) {
-      return {
-        didDocument,
-        metadata: buildMetadata(),
-        issuerCredential,
-        verifiableService,
-      }
-    }
-
-    // Otherwise, check the trust registry
-    return checkTrustRegistry(did, didDocument, trustRegistryUrl, verifiableService)
   } catch (error) {
-    if (error instanceof TrustError) {
-      return { metadata: error.metadata }
-    }
-    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) }
+    return handleTrustError(error)
   }
 }
 
@@ -97,17 +73,31 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  *
  * Note: If a Verifiable Presentation contains multiple credentials, only the first one is processed.
  */
-async function processDidDocument(didDocument: DIDDocument): Promise<DidDocumentResult> {
+async function processDidDocument(
+  did: string,
+  didDocument: DIDDocument,
+  trustRegistryUrl: string,
+): Promise<TrustedResolution> {
   if (!didDocument?.service)
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
 
-  const verifiableCredentials: W3cVerifiableCredential[] = []
+  const credentials: ICredential[] = []
+  let issuerCredential: ICredential | undefined
+  let verifiableService: IService | undefined
+
   await Promise.all(
     didDocument.service.map(async service => {
       if (service.type === 'LinkedVerifiablePresentation') {
-        const serviceWithVP = await extractCredentialFromVP(service)
-        if (serviceWithVP.verifiablePresentation) {
-          verifiableCredentials.push(await getVerifiedCredential(serviceWithVP.verifiablePresentation))
+        const vp = await extractCredentialFromVP(service)
+        if (vp) {
+          const credential = await getVerifiedCredential(vp)
+          credentials.push(credential)
+          const issuer = Array.isArray(vp.verifiableCredential)
+            ? (vp.verifiableCredential[0] as W3cJsonLdVerifiableCredential)?.issuer
+            : (vp.verifiableCredential as W3cJsonLdVerifiableCredential)?.issuer
+          if ([ECS.ORG, ECS.PERSON].includes(credential.type as ECS) && issuer === did)
+            issuerCredential = credential
+          if (ECS.SERVICE === credential.type) verifiableService = credential as IService
         }
       }
       if (service.type === 'VerifiablePublicRegistry') await queryTrustRegistry(service)
@@ -115,7 +105,17 @@ async function processDidDocument(didDocument: DIDDocument): Promise<DidDocument
     }),
   )
 
-  return { verifiableCredentials }
+  // If proof of trust exists, return the result with the verifiableService (issuer equals did)
+  if (issuerCredential && verifiableService)
+    return { didDocument, metadata: buildMetadata(), issuerCredential, verifiableService }
+  if (!issuerCredential && verifiableService) {
+    // Otherwise, check the trust registry
+    return checkTrustRegistry(did, didDocument, trustRegistryUrl, verifiableService)
+  }
+  throw new TrustError(
+    TrustErrorCode.NOT_FOUND,
+    'Valid issuerCredential and verifiableService were not found',
+  )
 }
 
 /**
@@ -257,7 +257,7 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
  * @returns A promise resolving to the service with an attached Verifiable Presentation.
  * @throws An error if no valid endpoints are found or if the request fails.
  */
-async function extractCredentialFromVP(service: Service): Promise<ServiceWithCredential> {
+async function extractCredentialFromVP(service: Service): Promise<W3cPresentation> {
   const endpoints = Array.isArray(service.serviceEndpoint)
     ? service.serviceEndpoint
     : [service.serviceEndpoint]
@@ -266,15 +266,7 @@ async function extractCredentialFromVP(service: Service): Promise<ServiceWithCre
 
   for (const endpoint of validEndpoints) {
     try {
-      const response = await fetch(endpoint)
-      if (response.ok) {
-        const verifiablePresentation = (await response.json()) as W3cPresentation
-        return { ...service, verifiablePresentation }
-      }
-      throw new TrustError(
-        TrustErrorCode.INVALID_REQUEST,
-        `Error fetching VP from ${endpoint}: ${response.statusText}`,
-      )
+      return await fetchSchema<W3cPresentation>(endpoint)
     } catch (error) {
       throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Failed to fetch VP from ${endpoint}: ${error}`)
     }
@@ -319,7 +311,7 @@ async function queryTrustRegistry(service: Service) {
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-async function getVerifiedCredential(vp: W3cPresentation): Promise<W3cVerifiableCredential> {
+async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
@@ -347,7 +339,7 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<W3cVerifiable
  * @returns A promise resolving to the validated Verifiable Credential.
  * @throws Error if validation fails.
  */
-async function checkCredentialSchema(credential: W3cVerifiableCredential): Promise<W3cVerifiableCredential> {
+async function checkCredentialSchema(credential: W3cVerifiableCredential): Promise<ICredential> {
   const { credentialSchema, credentialSubject } = credential
   if (!credentialSchema || !credentialSubject) {
     throw new TrustError(
@@ -356,48 +348,66 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
     )
   }
 
+  let subjectContent
   const schema = Array.isArray(credentialSchema) ? credentialSchema[0] : credentialSchema
-  let subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
-  const { id, type } = schema as Record<string, any>
-  if (!id?.startsWith('http') || type !== 'JsonSchemaCredential') {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Invalid credential schema: id must be a valid URL and type must be 'JsonSchemaCredential'.",
-    )
-  }
+  const subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
+  const { id: schemaId, digestSRI: schemaDigestSRI } = schema as Record<string, any>
+  const { id: subjectId, digestSRI: subjectDigestSRI } = subject as Record<string, any>
+  validateSchema(schema)
 
   try {
     // Check credential
-    const schemaResponse = await fetch(id)
-    if (!schemaResponse.ok)
-      throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Failed to fetch schema from ${id}`)
-    const schemaData = (await schemaResponse.json()) as CredentialSchema
-    // Check Schema
+    const schemaData = await fetchSchema(schemaId)
+    verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+    // validateSchemaContent(schemaData, credential) // TODO: validate credential schema
+
+    // Check subject
     const refUrl =
       subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
     if (refUrl) {
-      const refResponse = await fetch(refUrl)
-      if (!refResponse.ok)
-        throw new TrustError(
-          TrustErrorCode.INVALID_REQUEST,
-          `Failed to fetch referenced schema from ${refUrl}`,
-        )
-      subject = (await refResponse.json()) as W3cCredentialSubject
-    }
+      validateSubject(subject)
+      subjectContent = await fetchSchema<Record<string, string>>(refUrl)
+    } else subjectContent = subject
 
-    const schemaObject = JSON.parse(schemaData.json_schema)
-    const ajv = new Ajv()
-    addFormats(ajv)
-    const validate: ValidateFunction = ajv.compile(schemaObject)
-
-    if (!validate(subject)) {
-      throw new TrustError(
-        TrustErrorCode.SCHEMA_MISMATCH,
-        `Credential does not conform to schema: ${JSON.stringify(validate.errors)}`,
-      )
-    }
-    return credential
+    const schemaSubject = await fetchSchema<CredentialSchema>(subjectId)
+    verifyDigestSRI(JSON.stringify(schemaSubject), subjectDigestSRI, 'Credential Subject')
+    const schemaObject = JSON.parse(schemaSubject.json_schema)
+    validateSchemaContent(schemaObject, subjectContent)
+    return { type: identifySchema(subjectContent), credentialSubject: subjectContent } as ICredential
   } catch (error) {
     throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
+  }
+}
+
+function validateSchema(schema: Record<string, any>) {
+  const isValidSchema =
+    schema?.id?.startsWith('http') &&
+    ['JsonSchemaCredential', 'JsonSchema'].some(t => schema.type?.includes(t))
+
+  if (!isValidSchema) {
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Invalid credential schema: 'id' must be a valid URL and 'type' must be 'JsonSchemaCredential' or 'JsonSchema'.",
+    )
+  }
+}
+
+function validateSubject(subject: Record<string, any>) {
+  const isValidSubject = subject?.id?.startsWith('http') && subject.type?.includes('JsonSchema')
+
+  if (!isValidSubject) {
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Invalid credential subject schema: 'id' must be a valid URL and 'type' must be 'JsonSchema'.",
+    )
+  }
+}
+
+function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
+  const [algorithm, expectedHash] = expectedDigestSRI.split('-')
+  const computedHash = createHash(algorithm).update(schemaJson).digest('base64')
+
+  if (computedHash !== expectedHash) {
+    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
   }
 }

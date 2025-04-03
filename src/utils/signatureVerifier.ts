@@ -1,7 +1,5 @@
 import type { W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 
-import crypto from 'crypto'
-
 import { purposes, suites, verify } from '../libraries'
 
 /**
@@ -19,14 +17,12 @@ export async function verifyLinkedVP(document: W3cJsonLdVerifiablePresentation):
     })
     const purpose = new purposes.AssertionProofPurpose()
 
-    console.log(document)
     const result = await verify({
       document,
       suite,
       purpose,
       documentLoader,
     })
-    console.log(result)
 
     return result.verified
   } catch (error) {
@@ -45,15 +41,4 @@ const documentLoader = async (url: string): Promise<{ document: any }> => {
     return { document: contexts[url] }
   }
   throw new Error(`Context not found: ${url}`)
-}
-
-export async function verifyDigestSRI(schemaUrl: string, expectedDigestSRI: string): Promise<boolean> {
-  const [algorithm, expectedHash] = expectedDigestSRI.split('-')
-
-  const response = await fetch(schemaUrl)
-  if (!response.ok) throw new Error(`Failed to fetch schema: ${response.statusText}`)
-  const schemaJson = await response.text()
-
-  const computedHash = crypto.createHash(algorithm).update(schemaJson).digest('base64')
-  return computedHash === expectedHash
 }

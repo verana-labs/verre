@@ -1,4 +1,4 @@
-import type { W3cVerifiableCredential, W3cPresentation } from '@credo-ts/core'
+import type { W3cPresentation } from '@credo-ts/core'
 
 import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 
@@ -23,7 +23,7 @@ export type ServiceWithCredential = {
 }
 
 export type DidDocumentResult = {
-  verifiableCredentials: W3cVerifiableCredential[]
+  credentials: ICredential[]
 }
 
 // Enums
@@ -64,9 +64,11 @@ export enum TrustStatus {
 export enum TrustErrorCode {
   INVALID = 'invalid',
   NOT_FOUND = 'not_found',
+  NOT_SUPPORTED = 'not_supported',
   INVALID_ISSUER = 'invalid_issuer',
   INVALID_REQUEST = 'invalid_request',
   SCHEMA_MISMATCH = 'schema_mismatch',
+  VERIFICATION_FAILED = 'verification_failed',
 }
 
 // interfaces
