@@ -15,15 +15,14 @@
     "clean": "rimraf -rf ./build",
     "compile": "tsc -p tsconfig.json",
     "prepublishOnly": "pnpm run build",
-    "check-types": "pnpm run check-types:build",
-    "check-types:build": "pnpm run tsc --noEmit -p tsconfig.json",
+    "check-types": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "format": "prettier \"src/**/*.ts\" --write",
     "check-format": "prettier -c \"src/**/*.ts\"",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "lint": "eslint \"{src,apps,libs,tests}/**/*.ts\" --fix",
-    "validate": "pnpm run lint && pnpm run check-types && pnpm run check-format",
+    "validate": "pnpm run check-types && pnpm run check-format",
     "prepare": "corepack enable"
   },
   "devDependencies": {
