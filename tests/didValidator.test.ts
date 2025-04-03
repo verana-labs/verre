@@ -28,15 +28,20 @@ describe('DidValidator', () => {
   let didResolver: Resolver
 
   beforeEach(async () => {
+    // Create an agent for Credo-TS using the DID resolver
     agent = await setupAgent({
-      name: 'did service test',
+      name: 'DID Service Test',
     })
     didResolverService = agent.dependencyManager.resolve(DidResolverService)
     agentContext = agent.dependencyManager.resolve(AgentContext)
+
+    // Mock verifySignature function since there is no credential signature
     vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue(true)
+
+    // Mock global fetch
     fetchMocker.enable()
 
-    // Creates a resolver registry that integrates DID resolution strategies
+    // Create a resolver registry that integrates DID resolution strategies (using the Credo-TS dependency)
     didResolver = new Resolver({
       web: async (did: string) => didResolverService.resolve(agentContext, did),
       key: async (did: string) => didResolverService.resolve(agentContext, did),
