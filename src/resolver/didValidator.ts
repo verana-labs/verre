@@ -28,7 +28,7 @@ import {
   TrustError,
   validateSchemaContent,
   verifyDigestSRI,
-  verifyLinkedVP,
+  verifySignature,
 } from '../utils'
 
 const resolverInstance = new Resolver(didWeb.getResolver())
@@ -326,7 +326,7 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> 
   if (!validCredential) {
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
-  const isVerified = await verifyLinkedVP(vp as W3cJsonLdVerifiablePresentation)
+  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation)
   if (!isVerified) {
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }

@@ -33,7 +33,7 @@ describe('DidValidator', () => {
     })
     didResolverService = agent.dependencyManager.resolve(DidResolverService)
     agentContext = agent.dependencyManager.resolve(AgentContext)
-    vi.spyOn(signatureVerifier, 'verifyLinkedVP').mockResolvedValue(true)
+    vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue(true)
     fetchMocker.enable()
 
     // Creates a resolver registry that integrates DID resolution strategies
