@@ -1,4 +1,4 @@
-import type{
+import type {
   W3cVerifiableCredential,
   W3cPresentation,
   W3cJsonLdVerifiablePresentation,
