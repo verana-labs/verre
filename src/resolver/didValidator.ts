@@ -1,6 +1,6 @@
-import {
-  type W3cVerifiableCredential,
-  type W3cPresentation,
+import type{
+  W3cVerifiableCredential,
+  W3cPresentation,
   W3cJsonLdVerifiablePresentation,
   W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
