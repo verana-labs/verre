@@ -354,7 +354,6 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
   const subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
   const { id: schemaId, digestSRI: schemaDigestSRI } = schema as Record<string, any>
   const { id: subjectId, digestSRI: subjectDigestSRI } = subject as Record<string, any>
-  validateSchema(schema)
 
   try {
     // Check credential
@@ -366,7 +365,6 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
     const refUrl =
       subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
     if (refUrl) {
-      validateSubject(subject)
       subjectContent = await fetchSchema<Record<string, string>>(refUrl)
     } else subjectContent = subject
 
@@ -377,29 +375,5 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
     return { type: identifySchema(subjectContent), credentialSubject: subjectContent } as ICredential
   } catch (error) {
     throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
-  }
-}
-
-function validateSchema(schema: Record<string, any>) {
-  const isValidSchema =
-    schema?.id?.startsWith('http') &&
-    ['JsonSchemaCredential', 'JsonSchema'].some(t => schema.type?.includes(t))
-
-  if (!isValidSchema) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Invalid credential schema: 'id' must be a valid URL and 'type' must be 'JsonSchemaCredential' or 'JsonSchema'.",
-    )
-  }
-}
-
-function validateSubject(subject: Record<string, any>) {
-  const isValidSubject = subject?.id?.startsWith('http') && subject.type?.includes('JsonSchema')
-
-  if (!isValidSubject) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Invalid credential subject schema: 'id' must be a valid URL and 'type' must be 'JsonSchema'.",
-    )
   }
 }
