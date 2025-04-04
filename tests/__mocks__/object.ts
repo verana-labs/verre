@@ -76,6 +76,7 @@ export const mockResolverInstance = {
 export const createMockVerifiableCredential = (
   holder: string,
   issuer: string,
+  credentialSchema: Record<string, any>,
   credentialSubject: Record<string, any>,
 ) => ({
   '@context': ['https://www.w3.org/2018/credentials/v1'],
@@ -89,6 +90,7 @@ export const createMockVerifiableCredential = (
           schema: 'https://schema.org/',
         },
       ],
+      id: 'https://example.tr/credentials/OrganizationJsonSchemaCredential',
       issuer: issuer,
       issuanceDate: '2024-02-08T18:38:46+01:00',
       expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString(),
@@ -97,9 +99,7 @@ export const createMockVerifiableCredential = (
         ...credentialSubject,
       },
       credentialSchema: {
-        id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
-        type: 'JsonSchema',
-        digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+        ...credentialSchema,
       },
       proof: {
         type: 'Ed25519Signature2018',
@@ -124,58 +124,108 @@ export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   'did:example:123',
   'did:example:123',
   {
+    id: 'https://ecs-trust-registry/service-credential-schema-credential.json',
+    type: 'JsonSchemaCredential',
+  },
+  {
+    id: 'did:example:123',
+    name: 'Example LLC',
+    type: 'ServiceCredential',
+    description: 'Example service credential',
+    logo: 'iVBORw0KGgoAAAANSUhEUgAAA...',
+    minimumAgeRequired: 18,
+    termsAndConditions: 'https://example.com/terms',
+    privacyPolicy: 'https://example.com/privacy',
+  },
+)
+
+export const mockServiceSchema = createMockVerifiableCredential(
+  'did:example:123',
+  'did:example:123',
+  {
+    id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
+    type: 'JsonSchema',
+    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+  },
+  {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345679',
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
     digestSRI: 'sha384-57G/HBKgp3Pd2TsDegvouVagiWpbE8dW8as4zw/tkRg288SWqOZNi4ZIySRvdfnt',
   },
 )
 
-export const mockServiceValues = {
-  id: 'did:example:123',
-  name: 'Example LLC',
-  type: 'ServiceCredential',
-  description: 'Example service credential',
-  logo: 'iVBORw0KGgoAAAANSUhEUgAAA...',
-  minimumAgeRequired: 18,
-  termsAndConditions: 'https://example.com/terms',
-  privacyPolicy: 'https://example.com/privacy',
-}
-
 export const mockOrgVerifiableCredential = createMockVerifiableCredential(
   'did:web:example.com',
   'did:web:example.com',
   {
+    id: 'https://ecs-trust-registry/org-credential-schema-credential.json',
+    type: 'JsonSchemaCredential',
+  },
+  {
+    id: 'did:example:456',
+    name: 'Example Corp',
+    logo: 'iVBORw0KGgoAAAANSUhEUgAAAAUA...',
+    registryId: 'EX-123456',
+    registryUrl: 'https://registry.example.com/org/EX-123456',
+    address: '123 Example Street, Example City, EX 10001',
+    type: 'PUBLIC',
+    countryCode: 'US',
+  },
+)
+
+export const mockOrgSchema = createMockVerifiableCredential(
+  'did:example:123',
+  'did:example:123',
+  {
+    id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
+    type: 'JsonSchema',
+    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+  },
+  {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345672',
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
     },
     digestSRI: 'sha384-v2VdV9qYgGCe1qyerE7jY8LTfvgD88UgqNgDpPjDD0yTWt5P81PUjhyZZnpRjh3P',
   },
 )
 
-export const mockOrgValues = {
-  id: 'did:example:456',
-  name: 'Example Corp',
-  logo: 'iVBORw0KGgoAAAANSUhEUgAAAAUA...',
-  registryId: 'EX-123456',
-  registryUrl: 'https://registry.example.com/org/EX-123456',
-  address: '123 Example Street, Example City, EX 10001',
-  type: 'PUBLIC',
-  countryCode: 'US',
-}
-
 export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCredential(
   'did:example:123',
   'did:example:123',
   {
+    id: 'https://ecs-trust-registry/org-credential-schema-credential.json',
+    type: 'JsonSchemaCredential',
+  },
+  {
+    id: 'did:example:456',
+    name: 'Example Corp',
+    logo: 'iVBORw0KGgoAAAANSUhEUgAAAAUA...',
+    registryId: 'EX-123456',
+    registryUrl: 'https://registry.example.com/org/EX-123456',
+    address: '123 Example Street, Example City, EX 10001',
+    type: 'PUBLIC',
+    countryCode: 'US',
+  },
+)
+
+export const mockOrgSchemaWithoutIssuer = createMockVerifiableCredential(
+  'did:example:123',
+  'did:example:123',
+  {
+    id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
+    type: 'JsonSchema',
+    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+  },
+  {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345674',
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
     },
     digestSRI: 'sha384-v2VdV9qYgGCe1qyerE7jY8LTfvgD88UgqNgDpPjDD0yTWt5P81PUjhyZZnpRjh3P',
   },

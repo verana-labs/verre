@@ -332,7 +332,7 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> 
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }
 
-  return await checkCredentialSchema(validCredential)
+  return await processCredential(validCredential)
 }
 
 /**
@@ -341,7 +341,10 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> 
  * @returns A promise resolving to the validated Verifiable Credential.
  * @throws Error if validation fails.
  */
-async function checkCredentialSchema(credential: W3cVerifiableCredential): Promise<ICredential> {
+async function processCredential(
+  credential: W3cVerifiableCredential,
+  attrs?: Record<string, string>,
+): Promise<ICredential> {
   const { credentialSchema, credentialSubject } = credential
   if (!credentialSchema || !credentialSubject) {
     throw new TrustError(
@@ -349,37 +352,43 @@ async function checkCredentialSchema(credential: W3cVerifiableCredential): Promi
       "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
     )
   }
-
-  let subjectContent
   const schema = Array.isArray(credentialSchema) ? credentialSchema[0] : credentialSchema
   const subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
-  const { id: schemaId, digestSRI: schemaDigestSRI } = schema as Record<string, any>
-  const { id: subjectId, digestSRI: subjectDigestSRI } = subject as Record<string, any>
 
-  try {
-    // Fetch and verify the credential schema integrity
-    const schemaData = await fetchSchema(schemaId)
-    verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
-
-    // Validate the credential against the schema
-    validateSchemaContent(schemaData, credential)
-
-    // Extract the reference URL from the subject if it contains a JSON Schema reference
-    const refUrl =
-      subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
-
-    // If a reference URL exists, fetch the referenced schema; otherwise, use the subject as-is
-    if (refUrl) {
-      subjectContent = await fetchSchema<Record<string, string>>(refUrl)
-    } else subjectContent = subject
-
-    // Fetch the credential schema that models the subject using the subject ID
-    // and Verify the integrity
-    const schemaSubject = await fetchSchema<CredentialSchema>(subjectId)
-    verifyDigestSRI(JSON.stringify(schemaSubject), subjectDigestSRI, 'Credential Subject')
-    validateSchemaContent(JSON.parse(schemaSubject.json_schema), subjectContent)
-    return { type: identifySchema(subjectContent), credentialSubject: subjectContent } as ICredential
-  } catch (error) {
-    throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
+  if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Credential schema type must be 'JsonSchemaCredential' or 'JsonSchema'.",
+    )
+  if (schema.type === 'JsonSchemaCredential') {
+    const jsonSchemaCredential = await fetchSchema<W3cVerifiableCredential>(schema.id)
+    return processCredential(jsonSchemaCredential, subject as Record<string, string>)
   }
+
+  if (schema.type === 'JsonSchema') {
+    const { digestSRI: schemaDigestSRI } = schema as Record<string, any>
+    const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
+    try {
+      // Fetch and verify the credential schema integrity
+      const schemaData = await fetchSchema(schema.id)
+      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+
+      // Validate the credential against the schema
+      validateSchemaContent(schemaData, credential)
+
+      // Extract the reference URL from the subject if it contains a JSON Schema reference
+      const refUrl =
+        subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
+
+      // If a reference URL exists, fetch the referenced schema
+      const subjectSchema = await fetchSchema<CredentialSchema>(refUrl)
+      // Verify the integrity
+      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+      validateSchemaContent(JSON.parse(subjectSchema.json_schema), attrs)
+      return { type: identifySchema(attrs), credentialSubject: attrs } as ICredential
+    } catch (error) {
+      throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
+    }
+  }
+  throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, 'Failed to validate credential')
 }
