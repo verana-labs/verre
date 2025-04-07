@@ -90,7 +90,7 @@ async function processDidDocument(
   await Promise.all(
     didDocument.service.map(async service => {
       if (service.type === 'LinkedVerifiablePresentation') {
-        const vp = await extractCredentialFromVP(service)
+        const vp = await resolveServiceVP(service)
         if (vp) {
           const credential = await getVerifiedCredential(vp)
           credentials.push(credential)
@@ -259,14 +259,13 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
  * @returns A promise resolving to the service with an attached Verifiable Presentation.
  * @throws An error if no valid endpoints are found or if the request fails.
  */
-async function extractCredentialFromVP(service: Service): Promise<W3cPresentation> {
+async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
   const endpoints = Array.isArray(service.serviceEndpoint)
     ? service.serviceEndpoint
     : [service.serviceEndpoint]
-  const validEndpoints = endpoints.filter(ep => typeof ep === 'string') as string[]
-  if (!validEndpoints.length) throw new TrustError(TrustErrorCode.NOT_FOUND, 'No valid endpoints found')
+  if (!endpoints.length) throw new TrustError(TrustErrorCode.NOT_FOUND, 'No valid endpoints found')
 
-  for (const endpoint of validEndpoints) {
+  for (const endpoint of endpoints) {
     try {
       return await fetchSchema<W3cPresentation>(endpoint)
     } catch (error) {
