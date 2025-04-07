@@ -358,15 +358,14 @@ async function processCredential(
   credential: W3cVerifiableCredential,
   attrs?: Record<string, string>,
 ): Promise<ICredential> {
-  const { credentialSchema, credentialSubject } = credential
-  if (!credentialSchema || !credentialSubject) {
+  const schema = extractSchema(credential.credentialSchema)
+  const subject = extractSchema(credential.credentialSubject)
+  if (!schema || !subject) {
     throw new TrustError(
       TrustErrorCode.NOT_FOUND,
       "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
     )
   }
-  const schema = Array.isArray(credentialSchema) ? credentialSchema[0] : credentialSchema
-  const subject = Array.isArray(credentialSubject) ? credentialSubject[0] : credentialSubject
 
   if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
     throw new TrustError(
@@ -404,4 +403,8 @@ async function processCredential(
     }
   }
   throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, 'Failed to validate credential')
+}
+
+function extractSchema<T>(value?: T | T[]): T | undefined {
+  return Array.isArray(value) ? value[0] : value
 }
