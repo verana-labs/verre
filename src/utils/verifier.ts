@@ -1,4 +1,4 @@
-import type { W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 
 import { createHash } from 'crypto'
 
@@ -8,19 +8,37 @@ import { TrustErrorCode } from '../types'
 import { TrustError } from './trustError'
 
 /**
- * Validates the proof of a Linked Verifiable Presentation (VP).
- * @param {W3cJsonLdVerifiablePresentation} document - The Verifiable Presentation to validate.
- * @returns {Promise<boolean>} - True if the proof is valid, false otherwise.
+ * Recursively verifies the digital proof of a W3C Verifiable Presentation (VP) or Verifiable Credential (VC).
+ *
+ * This function checks that the input document is a valid VP or VC, verifies its proof using
+ * the appropriate Linked Data signature suite and proof purpose, and—if it's a presentation—
+ * recursively verifies the embedded credentials.
+ *
+ * @param document - A W3C Verifiable Presentation or Verifiable Credential in JSON-LD format.
+ * @returns A promise that resolves to `true` if the proof is valid (including all nested VCs), or `false` otherwise.
+ *
+ * @throws Error if the document is not a valid VP or VC, or if any embedded credential fails validation.
  */
-export async function verifySignature(document: W3cJsonLdVerifiablePresentation): Promise<boolean> {
+export async function verifySignature(
+  document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
+): Promise<boolean> {
   try {
-    if (!document.proof) {
-      throw new Error('The Verifiable Presentation does not contain a valid proof.')
+    if (
+      !document.proof ||
+      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential'))
+    ) {
+      throw new Error(
+        'The document must be a Verifiable Presentation or Verifiable Credential with a valid proof.',
+      )
     }
+    const isPresentation = document.type.includes('VerifiablePresentation')
+
     const suite = new suites.LinkedDataSignature({
       /* suite options */
     })
-    const purpose = new purposes.AssertionProofPurpose()
+    const purpose = isPresentation
+      ? new purposes.AuthenticationProofPurpose()
+      : new purposes.AssertionProofPurpose()
 
     const result = await verify({
       document,
@@ -28,12 +46,39 @@ export async function verifySignature(document: W3cJsonLdVerifiablePresentation)
       purpose,
       documentLoader,
     })
+    if (!result.verified) return false
 
+    if (isPresentation && isVerifiablePresentation(document)) {
+      const credentials = Array.isArray(document.verifiableCredential)
+        ? document.verifiableCredential
+        : [document.verifiableCredential]
+
+      const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
+      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc)))
+
+      const allCredentialsVerified = results.every(verified => verified)
+      if (!allCredentialsVerified) {
+        throw new Error('One or more verifiable credentials failed signature verification.')
+      }
+    }
     return result.verified
   } catch (error) {
     console.error('Error validating the proof:', error.message)
     return false
   }
+}
+
+/**
+ * Type guard to determine whether a given document is a Verifiable Presentation.
+ *
+ * @param doc - The document to evaluate, which may be a VP or VC.
+ * @returns `true` if the document is a Verifiable Presentation; otherwise, `false`.
+ */
+function isVerifiablePresentation(
+  doc: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
+): doc is W3cJsonLdVerifiablePresentation {
+  const type = Array.isArray(doc.type) ? doc.type : [doc.type]
+  return type.includes('VerifiablePresentation')
 }
 
 /**
@@ -55,7 +100,7 @@ const documentLoader = async (url: string): Promise<{ document: any }> => {
   if (contexts[url]) {
     return { document: contexts[url] }
   }
-  throw new Error(`Context not found: ${url}`)
+  throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Context not found: ${url}`)
 }
 
 /**
