@@ -336,10 +336,23 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> 
 }
 
 /**
- * Validates a Verifiable Credential's schema against expected trust criteria.
+ * Processes and validates a Verifiable Credential against its declared schema.
+ *
+ * This function supports two schema types:
+ * - 'JsonSchemaCredential': A credential that references another credential as its schema.
+ * - 'JsonSchema': A credential that uses a raw JSON Schema for validation.
+ *
+ * Validation includes:
+ * - Checking required fields (`credentialSchema`, `credentialSubject`)
+ * - Verifying the schema type
+ * - Fetching the schema and subject schema (if needed)
+ * - Validating schema integrity via SRI
+ * - Validating the credential against the schema definitions
+ *
  * @param credential - The Verifiable Credential to validate.
- * @returns A promise resolving to the validated Verifiable Credential.
- * @throws Error if validation fails.
+ * @param attrs - Optional attributes to validate against the credential subject schema.
+ * @returns A Promise resolving to the processed and validated credential.
+ * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
  */
 async function processCredential(
   credential: W3cVerifiableCredential,
