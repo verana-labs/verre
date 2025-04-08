@@ -92,7 +92,7 @@ async function processDidDocument(
       if (service.type === 'LinkedVerifiablePresentation') {
         const vp = await resolveServiceVP(service)
         if (vp) {
-          const credential = await getVerifiedCredential(vp)
+          const credential = await getVerifiedCredential(vp, trustRegistryUrl)
           credentials.push(credential)
           const issuer = Array.isArray(vp.verifiableCredential)
             ? (vp.verifiableCredential[0] as W3cJsonLdVerifiableCredential)?.issuer
@@ -140,25 +140,7 @@ async function checkTrustRegistry(
   verifiableService?: IService,
 ): Promise<TrustedResolution> {
   try {
-    const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ did }),
-    })
-
-    if (!permResponse.ok)
-      return {
-        didDocument,
-        metadata: buildMetadata(TrustErrorCode.NOT_FOUND, 'No data found in the trust registry.'),
-      }
-    const permission: Permission = (await permResponse.json()) as Permission
-
-    if (permission.type !== PermissionType.ISSUER)
-      return {
-        didDocument,
-        metadata: buildMetadata(TrustErrorCode.INVALID_ISSUER, 'The provided DID is not a valid issuer.'),
-      }
-
+    const permission = await isValidIssuer(did, trustRegistryUrl)
     const schemaResponse = await fetch(`${trustRegistryUrl}/cs/v1/get`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -187,6 +169,21 @@ async function checkTrustRegistry(
   } catch (error) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, `Error checking trust registry: ${error}.`) }
   }
+}
+
+async function isValidIssuer(did: string, trustRegistryUrl: string): Promise<Permission> {
+  const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ did }),
+  })
+
+  if (!permResponse.ok) throw new TrustError(TrustErrorCode.NOT_FOUND, 'No data found in the trust registry.')
+  const permission: Permission = (await permResponse.json()) as Permission
+
+  if (permission.type !== PermissionType.ISSUER)
+    throw new TrustError(TrustErrorCode.INVALID_ISSUER, 'The provided DID is not a valid issuer.')
+  return permission
 }
 
 /**
@@ -312,7 +309,7 @@ async function queryTrustRegistry(service: Service) {
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> {
+async function getVerifiedCredential(vp: W3cPresentation, trustRegistryUrl: string): Promise<ICredential> {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
@@ -331,7 +328,7 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> 
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }
 
-  return await processCredential(validCredential)
+  return await processCredential(validCredential, trustRegistryUrl)
 }
 
 /**
@@ -355,6 +352,7 @@ async function getVerifiedCredential(vp: W3cPresentation): Promise<ICredential> 
  */
 async function processCredential(
   credential: W3cVerifiableCredential,
+  trustRegistryUrl: string,
   attrs?: Record<string, string>,
 ): Promise<ICredential> {
   const schema = extractSchema(credential.credentialSchema)
@@ -365,6 +363,7 @@ async function processCredential(
       "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
     )
   }
+  await isValidIssuer(credential.issuer as string, trustRegistryUrl)
 
   if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
     throw new TrustError(
@@ -373,7 +372,7 @@ async function processCredential(
     )
   if (schema.type === 'JsonSchemaCredential') {
     const jsonSchemaCredential = await fetchSchema<W3cVerifiableCredential>(schema.id)
-    return processCredential(jsonSchemaCredential, subject as Record<string, string>)
+    return processCredential(jsonSchemaCredential, trustRegistryUrl, subject as Record<string, string>)
   }
 
   if (schema.type === 'JsonSchema') {

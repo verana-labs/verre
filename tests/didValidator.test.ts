@@ -109,6 +109,7 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
+        'http://testTrust.org/prem/v1/get': { ok: true, status: 200, data: mockPermission },
       })
 
       // Execute method under test
