@@ -47,21 +47,6 @@ export const identifySchema = (vp: any): ECS | null => {
 }
 
 /**
- * Checks if a given verifiable presentation (VP) matches a predefined schema.
- *
- * @param vp - The verifiable presentation to check.
- * @returns The matching schema name or `null` if no match is found.
- */
-export const checkSchemaMatch = (vp: any): ECS | null => {
-  for (const [schemaName, schema] of Object.entries(schemas) as [ECS, any][]) {
-    if (vp === JSON.stringify(schema)) {
-      return schemaName
-    }
-  }
-  return null
-}
-
-/**
  * Validates data against a given JSON schema.
  *
  * Uses Ajv to compile and validate the data. Throws an error if validation fails.

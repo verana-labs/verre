@@ -22,7 +22,6 @@ import {
 } from '../types'
 import {
   buildMetadata,
-  checkSchemaMatch,
   fetchSchema,
   handleTrustError,
   identifySchema,
@@ -134,6 +133,7 @@ async function processDidDocument(
               attrs: credential,
             })
             verifiableService = resolution.verifiableService
+            issuerCredential = resolution.issuerCredential
           }
           break
         }
@@ -146,10 +146,8 @@ async function processDidDocument(
       }
     }),
   )
-
   verifiableService ??= credentials.find((cred): cred is IService => cred.type === ECS.SERVICE)
-
-  issuerCredential = credentials.find(
+  issuerCredential ??= credentials.find(
     (cred): cred is IOrg | IPerson => cred.type === ECS.ORG || cred.type === ECS.PERSON,
   )
 
@@ -162,9 +160,6 @@ async function processDidDocument(
       verifiableService,
     }
   }
-  if (!issuerCredential && verifiableService) {
-    return checkTrustRegistry(did, didDocument, trustRegistryUrl, verifiableService)
-  }
   throw new TrustError(
     TrustErrorCode.NOT_FOUND,
     'Valid issuerCredential and verifiableService were not found',
@@ -172,56 +167,17 @@ async function processDidDocument(
 }
 
 /**
- * Checks the Trust Registry to verify if the DID is an authorized issuer.
+ * Checks whether the provided DID is a valid issuer according to a trust registry.
  *
- * @param {string} did - The Decentralized Identifier (DID) to be checked.
- * @param {DidDocument} didDocument - The resolved DID Document.
- * @returns {Promise<ResolveResult>} A result indicating whether the DID is valid.
+ * Sends a POST request to the trust registry with the DID, and validates the response.
+ * Throws an error if the DID is not registered or not classified as an issuer.
  *
- * This method performs the following steps:
- * 1. Requests the Trust Registry to check if the DID is authorized.
- * 2. If authorized, retrieves the associated credential schema.
- * 3. Validates the schema against the expected types (ECS.ORG, ECS.PERSON).
- * 4. Returns the validation result along with the DID Document.
+ * @param did - The decentralized identifier (DID) to validate.
+ * @param trustRegistryUrl - The base URL of the trust registry service.
+ * @returns A `Permission` object if the DID is a valid issuer.
+ * @throws `TrustError` with `NOT_FOUND` if the DID is not found in the registry.
+ * @throws `TrustError` with `INVALID_ISSUER` if the DID is found but not an issuer.
  */
-async function checkTrustRegistry(
-  did: string,
-  didDocument: DIDDocument,
-  trustRegistryUrl: string,
-  verifiableService?: IService,
-): Promise<TrustedResolution> {
-  try {
-    const permission = await isValidIssuer(did, trustRegistryUrl)
-    const schemaResponse = await fetch(`${trustRegistryUrl}/cs/v1/get`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: permission.schema_id }),
-    })
-
-    if (!schemaResponse.ok)
-      return {
-        didDocument,
-        metadata: buildMetadata(
-          TrustErrorCode.INVALID_REQUEST,
-          `HTTP error ${schemaResponse.status}: Request to trust registry failed.`,
-        ),
-      }
-    const credentialSchema: CredentialSchema = (await schemaResponse.json()) as CredentialSchema
-
-    const schemaType = checkSchemaMatch(credentialSchema.json_schema as ECS)
-    const isValid = schemaType !== null && [ECS.ORG, ECS.PERSON].includes(schemaType)
-    return {
-      didDocument,
-      metadata: isValid
-        ? buildMetadata()
-        : buildMetadata(TrustErrorCode.INVALID, 'Schema type does not match.'),
-      verifiableService,
-    } // TODO: where is the credential subject for 'issuerCredential'??
-  } catch (error) {
-    return { metadata: buildMetadata(TrustErrorCode.INVALID, `Error checking trust registry: ${error}.`) }
-  }
-}
-
 async function isValidIssuer(did: string, trustRegistryUrl: string): Promise<Permission> {
   const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
     method: 'POST',
