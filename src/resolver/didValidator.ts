@@ -19,6 +19,7 @@ import {
   ICredential,
   IOrg,
   IPerson,
+  PermissionManagementMode,
 } from '../types'
 import {
   buildMetadata,
@@ -371,7 +372,6 @@ async function processCredential(
     )
   }
   const issuer = credential.issuer as string
-  await isValidIssuer(issuer, trustRegistryUrl)
 
   if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
     throw new TrustError(
@@ -400,8 +400,15 @@ async function processCredential(
 
       // If a reference URL exists, fetch the referenced schema
       const subjectSchema = await fetchSchema<CredentialSchema>(refUrl)
-      // Verify the integrity
+
+      // If the referenced schema isn't open, verify that the issuer has valid permission
+      if (subjectSchema.issuer_perm_management_mode !== PermissionManagementMode.OPEN)
+        await isValidIssuer(issuer, trustRegistryUrl)
+
+      // Verify the integrity of the referenced subject schema using its SRI digest
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+
+      // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.json_schema), attrs)
       return { type: identifySchema(attrs), issuer, credentialSubject: attrs } as ICredential
     } catch (error) {
