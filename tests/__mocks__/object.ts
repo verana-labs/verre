@@ -2,25 +2,25 @@
 
 import { ECS, loadSchema } from '../../src'
 
-export const didExternalIssuer = 'did:web:123example.com'
-export const didSelfIssuedService = 'did:web:example.com'
+export const didExtIssuer = 'did:web:issuer.trusted.example.com'
+export const didSelfIssued = 'did:web:service.self-issued.example.com'
 
-export const mockDidDocument = {
+export const mockDidDocumentSelfIssued = {
   didDocument: {
-    id: didSelfIssuedService,
+    id: didSelfIssued,
     service: [
       {
-        id: `${didSelfIssuedService}#vpr-schemas`,
+        id: `${didSelfIssued}#vpr-schemas`,
         type: 'LinkedVerifiablePresentation',
-        serviceEndpoint: ['https://example.com/vp-ser'],
+        serviceEndpoint: ['https://example.com/vp-ser-self-issued'],
       },
       {
-        id: `${didSelfIssuedService}#vpr-schemas`,
+        id: `${didSelfIssued}#vpr-schemas`,
         type: 'LinkedVerifiablePresentation',
         serviceEndpoint: ['https://example.com/vp-org'],
       },
       {
-        id: `${didSelfIssuedService}#vpr-schemas-trust-registry`,
+        id: `${didSelfIssued}#vpr-schemas-trust-registry`,
         type: 'VerifiablePublicRegistry',
         serviceEndpoint: ['https://example.com/trust-registry'],
       },
@@ -28,17 +28,17 @@ export const mockDidDocument = {
   },
 }
 
-export const mockDidDocumentOnlyService = {
+export const mockDidDocumentSelfIssuedExtIssuer = {
   didDocument: {
-    id: didExternalIssuer,
+    id: didExtIssuer,
     service: [
       {
-        id: `${didExternalIssuer}#vpr-schemas`,
+        id: `${didExtIssuer}#vpr-schemas`,
         type: 'LinkedVerifiablePresentation',
-        serviceEndpoint: ['https://example.com/vp-ser-only'],
+        serviceEndpoint: ['https://example.com/vp-ser-ext-issued'],
       },
       {
-        id: `${didExternalIssuer}#vpr-schemas-trust-registry`,
+        id: `${didExtIssuer}#vpr-schemas-trust-registry`,
         type: 'VerifiablePublicRegistry',
         serviceEndpoint: ['https://example.com/trust-registry'],
       },
@@ -46,7 +46,7 @@ export const mockDidDocumentOnlyService = {
   },
 }
 
-export const didDocumentChatbot = {
+export const mockDidDocumentChatbot = {
   context: [
     'https://w3id.org/did/v1',
     'https://w3id.org/security/suites/ed25519-2018/v1',
@@ -88,56 +88,40 @@ export const didDocumentChatbot = {
   keyAgreement: ['did:web:chatbot-demo.dev.2060.io#key-agreement-1'],
 }
 
-export const mockResolverInstance = {
+export const mockResolverSelfIssued = {
   didResolutionMetadata: {},
   didDocumentMetadata: {},
-  ...mockDidDocument,
+  ...mockDidDocumentSelfIssued,
 }
 
-export const mockNonIssuerResolverInstance = {
+export const mockResolverExtIssuer = {
   didResolutionMetadata: {},
   didDocumentMetadata: {},
-  ...mockDidDocumentOnlyService,
+  ...mockDidDocumentSelfIssuedExtIssuer,
 }
 
-export const createMockVerifiableCredential = (
-  holder: string,
+export const createVerifiableCredential = (
   issuer: string,
   credentialSchema: Record<string, any>,
   credentialSubject: Record<string, any>,
 ) => ({
-  '@context': ['https://www.w3.org/2018/credentials/v1'],
-  holder: holder,
-  type: ['VerifiablePresentation'],
-  verifiableCredential: [
+  '@context': [
+    'https://www.w3.org/2018/credentials/v1',
     {
-      context: [
-        'https://www.w3.org/2018/credentials/v1',
-        {
-          schema: 'https://schema.org/',
-        },
-      ],
-      id: 'https://example.tr/credentials/OrganizationJsonSchemaCredential',
-      issuer: issuer,
-      issuanceDate: '2024-02-08T18:38:46+01:00',
-      expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString(),
-      type: ['VerifiableCredential', 'JsonSchemaCredential'],
-      credentialSubject: {
-        ...credentialSubject,
-      },
-      credentialSchema: {
-        ...credentialSchema,
-      },
-      proof: {
-        type: 'Ed25519Signature2018',
-        created: '2024-02-08T17:38:46Z',
-        verificationMethod: `${issuer}#key-1`,
-        proofPurpose: 'assertionMethod',
-        jws: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..signature',
-      },
+      schema: 'https://schema.org/',
     },
   ],
-  id: `https://example.com/verifiable-presentation-${holder}.jsonld`,
+  id: 'https://example.tr/credentials/OrganizationJsonSchemaCredential',
+  issuer,
+  issuanceDate: '2024-02-08T18:38:46+01:00',
+  expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 5)).toISOString(),
+  type: ['VerifiableCredential', 'JsonSchemaCredential'],
+  credentialSubject: {
+    ...credentialSubject,
+  },
+  credentialSchema: {
+    ...credentialSchema,
+  },
   proof: {
     type: 'Ed25519Signature2018',
     created: '2024-02-08T17:38:46Z',
@@ -147,9 +131,33 @@ export const createMockVerifiableCredential = (
   },
 })
 
-export const mockServiceVerifiableCredential = createMockVerifiableCredential(
+export const createVerifiablePresentation = (
+  holder: string,
+  issuer: string,
+  credentialSchema: Record<string, any>,
+  credentialSubject: Record<string, any>,
+) => {
+  const verifiableCredential = createVerifiableCredential(issuer, credentialSchema, credentialSubject)
+
+  return {
+    '@context': ['https://www.w3.org/2018/credentials/v1'],
+    holder,
+    type: ['VerifiablePresentation'],
+    verifiableCredential: [verifiableCredential],
+    id: `https://example.com/verifiable-presentation-${holder}.jsonld`,
+    proof: {
+      type: 'Ed25519Signature2018',
+      created: '2024-02-08T17:38:46Z',
+      verificationMethod: `${issuer}#key-1`,
+      proofPurpose: 'assertionMethod',
+      jws: 'eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..signature',
+    },
+  }
+}
+
+export const mockServiceVcSelfIssued = createVerifiablePresentation(
   'did:example:123',
-  didSelfIssuedService,
+  didSelfIssued,
   {
     id: 'https://ecs-trust-registry/service-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -166,11 +174,11 @@ export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   },
 )
 
-export const mockServiceOnlyVerifiableCredential = createMockVerifiableCredential(
+export const mockServiceExtIssuerVc = createVerifiablePresentation(
   'did:example:123',
-  didExternalIssuer,
+  didExtIssuer,
   {
-    id: 'https://ecs-trust-registry/service-only-credential-schema-credential.json',
+    id: 'https://ecs-trust-registry/service-ext-issuer-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
   },
   {
@@ -185,9 +193,8 @@ export const mockServiceOnlyVerifiableCredential = createMockVerifiableCredentia
   },
 )
 
-export const mockServiceSchema = createMockVerifiableCredential(
-  'did:example:123',
-  didSelfIssuedService,
+export const mockServiceSchemaSelfIssued = createVerifiableCredential(
+  didSelfIssued,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
@@ -203,9 +210,8 @@ export const mockServiceSchema = createMockVerifiableCredential(
   },
 )
 
-export const mockServiceOnlySchema = createMockVerifiableCredential(
-  'did:example:123',
-  didSelfIssuedService,
+export const mockServiceSchemaExtIssuer = createVerifiableCredential(
+  didSelfIssued,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
@@ -221,9 +227,9 @@ export const mockServiceOnlySchema = createMockVerifiableCredential(
   },
 )
 
-export const mockOrgVerifiableCredential = createMockVerifiableCredential(
-  didSelfIssuedService,
-  didSelfIssuedService,
+export const mockOrgVc = createVerifiablePresentation(
+  didSelfIssued,
+  didSelfIssued,
   {
     id: 'https://ecs-trust-registry/org-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -240,9 +246,8 @@ export const mockOrgVerifiableCredential = createMockVerifiableCredential(
   },
 )
 
-export const mockOrgSchema = createMockVerifiableCredential(
-  'did:example:123',
-  didSelfIssuedService,
+export const mockOrgSchema = createVerifiableCredential(
+  didSelfIssued,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
@@ -258,7 +263,7 @@ export const mockOrgSchema = createMockVerifiableCredential(
   },
 )
 
-export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCredential(
+export const mockOrgVcWithoutIssuer = createVerifiablePresentation(
   'did:example:123',
   'did:example:123',
   {
@@ -277,8 +282,7 @@ export const mockOrgVerifiableCredentialWithoutIssuer = createMockVerifiableCred
   },
 )
 
-export const mockOrgSchemaWithoutIssuer = createMockVerifiableCredential(
-  'did:example:123',
+export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
   'did:example:123',
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',

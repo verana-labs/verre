@@ -6,31 +6,31 @@ import { ECS, resolve, TrustErrorCode, TrustStatus } from '../src'
 import * as signatureVerifier from '../src/utils/verifier'
 
 import {
-  didDocumentChatbot,
-  didExternalIssuer,
-  didSelfIssuedService,
+  mockDidDocumentChatbot,
+  didExtIssuer,
+  didSelfIssued,
   fetchMocker,
   mockCredentialSchemaOrg,
   mockCredentialSchemaSer,
-  mockDidDocument,
-  mockDidDocumentOnlyService,
-  mockNonIssuerResolverInstance,
+  mockDidDocumentSelfIssued,
+  mockDidDocumentSelfIssuedExtIssuer,
+  mockResolverExtIssuer,
   mockOrgSchema,
   mockOrgSchemaWithoutIssuer,
-  mockOrgVerifiableCredential,
-  mockOrgVerifiableCredentialWithoutIssuer,
+  mockOrgVc,
+  mockOrgVcWithoutIssuer,
   mockPermission,
-  mockResolverInstance,
-  mockServiceOnlySchema,
-  mockServiceOnlyVerifiableCredential,
-  mockServiceSchema,
-  mockServiceVerifiableCredential,
+  mockResolverSelfIssued,
+  mockServiceSchemaExtIssuer,
+  mockServiceExtIssuerVc,
+  mockServiceSchemaSelfIssued,
+  mockServiceVcSelfIssued,
   setupAgent,
 } from './__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
-  [didExternalIssuer]: { ...mockNonIssuerResolverInstance },
-  [didSelfIssuedService]: { ...mockResolverInstance },
+  [didExtIssuer]: { ...mockResolverExtIssuer },
+  [didSelfIssued]: { ...mockResolverSelfIssued },
 }
 
 describe('DidValidator', () => {
@@ -85,7 +85,7 @@ describe('DidValidator', () => {
       expect(result.metadata).toEqual(
         expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_SUPPORTED }),
       )
-      expect(result.didDocument).toEqual({ ...didDocumentChatbot })
+      expect(result.didDocument).toEqual({ ...mockDidDocumentChatbot })
     })
 
     it('should work correctly when the issuer is equal to "did".', async () => {
@@ -96,17 +96,17 @@ describe('DidValidator', () => {
           return mockResolversByDid[did]
         })
       fetchMocker.setMockResponses({
-        'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
-        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVerifiableCredential },
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
         'https://ecs-trust-registry/service-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockServiceSchema.verifiableCredential[0],
+          data: mockServiceSchemaSelfIssued,
         },
         'https://ecs-trust-registry/org-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockOrgSchema.verifiableCredential[0],
+          data: mockOrgSchema,
         },
         'https://vpr-hostname/vpr/v1/cs/js/12345671': {
           ok: true,
@@ -123,25 +123,25 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didSelfIssuedService, {
+      const result = await resolve(didSelfIssued, {
         trustRegistryUrl: 'http://testTrust.org',
         didResolver,
       })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssuedService)
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockDidDocument,
+          ...mockDidDocumentSelfIssued,
           verifiableService: {
             type: ECS.SERVICE,
-            issuer: didSelfIssuedService,
-            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+            issuer: didSelfIssued,
+            credentialSubject: mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
           },
           issuerCredential: {
             type: ECS.ORG,
-            issuer: didSelfIssuedService,
-            credentialSubject: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
+            issuer: didSelfIssued,
+            credentialSubject: mockOrgVc.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -155,31 +155,31 @@ describe('DidValidator', () => {
           return mockResolversByDid[did]
         })
       fetchMocker.setMockResponses({
-        'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
-        'https://example.com/vp-ser-only': {
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-ser-ext-issued': {
           ok: true,
           status: 200,
-          data: mockServiceOnlyVerifiableCredential,
+          data: mockServiceExtIssuerVc,
         },
         'https://example.com/vp-org': {
           ok: true,
           status: 200,
-          data: mockOrgVerifiableCredentialWithoutIssuer,
+          data: mockOrgVcWithoutIssuer,
         },
         'https://ecs-trust-registry/service-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockServiceSchema.verifiableCredential[0],
+          data: mockServiceSchemaSelfIssued,
         },
-        'https://ecs-trust-registry/service-only-credential-schema-credential.json': {
+        'https://ecs-trust-registry/service-ext-issuer-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockServiceOnlySchema.verifiableCredential[0],
+          data: mockServiceSchemaExtIssuer,
         },
         'https://ecs-trust-registry/org-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockOrgSchemaWithoutIssuer.verifiableCredential[0],
+          data: mockOrgSchemaWithoutIssuer,
         },
         'https://vpr-hostname/vpr/v1/cs/js/12345673': {
           ok: true,
@@ -197,18 +197,18 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didExternalIssuer, { trustRegistryUrl: 'http://testTrust.org' })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith(didExternalIssuer)
-      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssuedService)
+      const result = await resolve(didExtIssuer, { trustRegistryUrl: 'http://testTrust.org' })
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockDidDocumentOnlyService,
+          ...mockDidDocumentSelfIssuedExtIssuer,
           verifiableService: {
             type: ECS.SERVICE,
-            issuer: didSelfIssuedService,
-            credentialSubject: mockServiceOnlyVerifiableCredential.verifiableCredential[0].credentialSubject,
+            issuer: didSelfIssued,
+            credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -222,31 +222,31 @@ describe('DidValidator', () => {
           return mockResolversByDid[did]
         })
       fetchMocker.setMockResponses({
-        'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
-        'https://example.com/vp-ser-only': {
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-ser-ext-issued': {
           ok: true,
           status: 200,
-          data: mockServiceOnlyVerifiableCredential,
+          data: mockServiceExtIssuerVc,
         },
         'https://example.com/vp-org': {
           ok: true,
           status: 200,
-          data: mockOrgVerifiableCredentialWithoutIssuer,
+          data: mockOrgVcWithoutIssuer,
         },
         'https://ecs-trust-registry/service-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockServiceSchema.verifiableCredential[0],
+          data: mockServiceSchemaSelfIssued,
         },
-        'https://ecs-trust-registry/service-only-credential-schema-credential.json': {
+        'https://ecs-trust-registry/service-ext-issuer-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockServiceOnlySchema.verifiableCredential[0],
+          data: mockServiceSchemaExtIssuer,
         },
         'https://ecs-trust-registry/org-credential-schema-credential.json': {
           ok: true,
           status: 200,
-          data: mockOrgSchemaWithoutIssuer.verifiableCredential[0],
+          data: mockOrgSchemaWithoutIssuer,
         },
         'https://vpr-hostname/vpr/v1/cs/js/12345673': {
           ok: true,
@@ -264,21 +264,21 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didExternalIssuer, {
+      const result = await resolve(didExtIssuer, {
         trustRegistryUrl: 'http://testTrust.com',
         didResolver,
       })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith(didExternalIssuer)
-      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssuedService)
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockDidDocumentOnlyService,
+          ...mockDidDocumentSelfIssuedExtIssuer,
           verifiableService: {
             type: ECS.SERVICE,
-            issuer: didSelfIssuedService,
-            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+            issuer: didSelfIssued,
+            credentialSubject: mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
           },
         }),
       )
