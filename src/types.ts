@@ -13,6 +13,7 @@ export type TrustedResolution = {
 export type ResolverConfig = {
   trustRegistryUrl: string
   didResolver?: Resolver
+  attrs?: IService
 }
 
 export type ServiceWithCredential = {
@@ -130,6 +131,7 @@ export interface TrustedResolutionMetadata {
 
 export interface BaseCredential {
   type: ECS | 'unknown'
+  issuer: string
   credentialSubject: Record<string, unknown>
 }
 

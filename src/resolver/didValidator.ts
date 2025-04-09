@@ -2,7 +2,6 @@ import type {
   W3cVerifiableCredential,
   W3cPresentation,
   W3cJsonLdVerifiablePresentation,
-  W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
 
 import { DIDDocument, Resolver, Service } from 'did-resolver'
@@ -18,6 +17,8 @@ import {
   TrustErrorCode,
   IService,
   ICredential,
+  IOrg,
+  IPerson,
 } from '../types'
 import {
   buildMetadata,
@@ -46,12 +47,12 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl, didResolver } = options
+  const { trustRegistryUrl, didResolver, attrs } = options
   try {
     const didDocument = await retrieveDidDocument(did, didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, trustRegistryUrl)
+      return await processDidDocument(did, didDocument, trustRegistryUrl, didResolver, attrs)
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -61,57 +62,107 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
 }
 
 /**
- * Processes a DID Document to extract verifiable credentials, verifiable presentations,
- * and updated services.
+ * Processes a DID Document to extract credentials and determine the associated verifiable service.
  *
- * @param {DIDDocument} didDocument - The DID Document containing services.
- * @returns {Promise<DidDocumentResult>} An object containing verifiable credentials,
- *          verifiable presentations, and the updated list of services.
+ * This method iterates through the services listed in a DID Document and:
+ * - Resolves and verifies credentials embedded in Linked Verifiable Presentations.
+ * - Queries Verifiable Public Registries for trusted data.
+ * - Determines the appropriate verifiable service based on credentials.
+ * 
+ * It attempts to associate a trusted service with the DID either by:
+ * - Resolving a service credential issued by another DID, or
+ * - Falling back to a service credential included directly in the document.
+ * 
+ * It also identifies the credential of the issuer (organization or person) if present.
  *
- * This method iterates through the services in the DID Document and:
- * - Extracts credentials from Linked Verifiable Presentations.
- * - Queries the Trust Registry for Verifiable Public Registries.
- * - Collects the updated list of services, including those with extracted credentials.
+ * @param {string} did - The DID being processed.
+ * @param {DIDDocument} didDocument - The DID Document that may include verifiable services.
+ * @param {string} trustRegistryUrl - The Trust Registry URL used for validation and lookup.
+ * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
+ * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  *
- * Note: If a Verifiable Presentation contains multiple credentials, only the first one is processed.
+ * @returns {Promise<TrustedResolution>} An object containing:
+ * - The original DID Document
+ * - Extracted issuer credential (organization or person)
+ * - Identified verifiable service credential
+ * - Metadata
+ *
+ * @throws {TrustError} If no supported service types are found, or if no valid credentials can be resolved.
+ *
+ * Notes:
+ * - Only the first credential from a Verifiable Presentation is currently processed.
+ * - The function supports two types of trusted resolution flows:
+ *    1. Direct: When the issuer equals the DID.
+ *    2. Indirect: When the service is issued by an external trusted DID and is resolvable.
  */
 async function processDidDocument(
   did: string,
   didDocument: DIDDocument,
   trustRegistryUrl: string,
+  didResolver?: Resolver,
+  attrs?: IService,
 ): Promise<TrustedResolution> {
-  if (!didDocument?.service)
+  if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
+  }
 
   const credentials: ICredential[] = []
   let issuerCredential: ICredential | undefined
-  let verifiableService: IService | undefined
+  let verifiableService: IService | undefined = attrs
 
   await Promise.all(
     didDocument.service.map(async service => {
-      if (service.type === 'LinkedVerifiablePresentation') {
-        const vp = await resolveServiceVP(service)
-        if (vp) {
+      switch (service.type) {
+        case 'LinkedVerifiablePresentation': {
+          const vp = await resolveServiceVP(service)
+          if (!vp)
+            throw new TrustError(
+              TrustErrorCode.NOT_SUPPORTED,
+              `Invalid Linked Verifiable Presentation for service id: '${service.id}'`,
+            )
+
           const credential = await getVerifiedCredential(vp, trustRegistryUrl)
           credentials.push(credential)
-          const issuer = Array.isArray(vp.verifiableCredential)
-            ? (vp.verifiableCredential[0] as W3cJsonLdVerifiableCredential)?.issuer
-            : (vp.verifiableCredential as W3cJsonLdVerifiableCredential)?.issuer
-          if ([ECS.ORG, ECS.PERSON].includes(credential.type as ECS) && issuer === did)
-            issuerCredential = credential
-          if (ECS.SERVICE === credential.type) verifiableService = credential as IService
+
+          const isServiceCred = credential.type === ECS.SERVICE
+          const isExternalIssuer = credential.issuer !== did
+
+          if (isServiceCred && isExternalIssuer) {
+            const resolution = await resolve(credential.issuer, {
+              trustRegistryUrl,
+              didResolver,
+              attrs: credential,
+            })
+            verifiableService = resolution.verifiableService
+          }
+          break
         }
+        case 'VerifiablePublicRegistry': {
+          await queryTrustRegistry(service)
+          break
+        }
+        default:
+          throw new TrustError(TrustErrorCode.NOT_SUPPORTED, 'service type not supported')
       }
-      if (service.type === 'VerifiablePublicRegistry') await queryTrustRegistry(service)
-      return service
     }),
   )
 
+  verifiableService ??= credentials.find((cred): cred is IService => cred.type === ECS.SERVICE)
+
+  issuerCredential = credentials.find(
+    (cred): cred is IOrg | IPerson => cred.type === ECS.ORG || cred.type === ECS.PERSON,
+  )
+
   // If proof of trust exists, return the result with the verifiableService (issuer equals did)
-  if (issuerCredential && verifiableService)
-    return { didDocument, metadata: buildMetadata(), issuerCredential, verifiableService }
+  if (issuerCredential && verifiableService) {
+    return {
+      didDocument,
+      metadata: buildMetadata(),
+      issuerCredential,
+      verifiableService,
+    }
+  }
   if (!issuerCredential && verifiableService) {
-    // Otherwise, check the trust registry
     return checkTrustRegistry(did, didDocument, trustRegistryUrl, verifiableService)
   }
   throw new TrustError(
@@ -363,7 +414,8 @@ async function processCredential(
       "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
     )
   }
-  await isValidIssuer(credential.issuer as string, trustRegistryUrl)
+  const issuer = credential.issuer as string
+  await isValidIssuer(issuer, trustRegistryUrl)
 
   if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
     throw new TrustError(
@@ -395,7 +447,7 @@ async function processCredential(
       // Verify the integrity
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
       validateSchemaContent(JSON.parse(subjectSchema.json_schema), attrs)
-      return { type: identifySchema(attrs), credentialSubject: attrs } as ICredential
+      return { type: identifySchema(attrs), issuer, credentialSubject: attrs } as ICredential
     } catch (error) {
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
     }
