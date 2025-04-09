@@ -68,11 +68,11 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  * - Resolves and verifies credentials embedded in Linked Verifiable Presentations.
  * - Queries Verifiable Public Registries for trusted data.
  * - Determines the appropriate verifiable service based on credentials.
- * 
+ *
  * It attempts to associate a trusted service with the DID either by:
  * - Resolving a service credential issued by another DID, or
  * - Falling back to a service credential included directly in the document.
- * 
+ *
  * It also identifies the credential of the issuer (organization or person) if present.
  *
  * @param {string} did - The DID being processed.

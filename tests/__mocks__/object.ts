@@ -2,22 +2,25 @@
 
 import { ECS, loadSchema } from '../../src'
 
+export const didExternalIssuer = 'did:web:123example.com'
+export const didSelfIssuedService = 'did:web:example.com'
+
 export const mockDidDocument = {
   didDocument: {
-    id: 'did:web:example.com',
+    id: didSelfIssuedService,
     service: [
       {
-        id: 'did:web:example.com#vpr-schemas',
+        id: `${didSelfIssuedService}#vpr-schemas`,
         type: 'LinkedVerifiablePresentation',
         serviceEndpoint: ['https://example.com/vp-ser'],
       },
       {
-        id: 'did:web:example.com#vpr-schemas',
+        id: `${didSelfIssuedService}#vpr-schemas`,
         type: 'LinkedVerifiablePresentation',
         serviceEndpoint: ['https://example.com/vp-org'],
       },
       {
-        id: 'did:web:example.com#vpr-schemas-trust-registry',
+        id: `${didSelfIssuedService}#vpr-schemas-trust-registry`,
         type: 'VerifiablePublicRegistry',
         serviceEndpoint: ['https://example.com/trust-registry'],
       },
@@ -27,15 +30,15 @@ export const mockDidDocument = {
 
 export const mockDidDocumentOnlyService = {
   didDocument: {
-    id: 'did:web:123example.com',
+    id: didExternalIssuer,
     service: [
       {
-        id: 'did:web:123example.com#vpr-schemas',
+        id: `${didExternalIssuer}#vpr-schemas`,
         type: 'LinkedVerifiablePresentation',
         serviceEndpoint: ['https://example.com/vp-ser-only'],
       },
       {
-        id: 'did:web:123example.com#vpr-schemas-trust-registry',
+        id: `${didExternalIssuer}#vpr-schemas-trust-registry`,
         type: 'VerifiablePublicRegistry',
         serviceEndpoint: ['https://example.com/trust-registry'],
       },
@@ -146,7 +149,7 @@ export const createMockVerifiableCredential = (
 
 export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   'did:example:123',
-  'did:web:example.com',
+  didSelfIssuedService,
   {
     id: 'https://ecs-trust-registry/service-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -165,7 +168,7 @@ export const mockServiceVerifiableCredential = createMockVerifiableCredential(
 
 export const mockServiceOnlyVerifiableCredential = createMockVerifiableCredential(
   'did:example:123',
-  'did:web:123example.com',
+  didExternalIssuer,
   {
     id: 'https://ecs-trust-registry/service-only-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -184,7 +187,7 @@ export const mockServiceOnlyVerifiableCredential = createMockVerifiableCredentia
 
 export const mockServiceSchema = createMockVerifiableCredential(
   'did:example:123',
-  'did:web:example.com',
+  didSelfIssuedService,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
@@ -202,7 +205,7 @@ export const mockServiceSchema = createMockVerifiableCredential(
 
 export const mockServiceOnlySchema = createMockVerifiableCredential(
   'did:example:123',
-  'did:web:example.com',
+  didSelfIssuedService,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
@@ -219,8 +222,8 @@ export const mockServiceOnlySchema = createMockVerifiableCredential(
 )
 
 export const mockOrgVerifiableCredential = createMockVerifiableCredential(
-  'did:web:example.com',
-  'did:web:example.com',
+  didSelfIssuedService,
+  didSelfIssuedService,
   {
     id: 'https://ecs-trust-registry/org-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -239,7 +242,7 @@ export const mockOrgVerifiableCredential = createMockVerifiableCredential(
 
 export const mockOrgSchema = createMockVerifiableCredential(
   'did:example:123',
-  'did:web:example.com',
+  didSelfIssuedService,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',

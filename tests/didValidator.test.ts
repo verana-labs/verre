@@ -7,6 +7,8 @@ import * as signatureVerifier from '../src/utils/verifier'
 
 import {
   didDocumentChatbot,
+  didExternalIssuer,
+  didSelfIssuedService,
   fetchMocker,
   mockCredentialSchemaOrg,
   mockCredentialSchemaSer,
@@ -27,8 +29,8 @@ import {
 } from './__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
-  'did:web:123example.com': { ...mockNonIssuerResolverInstance },
-  'did:web:example.com': { ...mockResolverInstance },
+  [didExternalIssuer]: { ...mockNonIssuerResolverInstance },
+  [didSelfIssuedService]: { ...mockResolverInstance },
 }
 
 describe('DidValidator', () => {
@@ -87,13 +89,12 @@ describe('DidValidator', () => {
     })
 
     it('should work correctly when the issuer is equal to "did".', async () => {
-      // Init values
-      const did = `did:web:example.com`
-
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
-        .mockResolvedValue({ ...mockResolverInstance })
+        .mockImplementation(async (did: string) => {
+          return mockResolversByDid[did]
+        })
       fetchMocker.setMockResponses({
         'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
         'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVerifiableCredential },
@@ -122,8 +123,11 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
+      const result = await resolve(didSelfIssuedService, {
+        trustRegistryUrl: 'http://testTrust.org',
+        didResolver,
+      })
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssuedService)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
       expect(result).toEqual(
         expect.objectContaining({
@@ -131,12 +135,12 @@ describe('DidValidator', () => {
           ...mockDidDocument,
           verifiableService: {
             type: ECS.SERVICE,
-            issuer: did,
+            issuer: didSelfIssuedService,
             credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
           issuerCredential: {
             type: ECS.ORG,
-            issuer: did,
+            issuer: didSelfIssuedService,
             credentialSubject: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
         }),
@@ -144,9 +148,6 @@ describe('DidValidator', () => {
     })
 
     it('should work correctly when the issuer is not "did" without params.', async () => {
-      // Init values
-      const did = `did:web:123example.com`
-
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -196,9 +197,9 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:123example.com')
-      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
+      const result = await resolve(didExternalIssuer, { trustRegistryUrl: 'http://testTrust.org' })
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didExternalIssuer)
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssuedService)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
@@ -206,7 +207,7 @@ describe('DidValidator', () => {
           ...mockDidDocumentOnlyService,
           verifiableService: {
             type: ECS.SERVICE,
-            issuer: 'did:web:example.com',
+            issuer: didSelfIssuedService,
             credentialSubject: mockServiceOnlyVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
         }),
@@ -214,9 +215,6 @@ describe('DidValidator', () => {
     })
 
     it('should work correctly when the issuer is not "did" with different trustRegistryUrl.', async () => {
-      // Init values
-      const did = `did:web:123example.com`
-
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -266,9 +264,12 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.com', didResolver })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:123example.com')
-      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
+      const result = await resolve(didExternalIssuer, {
+        trustRegistryUrl: 'http://testTrust.com',
+        didResolver,
+      })
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didExternalIssuer)
+      expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssuedService)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
@@ -276,7 +277,7 @@ describe('DidValidator', () => {
           ...mockDidDocumentOnlyService,
           verifiableService: {
             type: ECS.SERVICE,
-            issuer: 'did:web:example.com',
+            issuer: didSelfIssuedService,
             credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
         }),
