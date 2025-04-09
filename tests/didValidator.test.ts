@@ -210,6 +210,11 @@ describe('DidValidator', () => {
             issuer: didSelfIssued,
             credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
           },
+          issuerCredential: {
+            type: ECS.ORG,
+            issuer: didSelfIssued,
+            credentialSubject: mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+          },
         }),
       )
     })
@@ -278,7 +283,12 @@ describe('DidValidator', () => {
           verifiableService: {
             type: ECS.SERVICE,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
+            credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+          },
+          issuerCredential: {
+            type: ECS.ORG,
+            issuer: didSelfIssued,
+            credentialSubject: mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
           },
         }),
       )

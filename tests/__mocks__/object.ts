@@ -163,7 +163,7 @@ export const mockServiceVcSelfIssued = createVerifiablePresentation(
     type: 'JsonSchemaCredential',
   },
   {
-    id: 'did:example:123',
+    id: 'did:example:self-issued',
     name: 'Example LLC',
     type: 'ServiceCredential',
     description: 'Example service credential',
@@ -182,7 +182,7 @@ export const mockServiceExtIssuerVc = createVerifiablePresentation(
     type: 'JsonSchemaCredential',
   },
   {
-    id: 'did:example:123',
+    id: 'did:example:ext-issuer',
     name: 'Example LLC',
     type: 'ServiceCredential',
     description: 'Example service credential',
@@ -265,7 +265,7 @@ export const mockOrgSchema = createVerifiableCredential(
 
 export const mockOrgVcWithoutIssuer = createVerifiablePresentation(
   'did:example:123',
-  'did:example:123',
+  didSelfIssued,
   {
     id: 'https://ecs-trust-registry/org-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -283,7 +283,7 @@ export const mockOrgVcWithoutIssuer = createVerifiablePresentation(
 )
 
 export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
-  'did:example:123',
+  didSelfIssued,
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
