@@ -25,6 +25,24 @@ export const mockDidDocument = {
   },
 }
 
+export const mockDidDocumentOnlyService = {
+  didDocument: {
+    id: 'did:web:123example.com',
+    service: [
+      {
+        id: 'did:web:123example.com#vpr-schemas',
+        type: 'LinkedVerifiablePresentation',
+        serviceEndpoint: ['https://example.com/vp-ser-only'],
+      },
+      {
+        id: 'did:web:123example.com#vpr-schemas-trust-registry',
+        type: 'VerifiablePublicRegistry',
+        serviceEndpoint: ['https://example.com/trust-registry'],
+      },
+    ],
+  },
+}
+
 export const didDocumentChatbot = {
   context: [
     'https://w3id.org/did/v1',
@@ -71,6 +89,12 @@ export const mockResolverInstance = {
   didResolutionMetadata: {},
   didDocumentMetadata: {},
   ...mockDidDocument,
+}
+
+export const mockNonIssuerResolverInstance = {
+  didResolutionMetadata: {},
+  didDocumentMetadata: {},
+  ...mockDidDocumentOnlyService,
 }
 
 export const createMockVerifiableCredential = (
@@ -122,7 +146,7 @@ export const createMockVerifiableCredential = (
 
 export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   'did:example:123',
-  'did:example:123',
+  'did:web:example.com',
   {
     id: 'https://ecs-trust-registry/service-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
@@ -139,9 +163,46 @@ export const mockServiceVerifiableCredential = createMockVerifiableCredential(
   },
 )
 
+export const mockServiceOnlyVerifiableCredential = createMockVerifiableCredential(
+  'did:example:123',
+  'did:web:123example.com',
+  {
+    id: 'https://ecs-trust-registry/service-only-credential-schema-credential.json',
+    type: 'JsonSchemaCredential',
+  },
+  {
+    id: 'did:example:123',
+    name: 'Example LLC',
+    type: 'ServiceCredential',
+    description: 'Example service credential',
+    logo: 'iVBORw0KGgoAAAANSUhEUgAAA...',
+    minimumAgeRequired: 18,
+    termsAndConditions: 'https://example.com/terms',
+    privacyPolicy: 'https://example.com/privacy',
+  },
+)
+
 export const mockServiceSchema = createMockVerifiableCredential(
   'did:example:123',
+  'did:web:example.com',
+  {
+    id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
+    type: 'JsonSchema',
+    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+  },
+  {
+    id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+    type: 'JsonSchema',
+    jsonSchema: {
+      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+    },
+    digestSRI: 'sha384-57G/HBKgp3Pd2TsDegvouVagiWpbE8dW8as4zw/tkRg288SWqOZNi4ZIySRvdfnt',
+  },
+)
+
+export const mockServiceOnlySchema = createMockVerifiableCredential(
   'did:example:123',
+  'did:web:example.com',
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
@@ -178,7 +239,7 @@ export const mockOrgVerifiableCredential = createMockVerifiableCredential(
 
 export const mockOrgSchema = createMockVerifiableCredential(
   'did:example:123',
-  'did:example:123',
+  'did:web:example.com',
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',

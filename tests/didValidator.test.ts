@@ -11,16 +11,25 @@ import {
   mockCredentialSchemaOrg,
   mockCredentialSchemaSer,
   mockDidDocument,
+  mockDidDocumentOnlyService,
+  mockNonIssuerResolverInstance,
   mockOrgSchema,
   mockOrgSchemaWithoutIssuer,
   mockOrgVerifiableCredential,
   mockOrgVerifiableCredentialWithoutIssuer,
   mockPermission,
   mockResolverInstance,
+  mockServiceOnlySchema,
+  mockServiceOnlyVerifiableCredential,
   mockServiceSchema,
   mockServiceVerifiableCredential,
   setupAgent,
 } from './__mocks__'
+
+const mockResolversByDid: Record<string, any> = {
+  'did:web:123example.com': { ...mockNonIssuerResolverInstance },
+  'did:web:example.com': { ...mockResolverInstance },
+}
 
 describe('DidValidator', () => {
   let agent: Agent
@@ -72,7 +81,7 @@ describe('DidValidator', () => {
       expect(resolveSpy).toHaveBeenCalledTimes(1)
       expect(resolveSpy).toHaveBeenCalledWith(did)
       expect(result.metadata).toEqual(
-        expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_FOUND }),
+        expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_SUPPORTED }),
       )
       expect(result.didDocument).toEqual({ ...didDocumentChatbot })
     })
@@ -115,16 +124,19 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
+      expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
           ...mockDidDocument,
           verifiableService: {
             type: ECS.SERVICE,
+            issuer: did,
             credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
           issuerCredential: {
             type: ECS.ORG,
+            issuer: did,
             credentialSubject: mockOrgVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
         }),
@@ -133,14 +145,21 @@ describe('DidValidator', () => {
 
     it('should work correctly when the issuer is not "did" without params.', async () => {
       // Init values
-      const did = `did:web:example.com`
+      const did = `did:web:123example.com`
 
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
-        .mockResolvedValue({ ...mockResolverInstance })
+        .mockImplementation(async (did: string) => {
+          return mockResolversByDid[did]
+        })
       fetchMocker.setMockResponses({
         'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
+        'https://example.com/vp-ser-only': {
+          ok: true,
+          status: 200,
+          data: mockServiceOnlyVerifiableCredential,
+        },
         'https://example.com/vp-org': {
           ok: true,
           status: 200,
@@ -150,6 +169,11 @@ describe('DidValidator', () => {
           ok: true,
           status: 200,
           data: mockServiceSchema.verifiableCredential[0],
+        },
+        'https://ecs-trust-registry/service-only-credential-schema-credential.json': {
+          ok: true,
+          status: 200,
+          data: mockServiceOnlySchema.verifiableCredential[0],
         },
         'https://ecs-trust-registry/org-credential-schema-credential.json': {
           ok: true,
@@ -172,15 +196,18 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
+      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org' })
+      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:123example.com')
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
+      expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockDidDocument,
+          ...mockDidDocumentOnlyService,
           verifiableService: {
             type: ECS.SERVICE,
-            credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
+            issuer: 'did:web:example.com',
+            credentialSubject: mockServiceOnlyVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -188,14 +215,21 @@ describe('DidValidator', () => {
 
     it('should work correctly when the issuer is not "did" with different trustRegistryUrl.', async () => {
       // Init values
-      const did = `did:web:example.com`
+      const did = `did:web:123example.com`
 
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
-        .mockResolvedValue({ ...mockResolverInstance })
+        .mockImplementation(async (did: string) => {
+          return mockResolversByDid[did]
+        })
       fetchMocker.setMockResponses({
         'https://example.com/vp-ser': { ok: true, status: 200, data: mockServiceVerifiableCredential },
+        'https://example.com/vp-ser-only': {
+          ok: true,
+          status: 200,
+          data: mockServiceOnlyVerifiableCredential,
+        },
         'https://example.com/vp-org': {
           ok: true,
           status: 200,
@@ -205,6 +239,11 @@ describe('DidValidator', () => {
           ok: true,
           status: 200,
           data: mockServiceSchema.verifiableCredential[0],
+        },
+        'https://ecs-trust-registry/service-only-credential-schema-credential.json': {
+          ok: true,
+          status: 200,
+          data: mockServiceOnlySchema.verifiableCredential[0],
         },
         'https://ecs-trust-registry/org-credential-schema-credential.json': {
           ok: true,
@@ -228,13 +267,16 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.com', didResolver })
+      expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:123example.com')
       expect(resolverInstanceSpy).toHaveBeenCalledWith('did:web:example.com')
+      expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
           metadata: { status: TrustStatus.RESOLVED },
-          ...mockDidDocument,
+          ...mockDidDocumentOnlyService,
           verifiableService: {
             type: ECS.SERVICE,
+            issuer: 'did:web:example.com',
             credentialSubject: mockServiceVerifiableCredential.verifiableCredential[0].credentialSubject,
           },
         }),
