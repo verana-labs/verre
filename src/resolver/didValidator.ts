@@ -20,6 +20,7 @@ import {
   IOrg,
   IPerson,
   PermissionManagementMode,
+  InternalResolverConfig,
 } from '../types'
 import {
   buildMetadata,
@@ -36,19 +37,36 @@ import {
 const resolverInstance = new Resolver(didWeb.getResolver())
 
 /**
- * Resolves a Decentralized Identifier (DID), validates its DID Document,
- * processes associated verifiable credentials, and checks trust status
- * against a given trust registry.
+ * Resolves a Decentralized Identifier (DID) and performs trust validation.
  *
- * @param did - The Decentralized Identifier to resolve.
+ * This is the main entrypoint for resolving a DID. It retrieves the DID Document,
+ * validates its structure, and checks the trust status of the identifier and its services
+ * using the provided trust registry.
  *
- * @param options - Configuration options for the resolver:
+ * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
+ * @param options - Configuration options for the resolver.
  * @param options.trustRegistryUrl - The base URL of the trust registry used to validate the DID and its services.
- * @param options.didResolver - (Optional) A custom DID resolver instance to use instead of the default resolver.
+ * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  *
- * @returns A promise that resolves to a `TrustedResolution` object, representing the result of the trust validation process.
+ * @returns A promise that resolves to a `TrustedResolution` object containing the resolution result,
+ * DID document metadata, and trust validation outcome.
  */
 export async function resolve(did: string, options: ResolverConfig): Promise<TrustedResolution> {
+  return await _resolve(did, options)
+}
+
+/**
+ * Internal resolution and trust processing logic.
+ *
+ * Only use this method directly if you need to customize advanced resolution behavior.
+ * This function supports injecting internal attributes (`attrs`), which are used during
+ * recursive calls when resolving a parent DID Document associated with the original DID.
+ *
+ * For most use cases, prefer using the public `resolve` function.
+ *
+ * @internal
+ */
+export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustedResolution> {
   if (!did) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
@@ -134,7 +152,7 @@ async function processDidDocument(
           const isExternalIssuer = credential.issuer !== did
 
           if (isServiceCred && isExternalIssuer) {
-            const resolution = await resolve(credential.issuer, {
+            const resolution = await _resolve(credential.issuer, {
               trustRegistryUrl,
               didResolver,
               attrs: credential,

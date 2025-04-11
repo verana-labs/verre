@@ -13,6 +13,9 @@ export type TrustedResolution = {
 export type ResolverConfig = {
   trustRegistryUrl: string
   didResolver?: Resolver
+}
+
+export type InternalResolverConfig = ResolverConfig & {
   attrs?: IService
 }
 
