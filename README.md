@@ -108,7 +108,7 @@ await resolve('did:web:example.com', {
 ```
 
 ## Notes
-- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USAR-AGENT`, and `SERVICE`.
+- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USER-AGENT`, and `SERVICE`.
 - The function exits early if both `issuerCredential` and `verifiableService` are found during credential processing.
 
 This method is essential for resolving and validating DIDs in a trusted ecosystem.
