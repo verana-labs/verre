@@ -44,9 +44,13 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustedRe
 ```
 
 ## Parameters
+
 - `did` (**string**, required): The Decentralized Identifier (DID) to resolve.
-- `options` (**ResolverConfig**, optional): Configuration options for the resolver, including the trust registry URL.
-  - `trustRegistryUrl` (string, optional): The URL of the trust registry used for DID resolution
+
+- `options` (**ResolverConfig**, optional): Configuration options for the resolver.
+  - `trustRegistryUrl` (**string**, required): The URL of the trust registry used to validate the DID and its services.
+  - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
+> **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
 
 ## Return Value
 Returns a `Promise<TrustedResolution>` that resolves to an object containing:
@@ -75,6 +79,32 @@ Returns a `Promise<TrustedResolution>` that resolves to an object containing:
     console.error('Error resolving DID:', error);
   }
 })();
+```
+
+### Using Credo-TS to Provide a Custom DID Resolver
+
+```ts
+import { Resolver } from 'did-resolver'
+import { DidResolverService, AgentContext } from '@credo-ts/core'
+
+// Set up the agent
+const agent = await setupAgent({ name: 'DID Service Test' })
+const didResolverService = agent.dependencyManager.resolve(DidResolverService)
+const agentContext = agent.dependencyManager.resolve(AgentContext)
+
+// Create a custom resolver using Credo-TS resolution strategies
+const didResolver = new Resolver({
+  web: async (did: string) => didResolverService.resolve(agentContext, did),
+  key: async (did: string) => didResolverService.resolve(agentContext, did),
+  peer: async (did: string) => didResolverService.resolve(agentContext, did),
+  jwk: async (did: string) => didResolverService.resolve(agentContext, did),
+})
+
+// Use the custom resolver in the call to `resolve`
+await resolve('did:web:example.com', {
+  trustRegistryUrl: 'https://registry.example.com',
+  didResolver,
+})
 ```
 
 ## Notes

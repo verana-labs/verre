@@ -36,11 +36,17 @@ import {
 const resolverInstance = new Resolver(didWeb.getResolver())
 
 /**
- * Resolves a DID, validates its document, and associated services.
- * Retrieves the DID document, processes its verifiable credentials, and checks its trust status.
- * @param did - The DID to resolve.
- * @param options - Configuration options for the resolver, including the trust registry URL.
- * @returns A promise that resolves to the trust resolution.
+ * Resolves a Decentralized Identifier (DID), validates its DID Document,
+ * processes associated verifiable credentials, and checks trust status
+ * against a given trust registry.
+ *
+ * @param did - The Decentralized Identifier to resolve.
+ *
+ * @param options - Configuration options for the resolver:
+ * @param options.trustRegistryUrl - The base URL of the trust registry used to validate the DID and its services.
+ * @param options.didResolver - (Optional) A custom DID resolver instance to use instead of the default resolver.
+ *
+ * @returns A promise that resolves to a `TrustedResolution` object, representing the result of the trust validation process.
  */
 export async function resolve(did: string, options: ResolverConfig): Promise<TrustedResolution> {
   if (!did) {
