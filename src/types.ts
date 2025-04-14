@@ -126,7 +126,7 @@ export interface Permission {
   vp_term_requested?: number
 }
 
-export interface TrustedResolutionMetadata {
+export interface TrustResolutionMetadata {
   errorMessage?: string
   status: TrustStatus
   errorCode?: TrustErrorCode
