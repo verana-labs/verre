@@ -1,0 +1,67 @@
+{
+  "name": "@verana-labs/verre",
+  "version": "0.0.1",
+  "type": "module",
+  "packageManager": "pnpm@9.15.3",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/verana-labs/verre"
+  },
+  "scripts": {
+    "build": "pnpm run clean && pnpm run compile",
+    "clean": "rimraf -rf ./build",
+    "compile": "tsc -p tsconfig.json",
+    "prepublishOnly": "pnpm run build",
+    "check-types": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "format": "prettier \"src/**/*.ts\" --write",
+    "check-format": "prettier -c \"src/**/*.ts\"",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint \"{src,apps,libs,tests}/**/*.ts\" --fix",
+    "validate": "pnpm run check-types && pnpm run check-format",
+    "prepare": "corepack enable"
+  },
+  "devDependencies": {
+    "@credo-ts/askar": "^0.5.13",
+    "@credo-ts/core": "^0.5.13",
+    "@credo-ts/node": "^0.5.13",
+    "@eslint/js": "^9.22.0",
+    "@hyperledger/aries-askar-nodejs": "^0.2.3",
+    "@types/eslint": "^8.56.2",
+    "@types/jsonld": "^1.5.15",
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.1",
+    "@typescript-eslint/parser": "^7.0.1",
+    "@vitest/coverage-v8": "^3.0.9",
+    "conventional-changelog-conventionalcommits": "^7.0.2",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-prettier": "^5.1.3",
+    "globals": "^16.0.0",
+    "prettier": "^3.2.5",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.6.2",
+    "typescript-eslint": "^8.26.1",
+    "vitest": "^3.0.9"
+  },
+  "dependencies": {
+    "@digitalcredentials/jsonld-signatures": "^12.0.1",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "crypto": "^1.0.1",
+    "did-resolver": "^4.1.0",
+    "jsonld": "^8.3.3",
+    "web-did-resolver": "^2.0.29"
+  },
+  "engines": {
+    "node": ">= 18"
+  }
+}
