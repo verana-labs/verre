@@ -63,11 +63,5 @@
   },
   "engines": {
     "node": ">= 18"
-  },
-  "resolutions": {
-    "@credo-ts/askar": "0.5.13",
-    "@credo-ts/core": "0.5.13",
-    "@credo-ts/node": "0.5.13",
-    "@hyperledger/aries-askar-nodejs": "0.2.3"
   }
 }
