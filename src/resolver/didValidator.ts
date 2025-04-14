@@ -24,7 +24,7 @@ import {
 } from '../types'
 import {
   buildMetadata,
-  fetchSchema,
+  fetchJson,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -204,14 +204,9 @@ async function processDidDocument(
  * @throws `TrustError` with `INVALID_ISSUER` if the DID is found but not an issuer.
  */
 async function isValidIssuer(did: string, trustRegistryUrl: string): Promise<Permission> {
-  const permResponse = await fetch(`${trustRegistryUrl}/prem/v1/get`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ did }),
-  })
-
-  if (!permResponse.ok) throw new TrustError(TrustErrorCode.NOT_FOUND, 'No data found in the trust registry.')
-  const permission: Permission = (await permResponse.json()) as Permission
+  const permission = await fetchJson<Permission>(
+    `${trustRegistryUrl}/perm/v1/find_with_did?did=${encodeURIComponent(did)}`,
+  )
 
   if (permission.type !== PermissionType.ISSUER)
     throw new TrustError(TrustErrorCode.INVALID_ISSUER, 'The provided DID is not a valid issuer.')
@@ -296,7 +291,7 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
 
   for (const endpoint of endpoints) {
     try {
-      return await fetchSchema<W3cPresentation>(endpoint)
+      return await fetchJson<W3cPresentation>(endpoint)
     } catch (error) {
       throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Failed to fetch VP from ${endpoint}: ${error}`)
     }
@@ -319,14 +314,7 @@ async function queryTrustRegistry(service: Service) {
   }
 
   try {
-    const response = await fetch(service.serviceEndpoint[0], { method: 'GET' })
-
-    if (!response.ok) {
-      throw new TrustError(
-        TrustErrorCode.INVALID_REQUEST,
-        `The service responded with code ${response.status}.`,
-      )
-    }
+    await fetchJson(service.serviceEndpoint[0])
   } catch (error) {
     throw new TrustError(
       TrustErrorCode.INVALID_REQUEST,
@@ -403,7 +391,7 @@ async function processCredential(
       "Credential schema type must be 'JsonSchemaCredential' or 'JsonSchema'.",
     )
   if (schema.type === 'JsonSchemaCredential') {
-    const jsonSchemaCredential = await fetchSchema<W3cVerifiableCredential>(schema.id)
+    const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
     return processCredential(jsonSchemaCredential, trustRegistryUrl, subject as Record<string, string>)
   }
 
@@ -412,7 +400,7 @@ async function processCredential(
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
       // Fetch and verify the credential schema integrity
-      const schemaData = await fetchSchema(schema.id)
+      const schemaData = await fetchJson(schema.id)
       verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
 
       // Validate the credential against the schema
@@ -423,7 +411,7 @@ async function processCredential(
         subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchSchema<CredentialSchema>(refUrl)
+      const subjectSchema = await fetchJson<CredentialSchema>(refUrl)
 
       // If the referenced schema isn't open, verify that the issuer has valid permission
       if (subjectSchema.issuer_perm_management_mode !== PermissionManagementMode.OPEN)

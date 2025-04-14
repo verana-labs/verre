@@ -28,24 +28,25 @@ export function buildMetadata(errorCode?: TrustErrorCode, errorMessage?: string)
 }
 
 /**
- * Fetches and returns a schema from a given URL.
+ * Fetches and returns JSON data from a given URL.
  *
- * The function performs an HTTP request to fetch the schema.
- * If the request fails, it throws a `TrustError` with details.
+ * Performs an HTTP request and attempts to parse the response as JSON.
+ * If the request fails, it throws a `TrustError` with relevant details.
  *
- * @template T - The expected schema structure.
- * @param url - The URL to fetch the schema from.
- * @returns A promise resolving to the fetched schema.
- * @throws {TrustError} If the request fails.
+ * @template T - The expected structure of the JSON response.
+ * @param url - The URL to fetch the data from.
+ * @returns A promise resolving to the parsed JSON data.
+ * @throws {TrustError} If the HTTP request fails.
  */
-export async function fetchSchema<T = any>(url: string): Promise<T> {
+export async function fetchJson<T = any>(url: string): Promise<T> {
   const response = await fetch(url)
 
   if (!response.ok) {
     throw new TrustError(
       TrustErrorCode.INVALID_REQUEST,
-      `Failed to fetch schema from ${url}: ${response.status} ${response.statusText}`,
+      `Failed to fetch data from ${url}: ${response.status} ${response.statusText}`,
     )
   }
+
   return response.json() as T
 }

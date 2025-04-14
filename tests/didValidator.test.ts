@@ -119,7 +119,11 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'http://testTrust.org/prem/v1/get': { ok: true, status: 200, data: mockPermission },
+        'http://testTrust.org/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com': {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
       })
 
       // Execute method under test
@@ -192,7 +196,11 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'http://testTrust.org/prem/v1/get': { ok: true, status: 200, data: mockPermission },
+        'http://testTrust.org/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com': {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
         'http://testTrust.org/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
@@ -264,7 +272,11 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'http://testTrust.com/prem/v1/get': { ok: true, status: 200, data: mockPermission },
+        'http://testTrust.com/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com': {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
         'http://testTrust.com/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
