@@ -35,7 +35,7 @@ The `resolve` method is used to resolve a Decentralized Identifier (DID), valida
 
 ## Importing the Method
 ```typescript
-import { resolve } from 'verre';
+import { resolve } from '@verana-labs/verre';
 ```
 
 ## Method Signature
