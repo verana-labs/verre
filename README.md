@@ -40,7 +40,7 @@ import { resolve } from '@verana-labs/verre';
 
 ## Method Signature
 ```typescript
-async function resolve(did: string, options?: ResolverConfig): Promise<TrustedResolution>
+async function resolve(did: string, options?: ResolverConfig): Promise<TrustResolution>
 ```
 
 ## Parameters
@@ -53,7 +53,7 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustedRe
 > **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
 
 ## Return Value
-Returns a `Promise<TrustedResolution>` that resolves to an object containing:
+Returns a `Promise<TrustResolution>` that resolves to an object containing:
 
 - `resolvedDidDocument` (**ResolvedDidDocument**, optional): The resolved DID document.
 - `metadata` (**TrustResolutionMetadata**, required): Metadata related to the resolution, including possible states and error codes.

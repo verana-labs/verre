@@ -13,7 +13,7 @@ import {
   Permission,
   PermissionType,
   ResolverConfig,
-  TrustedResolution,
+  TrustResolution,
   TrustErrorCode,
   IService,
   ICredential,
@@ -48,10 +48,10 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * @param options.trustRegistryUrl - The base URL of the trust registry used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  *
- * @returns A promise that resolves to a `TrustedResolution` object containing the resolution result,
+ * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
-export async function resolve(did: string, options: ResolverConfig): Promise<TrustedResolution> {
+export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
   return await _resolve(did, options)
 }
 
@@ -66,7 +66,7 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  *
  * @internal
  */
-export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustedResolution> {
+export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
   if (!did) {
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
@@ -105,7 +105,7 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  *
- * @returns {Promise<TrustedResolution>} An object containing:
+ * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
  * - Extracted issuer credential (organization or person)
  * - Identified verifiable service credential
@@ -125,7 +125,7 @@ async function processDidDocument(
   trustRegistryUrl: string,
   didResolver?: Resolver,
   attrs?: IService,
-): Promise<TrustedResolution> {
+): Promise<TrustResolution> {
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
