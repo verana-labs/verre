@@ -27,7 +27,7 @@ npm install verre
 ```
 or
 ```bash
-yarn add verre
+yarn add @verana-labs/verre
 ```
 
 ## Overview
