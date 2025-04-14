@@ -23,7 +23,7 @@ The main entry point for using the resolver is the `resolve` function, which all
 To use the Verana Trust Resolver, install the library and import the necessary modules:
 
 ```bash
-npm install verre
+npm install @verana-labs/verre
 ```
 or
 ```bash
