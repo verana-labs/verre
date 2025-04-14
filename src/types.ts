@@ -3,7 +3,7 @@ import type { W3cPresentation } from '@credo-ts/core'
 import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 
 // types
-export type TrustedResolution = {
+export type TrustResolution = {
   didDocument?: DIDDocument
   metadata: TrustResolutionMetadata
   verifiableService?: IService
