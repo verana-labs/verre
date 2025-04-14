@@ -1,6 +1,6 @@
 import { DIDDocument } from 'did-resolver'
 
-import { TrustedResolutionMetadata, TrustErrorCode } from '../types'
+import { TrustResolutionMetadata, TrustErrorCode } from '../types'
 
 import { buildMetadata } from './helper'
 
@@ -9,7 +9,7 @@ import { buildMetadata } from './helper'
  * Extends the standard `Error` class and includes metadata for detailed resolution information.
  */
 export class TrustError extends Error {
-  metadata: TrustedResolutionMetadata
+  metadata: TrustResolutionMetadata
 
   constructor(code: TrustErrorCode, message: string) {
     super(message)

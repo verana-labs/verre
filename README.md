@@ -56,7 +56,7 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustedRe
 Returns a `Promise<TrustedResolution>` that resolves to an object containing:
 
 - `resolvedDidDocument` (**ResolvedDidDocument**, optional): The resolved DID document.
-- `metadata` (**TrustedResolutionMetadata**, required): Metadata related to the resolution, including possible states and error codes.
+- `metadata` (**TrustResolutionMetadata**, required): Metadata related to the resolution, including possible states and error codes.
   - `content`
   - `status`
   - `errorCode`

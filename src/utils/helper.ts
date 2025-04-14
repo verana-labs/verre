@@ -1,4 +1,4 @@
-import { TrustedResolutionMetadata, TrustErrorCode, TrustStatus } from '../types'
+import { TrustResolutionMetadata, TrustErrorCode, TrustStatus } from '../types'
 
 import { TrustError } from './trustError'
 
@@ -12,7 +12,7 @@ import { TrustError } from './trustError'
  * @param errorMessage - Optional descriptive error message.
  * @returns The metadata containing the resolution status and error details if applicable.
  */
-export function buildMetadata(errorCode?: TrustErrorCode, errorMessage?: string): TrustedResolutionMetadata {
+export function buildMetadata(errorCode?: TrustErrorCode, errorMessage?: string): TrustResolutionMetadata {
   if (!errorCode) {
     return {
       status: TrustStatus.RESOLVED,

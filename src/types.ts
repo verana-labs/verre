@@ -5,7 +5,7 @@ import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 // types
 export type TrustedResolution = {
   didDocument?: DIDDocument
-  metadata: TrustedResolutionMetadata
+  metadata: TrustResolutionMetadata
   verifiableService?: IService
   issuerCredential?: ICredential
 }
