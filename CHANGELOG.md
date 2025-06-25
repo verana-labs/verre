@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/verana-labs/verre/compare/v0.0.4...v0.0.5) (2025-06-25)
+
+
+### Bug Fixes
+
+* improvement package for support cjs oon library ([#5](https://github.com/verana-labs/verre/issues/5)) ([c589d84](https://github.com/verana-labs/verre/commit/c589d84f46c3b0d90b28ec8698ce638e2e718a76))
+
 ## [0.0.4](https://github.com/verana-labs/verre/compare/v0.0.3...v0.0.4) (2025-06-25)
 
 
