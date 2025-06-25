@@ -71,7 +71,7 @@ describe('DidValidator', () => {
   describe('resolver method', () => {
     it('should fail for a valid web DID without LinkedVerifiablePresentation', async () => {
       // Real case with 'chatbot-demo.dev.2060.io'
-      const did = 'did:web:chatbot-demo.dev.2060.io'
+      const did = 'did:web:dm.chatbot.demos.dev.2060.io'
 
       // Setup spy methods
       const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
