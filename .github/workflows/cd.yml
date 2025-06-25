@@ -32,8 +32,16 @@ jobs:
           node-version: 22
           cache: pnpm
         if: ${{ steps.release.outputs.release_created }}
+
+      - name: Setup npm auth for pnpm
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: ${{ steps.release.outputs.release_created }}
+
       - run: pnpm install --frozen-lockfile
         if: ${{ steps.release.outputs.release_created }}
+
       - run: pnpm publish
         env:
           NPM_TOKEN: ${{secrets.NPM_TOKEN}}
