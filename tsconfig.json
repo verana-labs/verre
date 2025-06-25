@@ -24,6 +24,7 @@
     "files": true
   },
   "types": ["jest", "node"],
+  "include": ["src/**/*"],
   "exclude": [
     "node_modules",
     "build",

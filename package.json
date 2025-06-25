@@ -2,6 +2,16 @@
   "name": "@verana-labs/verre",
   "version": "0.0.4",
   "type": "module",
+  "main": "./build/cjs/index.js",
+  "module": "./build/index.js",
+  "exports": {
+    "require": "./build/cjs/index.js",
+    "import": "./build/index.js"
+  },
+  "types": "./build/index.d.ts",
+  "files": [
+    "build"
+  ],
   "packageManager": "pnpm@9.15.3",
   "publishConfig": {
     "access": "public"
@@ -13,7 +23,9 @@
   "scripts": {
     "build": "pnpm run clean && pnpm run compile",
     "clean": "rimraf -rf ./build",
-    "compile": "tsc -p tsconfig.json",
+    "compile": "pnpm run compile:esm && pnpm run compile:cjs",
+    "compile:esm": "tsc -p tsconfig.json",
+    "compile:cjs": "tsc -p tsconfig.cjs.json",
     "prepublishOnly": "pnpm run build",
     "check-types": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "format": "prettier \"src/**/*.ts\" --write",
