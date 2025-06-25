@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.4](https://github.com/verana-labs/verre/compare/v0.0.3...v0.0.4) (2025-06-25)
+
+
+### Bug Fixes
+
+* setup npm token for pnpm ([7e02701](https://github.com/verana-labs/verre/commit/7e027011a34a080106df24fdf1cda2c4edd2f95d))
+
 ## [0.0.3](https://github.com/verana-labs/verre/compare/v0.0.2...v0.0.3) (2025-06-25)
 
 
