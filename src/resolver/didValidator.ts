@@ -168,8 +168,6 @@ async function processDidDocument(
         }
         default:
           break
-        // TODO: Defined whether another service has been able to provide support
-        // throw new TrustError(TrustErrorCode.NOT_SUPPORTED, 'service type not supported')
       }
     }),
   )
