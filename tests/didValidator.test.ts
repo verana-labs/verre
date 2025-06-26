@@ -83,7 +83,7 @@ describe('DidValidator', () => {
       expect(resolveSpy).toHaveBeenCalledTimes(1)
       expect(resolveSpy).toHaveBeenCalledWith(did)
       expect(result.metadata).toEqual(
-        expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_SUPPORTED }),
+        expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_FOUND }),
       )
       expect(result.didDocument).toEqual({ ...mockDidDocumentChatbot })
     })

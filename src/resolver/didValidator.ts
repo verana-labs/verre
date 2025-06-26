@@ -167,7 +167,7 @@ async function processDidDocument(
           break
         }
         default:
-          throw new TrustError(TrustErrorCode.NOT_SUPPORTED, 'service type not supported')
+          break
       }
     }),
   )
@@ -237,10 +237,10 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
 
   // Validate presence of "vpr-essential-schemas"
   const hasEssentialSchemas = serviceEntries.some(
-    s => s.type === 'LinkedVerifiablePresentation' && s.id.includes('#vpr-essential-schemas'),
+    s => s.type === 'LinkedVerifiablePresentation' && s.id.includes('#vpr-ecs'),
   )
   const hasEssentialTrustRegistry = serviceEntries.some(
-    s => s.type === 'VerifiablePublicRegistry' && s.id.includes('#vpr-essential-schemas-trust-registry'),
+    s => s.type === 'VerifiablePublicRegistry' && s.id.includes('#vpr-ecs-trust-registry'),
   )
 
   // Validate schema consistency
@@ -305,16 +305,21 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * @throws Error if the service endpoint is invalid or unreachable.
  */
 async function queryTrustRegistry(service: Service) {
-  if (
-    !service.serviceEndpoint ||
-    !Array.isArray(service.serviceEndpoint) ||
-    service.serviceEndpoint.length === 0
-  ) {
-    throw new TrustError(TrustErrorCode.INVALID, 'The service does not have a valid endpoint.')
+  let endpoint: string | undefined
+  const { serviceEndpoint } = service
+
+  if (typeof serviceEndpoint === 'string') {
+    endpoint = serviceEndpoint
+  } else if (Array.isArray(serviceEndpoint)) {
+    endpoint = serviceEndpoint.find(e => typeof e === 'string')
+  }
+
+  if (!endpoint || typeof endpoint !== 'string') {
+    throw new TrustError(TrustErrorCode.INVALID, 'The service does not have a valid string endpoint.')
   }
 
   try {
-    await fetchJson(service.serviceEndpoint[0])
+    await fetchJson(endpoint)
   } catch (error) {
     throw new TrustError(
       TrustErrorCode.INVALID_REQUEST,
