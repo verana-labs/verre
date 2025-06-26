@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/verana-labs/verre/compare/v0.0.5...v0.0.6) (2025-06-26)
+
+
+### Bug Fixes
+
+* improvement according specs and first deploy ([#6](https://github.com/verana-labs/verre/issues/6)) ([bd6e6fc](https://github.com/verana-labs/verre/commit/bd6e6fc4c52e76f6d399bc61093c88b2ca5c1a2c))
+
 ## [0.0.5](https://github.com/verana-labs/verre/compare/v0.0.4...v0.0.5) (2025-06-25)
 
 
