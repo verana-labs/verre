@@ -35,12 +35,12 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const suite = new suites.LinkedDataSignature({
-      /* suite options */
-    })
-    const purpose = isPresentation
-      ? new purposes.AuthenticationProofPurpose({ challenge: 'challenge' })
-      : new purposes.AssertionProofPurpose()
+    // const suite = new suites.LinkedDataSignature({
+    //   /* suite options */
+    // })
+    // const purpose = isPresentation
+    //   ? new purposes.AuthenticationProofPurpose({ challenge: 'challenge' })
+    //   : new purposes.AssertionProofPurpose()
 
     // const result = await verify({
     //   document,
