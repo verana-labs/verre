@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.7](https://github.com/verana-labs/verre/compare/v0.0.6...v0.0.7) (2025-06-27)
+
+
+### Bug Fixes
+
+* make hash compatible with react native ([#9](https://github.com/verana-labs/verre/issues/9)) ([08b6494](https://github.com/verana-labs/verre/commit/08b6494024efb2c37debd0941d31f8808f9acabd))
+
 ## [0.0.6](https://github.com/verana-labs/verre/compare/v0.0.5...v0.0.6) (2025-06-26)
 
 

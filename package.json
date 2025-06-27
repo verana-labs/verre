@@ -1,6 +1,6 @@
 {
   "name": "@verana-labs/verre",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "main": "./build/cjs/index.js",
   "module": "./build/index.js",
