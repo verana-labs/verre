@@ -1,4 +1,4 @@
-import { type W3cJsonLdVerifiableCredential, type W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import { AgentContext, W3cCredentialService, type W3cJsonLdVerifiableCredential, type W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import { Buffer } from 'buffer/'
 
 import { purposes, suites, verify } from '../libraries'
@@ -21,14 +21,16 @@ import { TrustError } from './trustError'
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
+  agent?: AgentContext
 ): Promise<boolean> {
   try {
     if (
       !document.proof ||
-      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential'))
+      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential')) ||
+      !agent
     ) {
       throw new Error(
-        'The document must be a Verifiable Presentation or Verifiable Credential with a valid proof.',
+        'The document must be a Verifiable Presentation, Verifiable Credential with a valid proof and the agentContext must be added.',
       )
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
@@ -37,16 +39,20 @@ export async function verifySignature(
       /* suite options */
     })
     const purpose = isPresentation
-      ? new purposes.AuthenticationProofPurpose()
+      ? new purposes.AuthenticationProofPurpose({ challenge: 'challenge' })
       : new purposes.AssertionProofPurpose()
 
-    const result = await verify({
-      document,
-      suite,
-      purpose,
-      documentLoader,
-    })
-    if (!result.verified) return false
+    // const result = await verify({
+    //   document,
+    //   suite,
+    //   purpose,
+    //   documentLoader,
+    // })
+    // if (!result.verified) return false
+    
+    const w3c = await agent?.dependencyManager.resolve(W3cCredentialService)
+    const result = isPresentation ? await w3c?.verifyPresentation(agent, { presentation: document as W3cJsonLdVerifiablePresentation, challenge: 'challenge', domain: 'example.com' }) : await w3c?.verifyCredential(agent, { credential: document as W3cJsonLdVerifiableCredential, proofPurpose: new purposes.AssertionProofPurpose()  })
+    if (!result.isValid) return false
 
     if (isPresentation && isVerifiablePresentation(document)) {
       const credentials = Array.isArray(document.verifiableCredential)
@@ -54,14 +60,14 @@ export async function verifySignature(
         : [document.verifiableCredential]
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc)))
+      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agent)))
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
         throw new Error('One or more verifiable credentials failed signature verification.')
       }
     }
-    return result.verified
+    return result.isValid
   } catch (error) {
     console.error('Error validating the proof:', error.message)
     return false

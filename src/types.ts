@@ -1,4 +1,4 @@
-import type { W3cPresentation } from '@credo-ts/core'
+import type { AgentContext, W3cPresentation } from '@credo-ts/core'
 
 import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 
@@ -13,6 +13,7 @@ export type TrustResolution = {
 export type ResolverConfig = {
   trustRegistryUrl: string
   didResolver?: Resolver
+  agent?: AgentContext
 }
 
 export type InternalResolverConfig = ResolverConfig & {
