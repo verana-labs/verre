@@ -125,7 +125,7 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
 async function processDidDocument(
   did: string,
   didDocument: DIDDocument,
-  trustRegistryUrl: string,
+  trustRegistryUrl?: string,
   didResolver?: Resolver,
   attrs?: IService,
   agent?: AgentContext
@@ -137,6 +137,18 @@ async function processDidDocument(
   const credentials: ICredential[] = []
   let issuerCredential: ICredential | undefined
   let verifiableService: IService | undefined = attrs
+
+  const registryService = didDocument.service.find(s => s.type === 'VerifiablePublicRegistry')
+  if (!trustRegistryUrl && registryService) {
+    trustRegistryUrl = await queryTrustRegistry(registryService)
+  }
+
+  if (!trustRegistryUrl) {
+    throw new TrustError(
+      TrustErrorCode.NOT_FOUND,
+      'Missing trustRegistryUrl. You must provide it directly or via a VerifiablePublicRegistry service.',
+    )
+  }
 
   await Promise.all(
     didDocument.service.map(async service => {
@@ -165,10 +177,6 @@ async function processDidDocument(
             verifiableService = resolution.verifiableService
             issuerCredential = resolution.issuerCredential
           }
-          break
-        }
-        case 'VerifiablePublicRegistry': {
-          // await queryTrustRegistry(service)
           break
         }
         default:
@@ -309,7 +317,7 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * @param service - The Trust Registry service to query.
  * @throws Error if the service endpoint is invalid or unreachable.
  */
-async function queryTrustRegistry(service: Service) {
+async function queryTrustRegistry(service: Service): Promise<string> {
   let endpoint: string | undefined
   const { serviceEndpoint } = service
 
@@ -323,14 +331,7 @@ async function queryTrustRegistry(service: Service) {
     throw new TrustError(TrustErrorCode.INVALID, 'The service does not have a valid string endpoint.')
   }
 
-  try {
-    await fetchJson(endpoint)
-  } catch (error) {
-    throw new TrustError(
-      TrustErrorCode.INVALID_REQUEST,
-      `Error querying the Trust Registry: ${error.message}`,
-    )
-  }
+  return endpoint
 }
 
 /**
