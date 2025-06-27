@@ -11,7 +11,7 @@ export type TrustResolution = {
 }
 
 export type ResolverConfig = {
-  trustRegistryUrl: string
+  trustRegistryUrl?: string
   didResolver?: Resolver
 }
 
