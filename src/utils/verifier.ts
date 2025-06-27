@@ -1,10 +1,10 @@
-import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
-
-import { createHash } from 'crypto'
+import { type W3cJsonLdVerifiableCredential, type W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import { Buffer } from 'buffer/'
 
 import { purposes, suites, verify } from '../libraries'
 import { TrustErrorCode } from '../types'
 
+import { hash } from './crypto'
 import { TrustError } from './trustError'
 
 /**
@@ -113,9 +113,7 @@ const documentLoader = async (url: string): Promise<{ document: any }> => {
  */
 export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
   const [algorithm, expectedHash] = expectedDigestSRI.split('-')
-  const computedHash = createHash(algorithm)
-    .update(JSON.stringify(JSON.parse(schemaJson)), 'utf8')
-    .digest('base64')
+  const computedHash = Buffer.from(hash(algorithm, JSON.stringify(JSON.parse(schemaJson)))).toString('base64')
 
   if (computedHash !== expectedHash) {
     throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
