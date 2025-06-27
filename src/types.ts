@@ -13,7 +13,7 @@ export type TrustResolution = {
 export type ResolverConfig = {
   trustRegistryUrl?: string
   didResolver?: Resolver
-  agent?: AgentContext
+  agentContext: AgentContext
 }
 
 export type InternalResolverConfig = ResolverConfig & {
