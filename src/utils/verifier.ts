@@ -1,7 +1,13 @@
-import { AgentContext, W3cCredentialService, type W3cJsonLdVerifiableCredential, type W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import {
+  AgentContext,
+  JsonTransformer,
+  W3cCredentialService,
+  W3cJsonLdVerifiableCredential,
+  W3cJsonLdVerifiablePresentation,
+} from '@credo-ts/core'
 import { Buffer } from 'buffer/'
 
-import { purposes, suites, verify } from '../libraries'
+import { purposes } from '../libraries'
 import { TrustErrorCode } from '../types'
 
 import { hash } from './crypto'
@@ -21,7 +27,7 @@ import { TrustError } from './trustError'
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
-  agent?: AgentContext
+  agent?: AgentContext,
 ): Promise<boolean> {
   try {
     if (
@@ -35,23 +41,17 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    // const suite = new suites.LinkedDataSignature({
-    //   /* suite options */
-    // })
-    // const purpose = isPresentation
-    //   ? new purposes.AuthenticationProofPurpose({ challenge: 'challenge' })
-    //   : new purposes.AssertionProofPurpose()
-
-    // const result = await verify({
-    //   document,
-    //   suite,
-    //   purpose,
-    //   documentLoader,
-    // })
-    // if (!result.verified) return false
-    
     const w3c = await agent?.dependencyManager.resolve(W3cCredentialService)
-    const result = isPresentation ? await w3c?.verifyPresentation(agent, { presentation: document as W3cJsonLdVerifiablePresentation, challenge: 'challenge', domain: 'example.com' }) : await w3c?.verifyCredential(agent, { credential: document as W3cJsonLdVerifiableCredential, proofPurpose: new purposes.AssertionProofPurpose()  })
+    const result = isPresentation
+      ? await w3c?.verifyPresentation(agent, {
+          presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
+          challenge: 'challenge',
+          domain: 'example.com',
+        })
+      : await w3c?.verifyCredential(agent, {
+          credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
+          proofPurpose: new purposes.AssertionProofPurpose(),
+        })
     if (!result.isValid) return false
 
     if (isPresentation && isVerifiablePresentation(document)) {
@@ -97,6 +97,7 @@ function isVerifiablePresentation(
  * @returns {Promise<{ document: any }>} A promise resolving to an object containing the context document.
  * @throws {Error} Throws an error if the requested context is not found.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const documentLoader = async (url: string): Promise<{ document: any }> => {
   const contexts: Record<string, any> = {
     'https://www.w3.org/2018/credentials/v1': {},

@@ -2,11 +2,8 @@ import {
   type W3cVerifiableCredential,
   type W3cPresentation,
   type W3cJsonLdVerifiablePresentation,
-  type AgentConfig,
   type AgentContext,
-  W3cCredentialService,
 } from '@credo-ts/core'
-
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
@@ -128,7 +125,7 @@ async function processDidDocument(
   trustRegistryUrl?: string,
   didResolver?: Resolver,
   attrs?: IService,
-  agent?: AgentContext
+  agent?: AgentContext,
 ): Promise<TrustResolution> {
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
@@ -340,7 +337,11 @@ async function queryTrustRegistry(service: Service): Promise<string> {
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-async function getVerifiedCredential(vp: W3cPresentation, trustRegistryUrl: string, agent?: AgentContext): Promise<ICredential> {
+async function getVerifiedCredential(
+  vp: W3cPresentation,
+  trustRegistryUrl: string,
+  agent?: AgentContext,
+): Promise<ICredential> {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
