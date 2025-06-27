@@ -27,13 +27,13 @@ import { TrustError } from './trustError'
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
-  agent?: AgentContext,
+  agentContext?: AgentContext,
 ): Promise<boolean> {
   try {
     if (
       !document.proof ||
       !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential')) ||
-      !agent
+      !agentContext
     ) {
       throw new Error(
         'The document must be a Verifiable Presentation, Verifiable Credential with a valid proof and the agentContext must be added.',
@@ -41,14 +41,14 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const w3c = await agent?.dependencyManager.resolve(W3cCredentialService)
+    const w3c = await agentContext?.dependencyManager.resolve(W3cCredentialService)
     const result = isPresentation
-      ? await w3c?.verifyPresentation(agent, {
+      ? await w3c?.verifyPresentation(agentContext, {
           presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
           challenge: 'challenge',
           domain: 'example.com',
         })
-      : await w3c?.verifyCredential(agent, {
+      : await w3c?.verifyCredential(agentContext, {
           credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
           proofPurpose: new purposes.AssertionProofPurpose(),
         })
@@ -60,7 +60,7 @@ export async function verifySignature(
         : [document.verifiableCredential]
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agent)))
+      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agentContext)))
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {

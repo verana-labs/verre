@@ -71,12 +71,12 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl, didResolver, attrs, agent } = options
+  const { trustRegistryUrl, didResolver, attrs, agentContext } = options
   try {
     const didDocument = await retrieveDidDocument(did, didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, trustRegistryUrl, didResolver, attrs, agent)
+      return await processDidDocument(did, didDocument, trustRegistryUrl, didResolver, attrs, agentContext)
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -125,7 +125,7 @@ async function processDidDocument(
   trustRegistryUrl?: string,
   didResolver?: Resolver,
   attrs?: IService,
-  agent?: AgentContext,
+  agentContext?: AgentContext,
 ): Promise<TrustResolution> {
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
@@ -158,7 +158,7 @@ async function processDidDocument(
               `Invalid Linked Verifiable Presentation for service id: '${service.id}'`,
             )
 
-          const credential = await getVerifiedCredential(vp, trustRegistryUrl, agent)
+          const credential = await getVerifiedCredential(vp, trustRegistryUrl, agentContext)
           credentials.push(credential)
 
           const isServiceCred = credential.type === ECS.SERVICE
@@ -169,7 +169,7 @@ async function processDidDocument(
               trustRegistryUrl,
               didResolver,
               attrs: credential,
-              agent,
+              agentContext,
             })
             verifiableService = resolution.verifiableService
             issuerCredential = resolution.issuerCredential
@@ -340,7 +340,7 @@ async function queryTrustRegistry(service: Service): Promise<string> {
 async function getVerifiedCredential(
   vp: W3cPresentation,
   trustRegistryUrl: string,
-  agent?: AgentContext,
+  agentContext?: AgentContext,
 ): Promise<ICredential> {
   if (
     !vp.verifiableCredential ||
@@ -355,7 +355,7 @@ async function getVerifiedCredential(
   if (!validCredential) {
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
-  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agent)
+  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified) {
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }
