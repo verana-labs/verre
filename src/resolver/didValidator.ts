@@ -1,9 +1,9 @@
-import type {
-  W3cVerifiableCredential,
-  W3cPresentation,
-  W3cJsonLdVerifiablePresentation,
+import {
+  type W3cVerifiableCredential,
+  type W3cPresentation,
+  type W3cJsonLdVerifiablePresentation,
+  type AgentContext,
 } from '@credo-ts/core'
-
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
@@ -71,12 +71,12 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
     return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
-  const { trustRegistryUrl, didResolver, attrs } = options
+  const { trustRegistryUrl, didResolver, attrs, agentContext } = options
   try {
     const didDocument = await retrieveDidDocument(did, didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, trustRegistryUrl, didResolver, attrs)
+      return await processDidDocument(did, didDocument, trustRegistryUrl, didResolver, attrs, agentContext)
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -122,9 +122,10 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
 async function processDidDocument(
   did: string,
   didDocument: DIDDocument,
-  trustRegistryUrl: string,
+  trustRegistryUrl?: string,
   didResolver?: Resolver,
   attrs?: IService,
+  agentContext?: AgentContext,
 ): Promise<TrustResolution> {
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
@@ -133,6 +134,18 @@ async function processDidDocument(
   const credentials: ICredential[] = []
   let issuerCredential: ICredential | undefined
   let verifiableService: IService | undefined = attrs
+
+  const registryService = didDocument.service.find(s => s.type === 'VerifiablePublicRegistry')
+  if (!trustRegistryUrl && registryService) {
+    trustRegistryUrl = await queryTrustRegistry(registryService)
+  }
+
+  if (!trustRegistryUrl) {
+    throw new TrustError(
+      TrustErrorCode.NOT_FOUND,
+      'Missing trustRegistryUrl. You must provide it directly or via a VerifiablePublicRegistry service.',
+    )
+  }
 
   await Promise.all(
     didDocument.service.map(async service => {
@@ -145,7 +158,7 @@ async function processDidDocument(
               `Invalid Linked Verifiable Presentation for service id: '${service.id}'`,
             )
 
-          const credential = await getVerifiedCredential(vp, trustRegistryUrl)
+          const credential = await getVerifiedCredential(vp, trustRegistryUrl, agentContext)
           credentials.push(credential)
 
           const isServiceCred = credential.type === ECS.SERVICE
@@ -156,14 +169,11 @@ async function processDidDocument(
               trustRegistryUrl,
               didResolver,
               attrs: credential,
+              agentContext,
             })
             verifiableService = resolution.verifiableService
             issuerCredential = resolution.issuerCredential
           }
-          break
-        }
-        case 'VerifiablePublicRegistry': {
-          await queryTrustRegistry(service)
           break
         }
         default:
@@ -304,7 +314,7 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * @param service - The Trust Registry service to query.
  * @throws Error if the service endpoint is invalid or unreachable.
  */
-async function queryTrustRegistry(service: Service) {
+async function queryTrustRegistry(service: Service): Promise<string> {
   let endpoint: string | undefined
   const { serviceEndpoint } = service
 
@@ -318,14 +328,7 @@ async function queryTrustRegistry(service: Service) {
     throw new TrustError(TrustErrorCode.INVALID, 'The service does not have a valid string endpoint.')
   }
 
-  try {
-    await fetchJson(endpoint)
-  } catch (error) {
-    throw new TrustError(
-      TrustErrorCode.INVALID_REQUEST,
-      `Error querying the Trust Registry: ${error.message}`,
-    )
-  }
+  return endpoint
 }
 
 /**
@@ -334,7 +337,11 @@ async function queryTrustRegistry(service: Service) {
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-async function getVerifiedCredential(vp: W3cPresentation, trustRegistryUrl: string): Promise<ICredential> {
+async function getVerifiedCredential(
+  vp: W3cPresentation,
+  trustRegistryUrl: string,
+  agentContext?: AgentContext,
+): Promise<ICredential> {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
@@ -348,7 +355,7 @@ async function getVerifiedCredential(vp: W3cPresentation, trustRegistryUrl: stri
   if (!validCredential) {
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
-  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation)
+  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified) {
     throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
   }

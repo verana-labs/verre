@@ -48,8 +48,9 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustReso
 - `did` (**string**, required): The Decentralized Identifier (DID) to resolve.
 
 - `options` (**ResolverConfig**, optional): Configuration options for the resolver.
-  - `trustRegistryUrl` (**string**, required): The URL of the trust registry used to validate the DID and its services.
+  - `trustRegistryUrl` (**string**, optional): The URL of the trust registry used to validate the DID and its services.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
+  - `agentContext` (**AgentContext**, optional): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
 > **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
 
 ## Return Value
@@ -104,6 +105,7 @@ const didResolver = new Resolver({
 await resolve('did:web:example.com', {
   trustRegistryUrl: 'https://registry.example.com',
   didResolver,
+  agentContext,
 })
 ```
 

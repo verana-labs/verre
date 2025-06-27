@@ -1,7 +1,13 @@
-import { type W3cJsonLdVerifiableCredential, type W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import {
+  AgentContext,
+  JsonTransformer,
+  W3cCredentialService,
+  W3cJsonLdVerifiableCredential,
+  W3cJsonLdVerifiablePresentation,
+} from '@credo-ts/core'
 import { Buffer } from 'buffer/'
 
-import { purposes, suites, verify } from '../libraries'
+import { purposes } from '../libraries'
 import { TrustErrorCode } from '../types'
 
 import { hash } from './crypto'
@@ -21,32 +27,32 @@ import { TrustError } from './trustError'
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
+  agentContext?: AgentContext,
 ): Promise<boolean> {
   try {
     if (
       !document.proof ||
-      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential'))
+      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential')) ||
+      !agentContext
     ) {
       throw new Error(
-        'The document must be a Verifiable Presentation or Verifiable Credential with a valid proof.',
+        'The document must be a Verifiable Presentation, Verifiable Credential with a valid proof and the agentContext must be added.',
       )
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const suite = new suites.LinkedDataSignature({
-      /* suite options */
-    })
-    const purpose = isPresentation
-      ? new purposes.AuthenticationProofPurpose()
-      : new purposes.AssertionProofPurpose()
-
-    const result = await verify({
-      document,
-      suite,
-      purpose,
-      documentLoader,
-    })
-    if (!result.verified) return false
+    const w3c = await agentContext?.dependencyManager.resolve(W3cCredentialService)
+    const result = isPresentation
+      ? await w3c?.verifyPresentation(agentContext, {
+          presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
+          challenge: 'challenge',
+          domain: 'example.com',
+        })
+      : await w3c?.verifyCredential(agentContext, {
+          credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
+          proofPurpose: new purposes.AssertionProofPurpose(),
+        })
+    if (!result.isValid) return false
 
     if (isPresentation && isVerifiablePresentation(document)) {
       const credentials = Array.isArray(document.verifiableCredential)
@@ -54,14 +60,14 @@ export async function verifySignature(
         : [document.verifiableCredential]
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc)))
+      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agentContext)))
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
         throw new Error('One or more verifiable credentials failed signature verification.')
       }
     }
-    return result.verified
+    return result.isValid
   } catch (error) {
     console.error('Error validating the proof:', error.message)
     return false
@@ -91,6 +97,7 @@ function isVerifiablePresentation(
  * @returns {Promise<{ document: any }>} A promise resolving to an object containing the context document.
  * @throws {Error} Throws an error if the requested context is not found.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const documentLoader = async (url: string): Promise<{ document: any }> => {
   const contexts: Record<string, any> = {
     'https://www.w3.org/2018/credentials/v1': {},
