@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.8](https://github.com/verana-labs/verre/compare/v0.0.7...v0.0.8) (2025-06-27)
+
+
+### Bug Fixes
+
+* add suite signature ([#12](https://github.com/verana-labs/verre/issues/12)) ([24b559c](https://github.com/verana-labs/verre/commit/24b559c03c706738cb3b57641b35206beba9a0ca))
+
 ## [0.0.7](https://github.com/verana-labs/verre/compare/v0.0.6...v0.0.7) (2025-06-27)
 
 
