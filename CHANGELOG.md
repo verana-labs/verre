@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.9](https://github.com/verana-labs/verre/compare/v0.0.8...v0.0.9) (2025-07-01)
+
+
+### Bug Fixes
+
+* Make agentContext a mandatory parameter in DID resolver options ([#14](https://github.com/verana-labs/verre/issues/14)) ([ffdcf94](https://github.com/verana-labs/verre/commit/ffdcf94c8fc68b384b42ead393f08532fcb3f928))
+
 ## [0.0.8](https://github.com/verana-labs/verre/compare/v0.0.7...v0.0.8) (2025-06-27)
 
 
