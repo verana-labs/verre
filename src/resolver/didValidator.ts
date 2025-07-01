@@ -45,8 +45,9 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  *
  * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
  * @param options - Configuration options for the resolver.
- * @param options.trustRegistryUrl - The base URL of the trust registry used to validate the DID and its services.
+ * @param options.trustRegistryUrl - *(Optional)* The base URL of the trust registry used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
+ * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  *
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
@@ -76,7 +77,7 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
     const didDocument = await retrieveDidDocument(did, didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, trustRegistryUrl, didResolver, attrs, agentContext)
+      return await processDidDocument(did, didDocument, agentContext, trustRegistryUrl, didResolver, attrs)
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -122,10 +123,10 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
 async function processDidDocument(
   did: string,
   didDocument: DIDDocument,
+  agentContext: AgentContext,
   trustRegistryUrl?: string,
   didResolver?: Resolver,
   attrs?: IService,
-  agentContext?: AgentContext,
 ): Promise<TrustResolution> {
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
@@ -340,7 +341,7 @@ async function queryTrustRegistry(service: Service): Promise<string> {
 async function getVerifiedCredential(
   vp: W3cPresentation,
   trustRegistryUrl: string,
-  agentContext?: AgentContext,
+  agentContext: AgentContext,
 ): Promise<ICredential> {
   if (
     !vp.verifiableCredential ||

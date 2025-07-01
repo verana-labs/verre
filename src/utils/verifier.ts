@@ -27,7 +27,7 @@ import { TrustError } from './trustError'
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
-  agentContext?: AgentContext,
+  agentContext: AgentContext,
 ): Promise<boolean> {
   try {
     if (
@@ -41,7 +41,7 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const w3c = await agentContext?.dependencyManager.resolve(W3cCredentialService)
+    const w3c = await agentContext.dependencyManager.resolve(W3cCredentialService)
     const result = isPresentation
       ? await w3c?.verifyPresentation(agentContext, {
           presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
