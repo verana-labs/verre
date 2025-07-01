@@ -77,7 +77,11 @@ describe('DidValidator', () => {
       const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
       // Execute method under test
-      const result = await resolve(did, { trustRegistryUrl: 'http://testTrust.org', didResolver })
+      const result = await resolve(did, {
+        trustRegistryUrl: 'http://testTrust.org',
+        didResolver,
+        agentContext,
+      })
 
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1)
@@ -130,6 +134,7 @@ describe('DidValidator', () => {
       const result = await resolve(didSelfIssued, {
         trustRegistryUrl: 'http://testTrust.org',
         didResolver,
+        agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
@@ -205,7 +210,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didExtIssuer, { trustRegistryUrl: 'http://testTrust.org' })
+      const result = await resolve(didExtIssuer, { trustRegistryUrl: 'http://testTrust.org', agentContext })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
@@ -284,6 +289,7 @@ describe('DidValidator', () => {
       const result = await resolve(didExtIssuer, {
         trustRegistryUrl: 'http://testTrust.com',
         didResolver,
+        agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
