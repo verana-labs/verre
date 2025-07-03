@@ -142,14 +142,16 @@ describe('DidValidator', () => {
           verified: true,
           ...mockDidDocumentSelfIssued,
           service: {
-            type: ECS.SERVICE,
+            schemaType: ECS.SERVICE,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
+            ...mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
           },
           serviceProvider: {
-            type: ECS.ORG,
+            schemaType: ECS.ORG,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockOrgVc.verifiableCredential[0].credentialSubject,
+            ...mockOrgVc.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -218,14 +220,16 @@ describe('DidValidator', () => {
           verified: true,
           ...mockDidDocumentSelfIssuedExtIssuer,
           service: {
-            type: ECS.SERVICE,
+            schemaType: ECS.SERVICE,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
           },
           serviceProvider: {
-            type: ECS.ORG,
+            schemaType: ECS.ORG,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -298,14 +302,16 @@ describe('DidValidator', () => {
           verified: true,
           ...mockDidDocumentSelfIssuedExtIssuer,
           service: {
-            type: ECS.SERVICE,
+            schemaType: ECS.SERVICE,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
           },
           serviceProvider: {
-            type: ECS.ORG,
+            schemaType: ECS.ORG,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
           },
         }),
       )

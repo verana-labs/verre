@@ -162,7 +162,7 @@ async function processDidDocument(
           const credential = await getVerifiedCredential(vp, trustRegistryUrl, agentContext)
           credentials.push(credential)
 
-          const isServiceCred = credential.type === ECS.SERVICE
+          const isServiceCred = credential.schemaType === ECS.SERVICE
           const isExternalIssuer = credential.issuer !== did
 
           if (isServiceCred && isExternalIssuer) {
@@ -182,9 +182,9 @@ async function processDidDocument(
       }
     }),
   )
-  service ??= credentials.find((cred): cred is IService => cred.type === ECS.SERVICE)
+  service ??= credentials.find((cred): cred is IService => cred.schemaType === ECS.SERVICE)
   serviceProvider ??= credentials.find(
-    (cred): cred is IOrg | IPerson => cred.type === ECS.ORG || cred.type === ECS.PERSON,
+    (cred): cred is IOrg | IPerson => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSON,
   )
 
   // If proof of trust exists, return the result with the service (issuer equals did)
@@ -393,6 +393,7 @@ async function processCredential(
       "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
     )
   }
+  const id = credential.id as string
   const issuer = credential.issuer as string
 
   if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
@@ -432,7 +433,7 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.json_schema), attrs)
-      return { type: identifySchema(attrs), issuer, credentialSubject: attrs } as ICredential
+      return { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
     } catch (error) {
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
     }
