@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/verana-labs/verre/compare/v0.0.9...v0.0.10) (2025-07-03)
+
+
+### Features
+
+* update interface output structure and testing ([#17](https://github.com/verana-labs/verre/issues/17)) ([70c08d4](https://github.com/verana-labs/verre/commit/70c08d4875bd6f52ada762a022ef663cb392ec90))
+
 ## [0.0.9](https://github.com/verana-labs/verre/compare/v0.0.8...v0.0.9) (2025-07-01)
 
 
