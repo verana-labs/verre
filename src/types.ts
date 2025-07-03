@@ -5,7 +5,8 @@ import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 // types
 export type TrustResolution = {
   didDocument?: DIDDocument
-  metadata: TrustResolutionMetadata
+  verified: boolean
+  metadata?: TrustResolutionMetadata
   verifiableService?: IService
   issuerCredential?: ICredential
 }
@@ -59,11 +60,6 @@ export enum VerifiablePresentationState {
   VALIDATED = 'VALIDATED',
   TERMINATED = 'TERMINATED',
   TERMINATION_REQUESTED = 'TERMINATION_REQUESTED',
-}
-
-export enum TrustStatus {
-  RESOLVED = 'resolved',
-  ERROR = 'error',
 }
 
 export enum TrustErrorCode {
@@ -129,7 +125,6 @@ export interface Permission {
 
 export interface TrustResolutionMetadata {
   errorMessage?: string
-  status: TrustStatus
   errorCode?: TrustErrorCode
 }
 

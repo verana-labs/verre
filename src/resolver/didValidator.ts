@@ -69,7 +69,7 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  */
 export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
   if (!did) {
-    return { metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
+    return { verified: false, metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
   }
 
   const { trustRegistryUrl, didResolver, attrs, agentContext } = options
@@ -191,7 +191,7 @@ async function processDidDocument(
   if (issuerCredential && verifiableService) {
     return {
       didDocument,
-      metadata: buildMetadata(),
+      verified: true,
       issuerCredential,
       verifiableService,
     }
