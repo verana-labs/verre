@@ -5,9 +5,10 @@ import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 // types
 export type TrustResolution = {
   didDocument?: DIDDocument
-  metadata: TrustResolutionMetadata
-  verifiableService?: IService
-  issuerCredential?: ICredential
+  verified: boolean
+  metadata?: TrustResolutionMetadata
+  service?: IService
+  serviceProvider?: ICredential
 }
 
 export type ResolverConfig = {
@@ -59,11 +60,6 @@ export enum VerifiablePresentationState {
   VALIDATED = 'VALIDATED',
   TERMINATED = 'TERMINATED',
   TERMINATION_REQUESTED = 'TERMINATION_REQUESTED',
-}
-
-export enum TrustStatus {
-  RESOLVED = 'resolved',
-  ERROR = 'error',
 }
 
 export enum TrustErrorCode {
@@ -129,75 +125,64 @@ export interface Permission {
 
 export interface TrustResolutionMetadata {
   errorMessage?: string
-  status: TrustStatus
   errorCode?: TrustErrorCode
 }
 
 export interface BaseCredential {
-  type: ECS | 'unknown'
+  schemaType: ECS | 'unknown'
+  id: string
   issuer: string
-  credentialSubject: Record<string, unknown>
 }
 
 export interface IOrg extends BaseCredential {
-  type: typeof ECS.ORG
-  credentialSubject: {
-    name: string
-    logo: string
-    registryId: string
-    registryUrl: string
-    address: string
-    type: string
-    countryCode: string
-  }
+  schemaType: typeof ECS.ORG
+  name: string
+  logo: string
+  registryId: string
+  registryUrl: string
+  address: string
+  type: string
+  countryCode: string
 }
 
 export interface IPerson extends BaseCredential {
-  type: typeof ECS.PERSON
-  credentialSubject: {
-    firstName: string
-    lastName: string
-    avatar: string
-    birthDate: string
-    countryOfResidence: string
-  }
+  schemaType: typeof ECS.PERSON
+  firstName: string
+  lastName: string
+  avatar: string
+  birthDate: string
+  countryOfResidence: string
 }
 
 export interface IService extends BaseCredential {
-  type: typeof ECS.SERVICE
-  credentialSubject: {
-    name: string
-    type: string
-    description: string
-    logo: string
-    minimumAgeRequired: number
-    termsAndConditions: string
-    termsAndConditionsHash?: string
-    privacyPolicy: string
-    privacyPolicyHash?: string
-  }
+  schemaType: typeof ECS.SERVICE
+  name: string
+  type: string
+  description: string
+  logo: string
+  minimumAgeRequired: number
+  termsAndConditions: string
+  termsAndConditionsHash?: string
+  privacyPolicy: string
+  privacyPolicyHash?: string
 }
 
 export interface IUserAgent extends BaseCredential {
-  type: typeof ECS.USER_AGENT
-  credentialSubject: {
-    name: string
-    description: string
-    category: string
-    wallet: string
-    logo: string
-    termsAndConditions: string
-    termsAndConditionsHash?: string
-    privacyPolicy: string
-    privacyPolicyHash?: string
-  }
+  schemaType: typeof ECS.USER_AGENT
+  name: string
+  description: string
+  category: string
+  wallet: string
+  logo: string
+  termsAndConditions: string
+  termsAndConditionsHash?: string
+  privacyPolicy: string
+  privacyPolicyHash?: string
 }
 
 export interface IUnknownCredential extends BaseCredential {
-  type: 'unknown'
-  credentialSubject: {
-    [key: string]: any
-  }
+  schemaType: 'unknown'
+  [key: string]: any
 }
 
 export type ICredential = IOrg | IPerson | IService | IUserAgent | IUnknownCredential

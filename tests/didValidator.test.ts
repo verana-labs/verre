@@ -2,7 +2,7 @@ import { Agent, AgentContext, DidResolverService } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, TrustErrorCode, TrustStatus } from '../src'
+import { ECS, resolve, TrustErrorCode } from '../src'
 import * as signatureVerifier from '../src/utils/verifier'
 
 import {
@@ -86,9 +86,8 @@ describe('DidValidator', () => {
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1)
       expect(resolveSpy).toHaveBeenCalledWith(did)
-      expect(result.metadata).toEqual(
-        expect.objectContaining({ status: TrustStatus.ERROR, errorCode: TrustErrorCode.NOT_FOUND }),
-      )
+      expect(result.verified).toEqual(false)
+      expect(result.metadata).toEqual(expect.objectContaining({ errorCode: TrustErrorCode.NOT_FOUND }))
       expect(result.didDocument).toEqual({ ...mockDidDocumentChatbot })
     })
 
@@ -140,17 +139,19 @@ describe('DidValidator', () => {
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
       expect(result).toEqual(
         expect.objectContaining({
-          metadata: { status: TrustStatus.RESOLVED },
+          verified: true,
           ...mockDidDocumentSelfIssued,
-          verifiableService: {
-            type: ECS.SERVICE,
+          service: {
+            schemaType: ECS.SERVICE,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
+            ...mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
           },
-          issuerCredential: {
-            type: ECS.ORG,
+          serviceProvider: {
+            schemaType: ECS.ORG,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockOrgVc.verifiableCredential[0].credentialSubject,
+            ...mockOrgVc.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -216,17 +217,19 @@ describe('DidValidator', () => {
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
-          metadata: { status: TrustStatus.RESOLVED },
+          verified: true,
           ...mockDidDocumentSelfIssuedExtIssuer,
-          verifiableService: {
-            type: ECS.SERVICE,
+          service: {
+            schemaType: ECS.SERVICE,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
           },
-          issuerCredential: {
-            type: ECS.ORG,
+          serviceProvider: {
+            schemaType: ECS.ORG,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
           },
         }),
       )
@@ -296,17 +299,19 @@ describe('DidValidator', () => {
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
-          metadata: { status: TrustStatus.RESOLVED },
+          verified: true,
           ...mockDidDocumentSelfIssuedExtIssuer,
-          verifiableService: {
-            type: ECS.SERVICE,
+          service: {
+            schemaType: ECS.SERVICE,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
           },
-          issuerCredential: {
-            type: ECS.ORG,
+          serviceProvider: {
+            schemaType: ECS.ORG,
+            id: didSelfIssued,
             issuer: didSelfIssued,
-            credentialSubject: mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
           },
         }),
       )

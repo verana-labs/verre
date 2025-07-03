@@ -58,13 +58,13 @@ export const mockDidDocumentChatbot = {
       id: 'did:web:dm.chatbot.demos.dev.2060.io#verkey',
       type: 'Ed25519VerificationKey2018',
       controller: 'did:web:dm.chatbot.demos.dev.2060.io',
-      publicKeyBase58: 'Fw7Yw9KD7fbF71Dp4ypCJEnuD64G3X1mnCEMdf8YLhpT',
+      publicKeyBase58: '3ujbdYy3xPaBU1wrqnu1uxvTwcC5mmV8x19QM7QBHyJA',
     },
     {
       id: 'did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1',
       type: 'X25519KeyAgreementKey2019',
       controller: 'did:web:dm.chatbot.demos.dev.2060.io',
-      publicKeyBase58: 'CNVJ5UsXYiY61EndQis2TWNMyTcYNpxcfPyMoAXpAAtJ',
+      publicKeyBase58: 'Eys7NKY6yQBm2mSTrgjyYRbvPkbGjru1SNLSPNZcghBH',
     },
   ],
   service: [

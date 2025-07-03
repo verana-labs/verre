@@ -26,7 +26,11 @@ export class TrustError extends Error {
  */
 export function handleTrustError(error: unknown, didDocument?: DIDDocument) {
   if (error instanceof TrustError) {
-    return { didDocument, metadata: error.metadata }
+    return { didDocument, verified: false, metadata: error.metadata }
   }
-  return { didDocument, metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`) }
+  return {
+    didDocument,
+    verified: false,
+    metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`),
+  }
 }
