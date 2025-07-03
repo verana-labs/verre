@@ -133,8 +133,8 @@ async function processDidDocument(
   }
 
   const credentials: ICredential[] = []
-  let issuerCredential: ICredential | undefined
-  let verifiableService: IService | undefined = attrs
+  let serviceProvider: ICredential | undefined
+  let service: IService | undefined = attrs
 
   const registryService = didDocument.service.find(s => s.type === 'VerifiablePublicRegistry')
   if (!trustRegistryUrl && registryService) {
@@ -149,14 +149,14 @@ async function processDidDocument(
   }
 
   await Promise.all(
-    didDocument.service.map(async service => {
-      switch (service.type) {
+    didDocument.service.map(async didService => {
+      switch (didService.type) {
         case 'LinkedVerifiablePresentation': {
-          const vp = await resolveServiceVP(service)
+          const vp = await resolveServiceVP(didService)
           if (!vp)
             throw new TrustError(
               TrustErrorCode.NOT_SUPPORTED,
-              `Invalid Linked Verifiable Presentation for service id: '${service.id}'`,
+              `Invalid Linked Verifiable Presentation for service id: '${didService.id}'`,
             )
 
           const credential = await getVerifiedCredential(vp, trustRegistryUrl, agentContext)
@@ -172,8 +172,8 @@ async function processDidDocument(
               attrs: credential,
               agentContext,
             })
-            verifiableService = resolution.verifiableService
-            issuerCredential = resolution.issuerCredential
+            service = resolution.service
+            serviceProvider = resolution.serviceProvider
           }
           break
         }
@@ -182,24 +182,21 @@ async function processDidDocument(
       }
     }),
   )
-  verifiableService ??= credentials.find((cred): cred is IService => cred.type === ECS.SERVICE)
-  issuerCredential ??= credentials.find(
+  service ??= credentials.find((cred): cred is IService => cred.type === ECS.SERVICE)
+  serviceProvider ??= credentials.find(
     (cred): cred is IOrg | IPerson => cred.type === ECS.ORG || cred.type === ECS.PERSON,
   )
 
-  // If proof of trust exists, return the result with the verifiableService (issuer equals did)
-  if (issuerCredential && verifiableService) {
+  // If proof of trust exists, return the result with the service (issuer equals did)
+  if (serviceProvider && service) {
     return {
       didDocument,
       verified: true,
-      issuerCredential,
-      verifiableService,
+      service,
+      serviceProvider,
     }
   }
-  throw new TrustError(
-    TrustErrorCode.NOT_FOUND,
-    'Valid issuerCredential and verifiableService were not found',
-  )
+  throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
 }
 
 /**

@@ -7,8 +7,8 @@ export type TrustResolution = {
   didDocument?: DIDDocument
   verified: boolean
   metadata?: TrustResolutionMetadata
-  verifiableService?: IService
-  issuerCredential?: ICredential
+  service?: IService
+  serviceProvider?: ICredential
 }
 
 export type ResolverConfig = {
