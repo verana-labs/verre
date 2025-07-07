@@ -1,4 +1,4 @@
-import type { AgentContext, W3cPresentation } from '@credo-ts/core'
+import type { AgentContext, JsonObject, W3cPresentation } from '@credo-ts/core'
 
 import { DIDDocument, Resolver, ServiceEndpoint } from 'did-resolver'
 
@@ -201,3 +201,16 @@ export interface IUnknownCredential extends BaseCredential {
 }
 
 export type ICredential = IOrg | IPerson | IService | IUserAgent | IUnknownCredential
+
+export interface W3cJsonCredential {
+  '@context': Array<string | JsonObject>
+  id?: string
+  type: Array<string>
+  issuer: string | { id?: string }
+  issuanceDate: string
+  expirationDate?: string
+  credentialSubject: SingleOrArray<JsonObject>
+  [key: string]: unknown
+}
+
+export type SingleOrArray<T> = T | T[]

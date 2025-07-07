@@ -1,17 +1,33 @@
 import {
   AgentContext,
+  asArray,
+  Ed25519Signature2018,
+  Ed25519Signature2020,
   JsonTransformer,
-  W3cCredentialService,
+  VERIFICATION_METHOD_TYPE_ED25519_VERIFICATION_KEY_2018,
+  VERIFICATION_METHOD_TYPE_ED25519_VERIFICATION_KEY_2020,
   W3cJsonLdVerifiableCredential,
   W3cJsonLdVerifiablePresentation,
+  W3cJsonLdVerifyCredentialOptions,
+  W3cJsonLdVerifyPresentationOptions,
+  W3cVerifyCredentialResult,
+  W3cVerifyPresentationResult,
 } from '@credo-ts/core'
 import { Buffer } from 'buffer/'
 
-import { purposes } from '../libraries'
-import { TrustErrorCode } from '../types'
+import {
+  assertOnlyW3cJsonLdVerifiableCredentials,
+  Ed25519PublicJwk,
+  purposes,
+  SignatureSuiteRegistry,
+} from '../libraries'
+import { DEFAULT_CONTEXTS } from '../libraries/contexts'
+import vc from '../libraries/vc'
+import { TrustErrorCode, W3cJsonCredential } from '../types'
 
 import { hash } from './crypto'
 import { TrustError } from './trustError'
+import { createKmsKeyPairClass } from '../libraries/KmsKeyPair'
 
 /**
  * Recursively verifies the digital proof of a W3C Verifiable Presentation (VP) or Verifiable Credential (VC).
@@ -41,14 +57,13 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const w3c = await agentContext.dependencyManager.resolve(W3cCredentialService)
     const result = isPresentation
-      ? await w3c?.verifyPresentation(agentContext, {
+      ? await verifyPresentation({
           presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
           challenge: 'challenge',
           domain: 'example.com',
         })
-      : await w3c?.verifyCredential(agentContext, {
+      : await verifyCredential({
           credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
           proofPurpose: new purposes.AssertionProofPurpose(),
         })
@@ -97,15 +112,21 @@ function isVerifiablePresentation(
  * @returns {Promise<{ document: any }>} A promise resolving to an object containing the context document.
  * @throws {Error} Throws an error if the requested context is not found.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const documentLoader = async (url: string): Promise<{ document: any }> => {
-  const contexts: Record<string, any> = {
-    'https://www.w3.org/2018/credentials/v1': {},
-    'https://w3id.org/did/v1': {},
-    'https://w3id.org/security/suites/ed25519-2018/v1': {},
+const documentLoader = async (url: string) => {
+  if (url in DEFAULT_CONTEXTS) {
+    return {
+      contextUrl: null,
+      documentUrl: url,
+      document: DEFAULT_CONTEXTS[url as keyof typeof DEFAULT_CONTEXTS],
+    }
   }
-  if (contexts[url]) {
-    return { document: contexts[url] }
+  const withoutFragment = url.split('#')[0]
+  if (withoutFragment in DEFAULT_CONTEXTS) {
+    return {
+      contextUrl: null,
+      documentUrl: url,
+      document: DEFAULT_CONTEXTS[url as keyof typeof DEFAULT_CONTEXTS],
+    }
   }
   throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Context not found: ${url}`)
 }
@@ -126,3 +147,194 @@ export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, n
     throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
   }
 }
+
+const signatureSuiteRegistry = new SignatureSuiteRegistry([
+  {
+    suiteClass: Ed25519Signature2018,
+    proofType: 'Ed25519Signature2018',
+    verificationMethodTypes: [
+      VERIFICATION_METHOD_TYPE_ED25519_VERIFICATION_KEY_2018,
+      VERIFICATION_METHOD_TYPE_ED25519_VERIFICATION_KEY_2020,
+    ],
+    supportedPublicJwkTypes: [Ed25519PublicJwk],
+  },
+  {
+    suiteClass: Ed25519Signature2020,
+    proofType: 'Ed25519Signature2020',
+    verificationMethodTypes: [VERIFICATION_METHOD_TYPE_ED25519_VERIFICATION_KEY_2020],
+    supportedPublicJwkTypes: [Ed25519PublicJwk],
+  },
+])
+
+/**
+ * Verifies a presentation including the credentials it includes
+ *
+ * @param presentation the presentation to be verified
+ * @returns the verification result
+ */
+async function verifyPresentation(
+  options: W3cJsonLdVerifyPresentationOptions,
+): Promise<W3cVerifyPresentationResult> {
+  try {
+    let proofs = options.presentation.proof
+
+    if (!Array.isArray(proofs)) {
+      proofs = [proofs]
+    }
+    if (options.purpose) {
+      proofs = proofs.filter(proof => proof.proofPurpose === options.purpose.term)
+    }
+
+    const presentationSuites = proofs.map(proof => {
+      const SuiteClass = signatureSuiteRegistry.getByProofType(proof.type).suiteClass
+      return new SuiteClass({
+        LDKeyClass: createKmsKeyPairClass(),
+        proof: {
+          verificationMethod: proof.verificationMethod,
+        },
+        date: proof.created,
+        useNativeCanonize: false,
+      })
+    })
+
+    const credentials = asArray(options.presentation.verifiableCredential)
+    assertOnlyW3cJsonLdVerifiableCredentials(credentials)
+
+    const credentialSuites = credentials.map(credential =>
+      getSignatureSuitesForCredential(signatureSuiteRegistry, credential),
+    )
+    const allSuites = presentationSuites.concat(...credentialSuites)
+
+    const verifyOptions: Record<string, unknown> = {
+      presentation: JsonTransformer.toJSON(options.presentation),
+      suite: allSuites,
+      challenge: options.challenge,
+      domain: options.domain,
+      documentLoader,
+    }
+
+    // this is a hack because vcjs throws if purpose is passed as undefined or null
+    if (options.purpose) {
+      verifyOptions.presentationPurpose = options.purpose
+    }
+
+    const result = await vc.verify(verifyOptions)
+    console.log(result)
+
+    const { verified: isValid, ...remainingResult } = result
+
+    // We map the result to our own result type to make it easier to work with
+    // however, for now we just add a single vcJs validation result as we don't
+    // have access to the internal validation results of vc-js
+    return {
+      isValid,
+      validations: {
+        vcJs: {
+          isValid,
+          ...remainingResult,
+        },
+      },
+      error: result.error,
+    }
+  } catch (error) {
+    return {
+      isValid: false,
+      validations: {},
+      error,
+    }
+  }
+}
+
+/**
+ * Verifies the signature(s) of a credential
+ *
+ * @param credential the credential to be verified
+ * @returns the verification result
+ */
+async function verifyCredential(
+  options: W3cJsonLdVerifyCredentialOptions,
+): Promise<W3cVerifyCredentialResult> {
+  try {
+    const verifyCredentialStatus = options.verifyCredentialStatus ?? true
+
+    const suites = getSignatureSuitesForCredential(signatureSuiteRegistry, options.credential)
+
+    const verifyOptions: Record<string, unknown> = {
+      credential: JsonTransformer.toJSON(options.credential),
+      suite: suites,
+      documentLoader,
+      checkStatus: ({ credential }: { credential: W3cJsonCredential }) => {
+        // Only throw error if credentialStatus is present
+        if (verifyCredentialStatus && 'credentialStatus' in credential) {
+          throw new Error('Verifying credential status for JSON-LD credentials is currently not supported')
+        }
+        return {
+          verified: true,
+        }
+      },
+    }
+
+    // this is a hack because vcjs throws if purpose is passed as undefined or null
+    if (options.proofPurpose) {
+      verifyOptions.purpose = options.proofPurpose
+    }
+
+    const result = await vc.verifyCredential(verifyOptions)
+
+    const { verified: isValid, ...remainingResult } = result
+
+    if (!isValid) {
+      console.debug(`Credential verification failed: ${result.error?.message}`, {
+        stack: result.error?.stack,
+      })
+    }
+
+    // We map the result to our own result type to make it easier to work with
+    // however, for now we just add a single vcJs validation result as we don't
+    // have access to the internal validation results of vc-js
+    return {
+      isValid,
+      validations: {
+        vcJs: {
+          isValid,
+          ...remainingResult,
+        },
+      },
+      error: result.error,
+    }
+  } catch (error) {
+    return {
+      isValid: false,
+      validations: {},
+      error,
+    }
+  }
+}
+
+function getSignatureSuitesForCredential(
+  signatureSuiteRegistry: SignatureSuiteRegistry,
+  credential: W3cJsonLdVerifiableCredential,
+) {
+  // const WalletKeyPair = createKmsKeyPairClass(agentContext)
+
+  let proofs = credential.proof
+
+  if (!Array.isArray(proofs)) {
+    proofs = [proofs]
+  }
+
+  return proofs.map(proof => {
+    const SuiteClass = signatureSuiteRegistry.getByProofType(proof.type)?.suiteClass
+    if (SuiteClass) {
+      return new SuiteClass({
+        LDKeyClass: createKmsKeyPairClass(),
+        proof: {
+          verificationMethod: proof.verificationMethod,
+        },
+        date: proof.created,
+        useNativeCanonize: false,
+      })
+    }
+  })
+}
+
