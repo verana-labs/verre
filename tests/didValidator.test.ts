@@ -1,4 +1,7 @@
-import { Agent, AgentContext, DidResolverService } from '@credo-ts/core'
+import { AskarModule } from '@credo-ts/askar'
+import { Agent, AgentContext, DidResolverService, InitConfig } from '@credo-ts/core'
+import { agentDependencies } from '@credo-ts/node'
+import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
@@ -26,6 +29,7 @@ import {
   mockServiceSchemaSelfIssued,
   mockServiceVcSelfIssued,
   setupAgent,
+  getAskarStoreConfig,
 } from './__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
@@ -39,36 +43,35 @@ describe('DidValidator', () => {
   let agentContext: AgentContext
   let didResolver: Resolver
 
-  beforeEach(async () => {
-    // Create an agent for Credo-TS using the DID resolver
-    agent = await setupAgent({
-      name: 'DID Service Test',
+  describe('resolver method in mocked environment', () => {
+    beforeEach(async () => {
+      // Create an agent for Credo-TS using the DID resolver
+      agent = await setupAgent({
+        name: 'DID Service Test',
+      })
+      didResolverService = agent.dependencyManager.resolve(DidResolverService)
+      agentContext = agent.dependencyManager.resolve(AgentContext)
+
+      // Mock verifySignature function since there is no credential signature
+      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue(true)
+
+      // Mock global fetch
+      fetchMocker.enable()
+
+      // Create a resolver registry that integrates DID resolution strategies (using the Credo-TS dependency)
+      didResolver = new Resolver({
+        web: async (did: string) => didResolverService.resolve(agentContext, did),
+        key: async (did: string) => didResolverService.resolve(agentContext, did),
+        peer: async (did: string) => didResolverService.resolve(agentContext, did),
+        jwk: async (did: string) => didResolverService.resolve(agentContext, did),
+      })
     })
-    didResolverService = agent.dependencyManager.resolve(DidResolverService)
-    agentContext = agent.dependencyManager.resolve(AgentContext)
 
-    // Mock verifySignature function since there is no credential signature
-    vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue(true)
-
-    // Mock global fetch
-    fetchMocker.enable()
-
-    // Create a resolver registry that integrates DID resolution strategies (using the Credo-TS dependency)
-    didResolver = new Resolver({
-      web: async (did: string) => didResolverService.resolve(agentContext, did),
-      key: async (did: string) => didResolverService.resolve(agentContext, did),
-      peer: async (did: string) => didResolverService.resolve(agentContext, did),
-      jwk: async (did: string) => didResolverService.resolve(agentContext, did),
+    afterEach(() => {
+      fetchMocker.reset()
+      fetchMocker.disable()
+      vi.clearAllMocks()
     })
-  })
-
-  afterEach(() => {
-    fetchMocker.reset()
-    fetchMocker.disable()
-    vi.clearAllMocks()
-  })
-
-  describe('resolver method', () => {
     it('should fail for a valid web DID without LinkedVerifiablePresentation', async () => {
       // Real case with 'chatbot-demo.dev.2060.io'
       const did = 'did:web:dm.chatbot.demos.dev.2060.io'
@@ -315,6 +318,46 @@ describe('DidValidator', () => {
           },
         }),
       )
+    })
+  })
+  describe('resolver method with fully askar initialized agent', () => {
+    it('should resolve a did:web using an agent with Askar in-memory wallet', async () => {
+      const walletConfig = getAskarStoreConfig('InMemoryTestAgent', { inMemory: true })
+      const config: InitConfig = {
+        label: 'InMemoryTestAgent',
+        walletConfig,
+      }
+
+      const agent = new Agent({
+        config,
+        dependencies: agentDependencies,
+        modules: {
+          askar: new AskarModule({ ariesAskar }),
+        },
+      })
+      await agent.initialize()
+
+      const agentContext = agent.dependencyManager.resolve(AgentContext)
+      const didResolverService = agent.dependencyManager.resolve(DidResolverService)
+
+      const didResolver = new Resolver({
+        web: async did => didResolverService.resolve(agentContext, did),
+      })
+
+      const did = 'did:web:example.com'
+      const result = await resolve(did, {
+        didResolver,
+        agentContext,
+      })
+      console.log(result)
+
+      // Validate result
+      expect(result).toHaveProperty('didDocument')
+      expect(result.verified).toBe(false)
+
+      // Clean up
+      await agent.shutdown()
+      await agent.wallet.delete()
     })
   })
 })

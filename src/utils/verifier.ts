@@ -88,29 +88,6 @@ function isVerifiablePresentation(
 }
 
 /**
- * Asynchronous document loader function for resolving JSON-LD contexts.
- *
- * This function returns predefined contexts for specific URLs used in
- * decentralized identity and verifiable credentials standards.
- *
- * @param {string} url - The URL of the JSON-LD context to retrieve.
- * @returns {Promise<{ document: any }>} A promise resolving to an object containing the context document.
- * @throws {Error} Throws an error if the requested context is not found.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const documentLoader = async (url: string): Promise<{ document: any }> => {
-  const contexts: Record<string, any> = {
-    'https://www.w3.org/2018/credentials/v1': {},
-    'https://w3id.org/did/v1': {},
-    'https://w3id.org/security/suites/ed25519-2018/v1': {},
-  }
-  if (contexts[url]) {
-    return { document: contexts[url] }
-  }
-  throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Context not found: ${url}`)
-}
-
-/**
  * Verifies the integrity of a given JSON schema string using a Subresource Integrity (SRI) digest.
  *
  * @param {string} schemaJson - The JSON schema as a string to be verified.

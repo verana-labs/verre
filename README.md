@@ -109,6 +109,54 @@ await resolve('did:web:example.com', {
 })
 ```
 
+### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Credo-TS)
+
+```ts
+import { Agent, AgentContext, DidResolverService, InitConfig } from '@credo-ts/core'
+import { AskarModule } from '@credo-ts/askar'
+import { agentDependencies } from '@credo-ts/node'
+import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
+import { Resolver } from 'did-resolver'
+
+import { getAskarStoreConfig } from '../src/helpers'
+
+// Create the in-memory wallet config
+const walletConfig = getAskarStoreConfig('InMemoryTestAgent', { inMemory: true })
+
+// Agent initialization config
+const config: InitConfig = {
+  label: 'InMemoryTestAgent',
+  walletConfig,
+}
+
+// Create and initialize the agent
+const agent = new Agent({
+  config,
+  dependencies: agentDependencies,
+  modules: {
+    askar: new AskarModule({ ariesAskar }),
+  },
+})
+
+await agent.initialize()
+
+// Resolve dependencies
+const agentContext = agent.dependencyManager.resolve(AgentContext)
+const didResolverService = agent.dependencyManager.resolve(DidResolverService)
+
+// Set up DID Resolver using Credo-TS resolution strategies
+const didResolver = new Resolver({
+  web: async (did) => didResolverService.resolve(agentContext, did),
+})
+
+// Example usage of the DID Resolver
+const result = await resolve('did:web:example.com', {
+  didResolver,
+  agentContext,
+})
+console.log('Resolved DID Document:', result)
+```
+
 ## Notes
 - The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USER-AGENT`, and `SERVICE`.
 - The function exits early if both `issuerCredential` and `verifiableService` are found during credential processing.
