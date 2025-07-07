@@ -1,3 +1,5 @@
+import { KeyDerivationMethod, utils } from '@credo-ts/core'
+
 import { TrustResolutionMetadata, TrustErrorCode } from '../types'
 
 import { TrustError } from './trustError'
@@ -41,4 +43,56 @@ export async function fetchJson<T = any>(url: string): Promise<T> {
   }
 
   return response.json() as T
+}
+
+/**
+ * Generates a basic configuration object for initializing an Askar wallet store,
+ * typically used with the Credo-TS `AskarModule`.
+ *
+ * This helper is intended for simple test or development wallets and supports
+ * in-memory SQLite configuration by default.
+ *
+ * @param name - The base name for the wallet. Used as part of the wallet ID.
+ * @param options - Optional configuration overrides.
+ * @param options.inMemory - If true (default), the SQLite database will be in-memory.
+ * @param options.random - Optional random string to append to the wallet ID. Defaults to a short UUID segment.
+ * @param options.maxConnections - Optional maximum number of connections for the SQLite database.
+ *
+ * @returns A wallet configuration object compatible with `AskarModuleConfigStoreOptions`.
+ *
+ * @example
+ * ```ts
+ * const walletConfig = getAskarStoreConfig('MyAgent', { inMemory: true });
+ * const agent = new Agent({
+ *   config: {
+ *     label: 'MyAgent',
+ *     walletConfig,
+ *   },
+ *   dependencies: agentDependencies,
+ *   modules: {
+ *     askar: new AskarModule({ ariesAskar }),
+ *   },
+ * });
+ * ```
+ */
+export function getAskarStoreConfig(
+  name: string,
+  {
+    inMemory = true,
+    random = utils.uuid().slice(0, 4),
+    maxConnections,
+  }: { inMemory?: boolean; random?: string; maxConnections?: number } = {},
+) {
+  return {
+    id: `Wallet: ${name} - ${random}`,
+    key: 'DZ9hPqFWTPxemcGea72C1X1nusqk5wFNLq6QPjwXGqAa',
+    keyDerivationMethod: KeyDerivationMethod.Raw,
+    database: {
+      type: 'sqlite',
+      config: {
+        inMemory,
+        maxConnections,
+      },
+    },
+  }
 }
