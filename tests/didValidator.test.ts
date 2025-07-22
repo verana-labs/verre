@@ -210,7 +210,6 @@ describe('DidValidator', () => {
           status: 200,
           data: mockPermission,
         },
-        'http://testTrust.org/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
       // Execute method under test
@@ -288,7 +287,6 @@ describe('DidValidator', () => {
           status: 200,
           data: mockPermission,
         },
-        'http://testTrust.com/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
       // Execute method under test
@@ -349,7 +347,6 @@ describe('DidValidator', () => {
         didResolver,
         agentContext,
       })
-      console.log(result)
 
       // Validate result
       expect(result).toHaveProperty('didDocument')

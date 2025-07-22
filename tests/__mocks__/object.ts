@@ -58,13 +58,13 @@ export const mockDidDocumentChatbot = {
       id: 'did:web:dm.chatbot.demos.dev.2060.io#verkey',
       type: 'Ed25519VerificationKey2018',
       controller: 'did:web:dm.chatbot.demos.dev.2060.io',
-      publicKeyBase58: '3ujbdYy3xPaBU1wrqnu1uxvTwcC5mmV8x19QM7QBHyJA',
+      publicKeyBase58: 'DQWusYoBYwZwtneMsvkhNyjy3c2qRER75Gbew94P6Frq',
     },
     {
       id: 'did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1',
       type: 'X25519KeyAgreementKey2019',
       controller: 'did:web:dm.chatbot.demos.dev.2060.io',
-      publicKeyBase58: 'Eys7NKY6yQBm2mSTrgjyYRbvPkbGjru1SNLSPNZcghBH',
+      publicKeyBase58: 'DE9peAR8qJr2v5bTd7wXMPtC7hNZwmjYWWAcwVcidf83',
     },
   ],
   service: [
@@ -198,7 +198,7 @@ export const mockServiceSchemaSelfIssued = createVerifiableCredential(
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
-    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+    digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
@@ -206,7 +206,7 @@ export const mockServiceSchemaSelfIssued = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
-    digestSRI: 'sha384-57G/HBKgp3Pd2TsDegvouVagiWpbE8dW8as4zw/tkRg288SWqOZNi4ZIySRvdfnt',
+    digestSRI: 'sha256-zsuaGIMeA9+gZuDsqWGaGvzKS/z4ACl665cYcGl3I8A=',
   },
 )
 
@@ -215,7 +215,7 @@ export const mockServiceSchemaExtIssuer = createVerifiableCredential(
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
-    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+    digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
@@ -223,7 +223,7 @@ export const mockServiceSchemaExtIssuer = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
-    digestSRI: 'sha384-57G/HBKgp3Pd2TsDegvouVagiWpbE8dW8as4zw/tkRg288SWqOZNi4ZIySRvdfnt',
+    digestSRI: 'sha256-zsuaGIMeA9+gZuDsqWGaGvzKS/z4ACl665cYcGl3I8A=',
   },
 )
 
@@ -251,7 +251,7 @@ export const mockOrgSchema = createVerifiableCredential(
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
-    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+    digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
@@ -259,7 +259,7 @@ export const mockOrgSchema = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
     },
-    digestSRI: 'sha384-v2VdV9qYgGCe1qyerE7jY8LTfvgD88UgqNgDpPjDD0yTWt5P81PUjhyZZnpRjh3P',
+    digestSRI: 'sha256-gmrv2UhK5alB14eNZfX8zM5Pu8XW8poywGKRe7yPjIc=',
   },
 )
 
@@ -287,7 +287,7 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
   {
     id: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
     type: 'JsonSchema',
-    digestSRI: 'sha384-flPoqoltLFFs9AdL8mJzZUFYRJ4SZ04JrtlGt5MIgGr5dsFHlBwwC20PyS0iIdVe',
+    digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
     id: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
@@ -295,7 +295,7 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
     },
-    digestSRI: 'sha384-v2VdV9qYgGCe1qyerE7jY8LTfvgD88UgqNgDpPjDD0yTWt5P81PUjhyZZnpRjh3P',
+    digestSRI: 'sha256-gmrv2UhK5alB14eNZfX8zM5Pu8XW8poywGKRe7yPjIc=',
   },
 )
 
@@ -322,35 +322,9 @@ export const mockPermission = {
 }
 
 export const mockCredentialSchemaOrg = {
-  id: 100,
-  tr_id: 1001,
-  created: '2024-03-12T12:00:00Z',
-  modified: '2024-03-12T12:30:00Z',
-  archived: '',
-  deposit: 5000,
-  json_schema: JSON.stringify(loadSchema(ECS.ORG)),
-  issuer_grantor_validation_validity_period: 365,
-  verifier_grantor_validation_validity_period: 180,
-  issuer_validation_validity_period: 730,
-  verifier_validation_validity_period: 90,
-  holder_validation_validity_period: 60,
-  issuer_perm_management_mode: 'STRICT',
-  verifier_perm_management_mode: 'FLEXIBLE',
+  schema: JSON.stringify(loadSchema(ECS.ORG)),
 }
 
 export const mockCredentialSchemaSer = {
-  id: 101,
-  tr_id: 1002,
-  created: '2024-03-12T12:00:00Z',
-  modified: '2024-03-12T12:30:00Z',
-  archived: '',
-  deposit: 5000,
-  json_schema: JSON.stringify(loadSchema(ECS.SERVICE)),
-  issuer_grantor_validation_validity_period: 365,
-  verifier_grantor_validation_validity_period: 180,
-  issuer_validation_validity_period: 730,
-  verifier_validation_validity_period: 90,
-  holder_validation_validity_period: 60,
-  issuer_perm_management_mode: 'STRICT',
-  verifier_perm_management_mode: 'FLEXIBLE',
+  schema: JSON.stringify(loadSchema(ECS.SERVICE)),
 }

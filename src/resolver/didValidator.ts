@@ -3,15 +3,13 @@ import {
   type W3cPresentation,
   type W3cJsonLdVerifiablePresentation,
   type AgentContext,
+  JsonObject,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
 
 import {
-  CredentialSchema,
   ECS,
-  Permission,
-  PermissionType,
   ResolverConfig,
   TrustResolution,
   TrustErrorCode,
@@ -19,7 +17,6 @@ import {
   ICredential,
   IOrg,
   IPerson,
-  PermissionManagementMode,
   InternalResolverConfig,
 } from '../types'
 import {
@@ -197,28 +194,6 @@ async function processDidDocument(
     }
   }
   throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
-}
-
-/**
- * Checks whether the provided DID is a valid issuer according to a trust registry.
- *
- * Sends a POST request to the trust registry with the DID, and validates the response.
- * Throws an error if the DID is not registered or not classified as an issuer.
- *
- * @param did - The decentralized identifier (DID) to validate.
- * @param trustRegistryUrl - The base URL of the trust registry service.
- * @returns A `Permission` object if the DID is a valid issuer.
- * @throws `TrustError` with `NOT_FOUND` if the DID is not found in the registry.
- * @throws `TrustError` with `INVALID_ISSUER` if the DID is found but not an issuer.
- */
-async function isValidIssuer(did: string, trustRegistryUrl: string): Promise<Permission> {
-  const permission = await fetchJson<Permission>(
-    `${trustRegistryUrl}/perm/v1/find_with_did?did=${encodeURIComponent(did)}`,
-  )
-
-  if (permission.type !== PermissionType.ISSUER)
-    throw new TrustError(TrustErrorCode.INVALID_ISSUER, 'The provided DID is not a valid issuer.')
-  return permission
 }
 
 /**
@@ -422,17 +397,13 @@ async function processCredential(
         subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchJson<CredentialSchema>(refUrl)
-
-      // If the referenced schema isn't open, verify that the issuer has valid permission
-      if (subjectSchema.issuer_perm_management_mode !== PermissionManagementMode.OPEN)
-        await isValidIssuer(issuer, trustRegistryUrl)
+      const subjectSchema = await fetchJson<JsonObject>(refUrl)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
-      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+      verifyDigestSRI(JSON.stringify(subjectSchema.schema), subjectDigestSRI, 'Credential Subject')
 
       // Validate the credential subject attributes against the JSON schema content
-      validateSchemaContent(JSON.parse(subjectSchema.json_schema), attrs)
+      validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
       return { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
     } catch (error) {
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
