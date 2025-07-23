@@ -5,9 +5,8 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, TrustErrorCode } from '../src'
-import * as signatureVerifier from '../src/utils/verifier'
-
+import { ECS, resolve, TrustErrorCode } from '../../src'
+import * as signatureVerifier from '../../src/utils/verifier'
 import {
   mockDidDocumentChatbot,
   didExtIssuer,
@@ -30,7 +29,7 @@ import {
   mockServiceVcSelfIssued,
   setupAgent,
   getAskarStoreConfig,
-} from './__mocks__'
+} from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
   [didExtIssuer]: { ...mockResolverExtIssuer },
