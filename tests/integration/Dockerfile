@@ -1,7 +1,7 @@
 # --- Stage 1: Builder ---
 FROM golang:1.22.11-alpine AS builder
 
-RUN apk add --no-cache git make gcc musl-dev linux-headers libusb-dev curl
+RUN apk add --no-cache git make gcc musl-dev linux-headers libusb-dev
 
 # Clone repo
 WORKDIR /src
@@ -13,7 +13,7 @@ RUN make install
 # --- Stage 2 ---
 FROM alpine:latest
 
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash curl
 
 COPY --from=builder /go/bin/veranad /usr/local/bin/veranad
 COPY --from=builder /src/verana-blockchain/scripts /app/scripts

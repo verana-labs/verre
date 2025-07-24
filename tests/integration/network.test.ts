@@ -4,6 +4,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 // --- Constants for Docker configuration ---
 const DOCKER_IMAGE_NAME = 'verana-test-node'
 const DOCKER_CONTAINER_NAME = 'verana-integration-test'
+const API_BASE_URL = 'http://127.0.0.1:1317'
 
 describe('Integration with Verana Blockchain', () => {
   beforeAll(async () => {
@@ -34,25 +35,19 @@ describe('Integration with Verana Blockchain', () => {
   afterAll(() => {
     console.log(`--- Cleaning up test environment: stopping container ${DOCKER_CONTAINER_NAME}... ---`)
     execSync(`docker stop ${DOCKER_CONTAINER_NAME}`, { stdio: 'inherit' })
-    // execSync(`docker rmi -f ${DOCKER_IMAGE_NAME} || true`, { stdio: 'inherit' })
     console.log('--- Environment clean ---')
-  })
+  }, 15000)
 
   it('should retrieve and parse the nested schema from the blockchain', async () => {
     let parsedSchema
     try {
       console.log('start')
-      const response = await fetch('http://verana-integration-test:1317/cs/v1/js/1', {
-        headers: { accept: 'application/json' },
-      })
-      console.log(response)
+      const curlOutput = execSync(
+        `docker exec ${DOCKER_CONTAINER_NAME} curl -s -H "accept: application/json" ${API_BASE_URL}/verana/cs/v1/js/1`,
+        { encoding: 'utf-8' },
+      )
 
-      if (!response.ok) {
-        throw new Error(`Request failed with status ${response.status}`)
-      }
-
-      const outerObject = await response.json()
-
+      const outerObject = JSON.parse(curlOutput)
       parsedSchema = JSON.parse(outerObject.schema)
     } catch (error) {
       throw new Error(`The request failed or returned an invalid response: ${error.message}`)
@@ -62,5 +57,5 @@ describe('Integration with Verana Blockchain', () => {
     expect(parsedSchema).toHaveProperty('$schema')
     expect(parsedSchema.type).toBe('object')
     expect(parsedSchema.properties).toHaveProperty('credentialSubject')
-  })
+  }, 100000)
 })
