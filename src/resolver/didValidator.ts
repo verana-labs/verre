@@ -201,7 +201,7 @@ async function processDidDocument(
  * @param did - The DID to fetch.
  * @returns A promise resolving to the resolution result.
  */
-async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
+export async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
   const resolutionResult = await (didResolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
