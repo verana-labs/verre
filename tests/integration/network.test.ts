@@ -30,7 +30,7 @@ describe('Integration with Verana Blockchain', () => {
       execSync(`docker stop ${DOCKER_CONTAINER_NAME} || true`)
       throw error
     }
-  }, 120000) // Timeout of 2 minutes (120,000 ms)
+  }, 180000) // Timeout of 3 minutes
 
   afterAll(() => {
     console.log(`--- Cleaning up test environment: stopping container ${DOCKER_CONTAINER_NAME}... ---`)
