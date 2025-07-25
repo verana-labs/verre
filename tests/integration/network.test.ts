@@ -1,61 +1,122 @@
-import { execSync } from 'child_process'
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { AskarModule } from '@credo-ts/askar'
+import { Agent, AgentContext, DidDocument, DidResolverService, InitConfig } from '@credo-ts/core'
+import { agentDependencies } from '@credo-ts/node'
+import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
+import { Resolver } from 'did-resolver'
+import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-// --- Constants for Docker configuration ---
-const DOCKER_IMAGE_NAME = 'verana-test-node'
-const DOCKER_CONTAINER_NAME = 'verana-integration-test'
-const API_BASE_URL = 'http://127.0.0.1:1317'
+import { resolve } from '../../src/resolver'
+import {
+  fetchMocker,
+  getAskarStoreConfig,
+  integrationDidDoc,
+  jsonSchemaCredentialOrg,
+  jsonSchemaCredentialService,
+  linkedVpOrg,
+  linkedVpService,
+} from '../__mocks__'
+
+// --- Globals for test lifecycle ---
+let agent: Agent
 
 describe('Integration with Verana Blockchain', () => {
+  let agentContext: AgentContext
   beforeAll(async () => {
-    try {
-      console.log('--- Setting up the test environment ---')
-      console.log(`Building Docker image: ${DOCKER_IMAGE_NAME}...`)
-      execSync(`docker build -f tests/integration/Dockerfile -t ${DOCKER_IMAGE_NAME} .`, { stdio: 'inherit' })
+    // Configure an in-memory wallet for the test agent
+    const walletConfig = getAskarStoreConfig('InMemoryTestAgent', { inMemory: true })
 
-      console.log(`Starting container: ${DOCKER_CONTAINER_NAME}...`)
-      execSync(`docker run -d --rm -p 1317:1317 --name ${DOCKER_CONTAINER_NAME} ${DOCKER_IMAGE_NAME}`, {
-        stdio: 'inherit',
-      })
-
-      console.log('Waiting for the blockchain node to be ready...')
-      await new Promise(resolve => setTimeout(resolve, 8000)) // 8 seconds
-
-      console.log('Running init.sh in the container...')
-      execSync(`docker exec ${DOCKER_CONTAINER_NAME} bash ./init.sh`, { stdio: 'inherit' })
-
-      console.log('--- Environment ready ---')
-    } catch (error) {
-      console.error('Error during environment setup:', error)
-      execSync(`docker stop ${DOCKER_CONTAINER_NAME} || true`)
-      throw error
-    }
-  }, 180000) // Timeout of 3 minutes
-
-  afterAll(() => {
-    console.log(`--- Cleaning up test environment: stopping container ${DOCKER_CONTAINER_NAME}... ---`)
-    execSync(`docker stop ${DOCKER_CONTAINER_NAME}`, { stdio: 'inherit' })
-    console.log('--- Environment clean ---')
-  }, 15000)
-
-  it('should retrieve and parse the nested schema from the blockchain', async () => {
-    let parsedSchema
-    try {
-      console.log('start')
-      const curlOutput = execSync(
-        `docker exec ${DOCKER_CONTAINER_NAME} curl -s -H "accept: application/json" ${API_BASE_URL}/verana/cs/v1/js/1`,
-        { encoding: 'utf-8' },
-      )
-
-      const outerObject = JSON.parse(curlOutput)
-      parsedSchema = JSON.parse(outerObject.schema)
-    } catch (error) {
-      throw new Error(`The request failed or returned an invalid response: ${error.message}`)
+    const config: InitConfig = {
+      label: 'InMemoryTestAgent',
+      walletConfig,
     }
 
-    expect(parsedSchema).toBeDefined()
-    expect(parsedSchema).toHaveProperty('$schema')
-    expect(parsedSchema.type).toBe('object')
-    expect(parsedSchema.properties).toHaveProperty('credentialSubject')
-  }, 100000)
+    agent = new Agent({
+      config,
+      dependencies: agentDependencies,
+      modules: {
+        askar: new AskarModule({ ariesAskar }),
+      },
+    })
+
+    await agent.initialize()
+
+    // Mock global fetch
+    fetchMocker.enable()
+
+    agentContext = agent.dependencyManager.resolve(AgentContext)
+  })
+
+  afterAll(async () => {
+    await agent?.shutdown()
+    await agent?.wallet?.delete()
+    fetchMocker.reset()
+    fetchMocker.disable()
+    vi.clearAllMocks()
+  })
+
+  it('should integrate with Verana testnet and retrieve the nested schema from the blockchain', async () => {
+    const did = 'did:web:bcccdd780017.ngrok-free.app'
+
+    // Create a mock object representing a didDocument
+    vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => {
+      return {
+        didResolutionMetadata: {},
+        didDocumentMetadata: {},
+        didDocument: integrationDidDoc,
+      }
+    })
+    vi.spyOn(DidResolverService.prototype, 'resolve').mockImplementation(async () => {
+      return {
+        didResolutionMetadata: {},
+        didDocumentMetadata: {},
+        didDocument: new DidDocument({ ...integrationDidDoc, context: integrationDidDoc['@context'] }),
+      }
+    })
+
+    fetchMocker.setMockResponses({
+      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-service-c-vp.json': {
+        ok: true,
+        status: 200,
+        data: linkedVpService,
+      },
+      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-org-c-vp.json': {
+        ok: true,
+        status: 200,
+        data: linkedVpOrg,
+      },
+      'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-service.json': {
+        ok: true,
+        status: 200,
+        data: jsonSchemaCredentialService,
+      },
+      'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-org.json': {
+        ok: true,
+        status: 200,
+        data: jsonSchemaCredentialOrg,
+      },
+    })
+
+    const result = await resolve(did, {
+      agentContext,
+    })
+
+    // Validate result
+    expect(result).toHaveProperty('didDocument')
+    expect(result).toEqual(
+      expect.objectContaining({
+        didDocument: integrationDidDoc,
+        verified: true,
+        service: {
+          ...linkedVpService?.verifiableCredential?.[0]?.credentialSubject,
+          issuer: did,
+          schemaType: 'ecs-service',
+        },
+        serviceProvider: {
+          ...linkedVpOrg?.verifiableCredential?.[0]?.credentialSubject,
+          issuer: did,
+          schemaType: 'ecs-org',
+        },
+      }),
+    )
+  }, 20000)
 })

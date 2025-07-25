@@ -72,7 +72,7 @@ describe('DidValidator', () => {
       vi.clearAllMocks()
     })
     it('should fail for a valid web DID without LinkedVerifiablePresentation', async () => {
-      // Real case with 'chatbot-demo.dev.2060.io'
+      // Real case with 'dm.chatbot.demos.dev.2060.io'
       const did = 'did:web:dm.chatbot.demos.dev.2060.io'
 
       // Setup spy methods
