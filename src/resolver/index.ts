@@ -1,1 +1,1 @@
-export * from './didValidator'
+export { resolve } from './didValidator'
