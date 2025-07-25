@@ -80,7 +80,6 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(did, {
-        trustRegistryUrl: 'http://testTrust.org',
         didResolver,
         agentContext,
       })
