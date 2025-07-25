@@ -201,7 +201,7 @@ async function processDidDocument(
  * @param did - The DID to fetch.
  * @returns A promise resolving to the resolution result.
  */
-export async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
+async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
   const resolutionResult = await (didResolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
@@ -329,8 +329,11 @@ async function getVerifiedCredential(
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
   const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
-  if (!isVerified) {
-    throw new TrustError(TrustErrorCode.INVALID, 'The verifiable credential proof is not valid.')
+  if (!isVerified.result) {
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      'The verifiable credential proof is not valid with: ' + isVerified.error,
+    )
   }
 
   return await processCredential(validCredential, trustRegistryUrl)
@@ -400,7 +403,7 @@ async function processCredential(
       const subjectSchema = await fetchJson<JsonObject>(refUrl)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
-      verifyDigestSRI(JSON.stringify(subjectSchema.schema), subjectDigestSRI, 'Credential Subject')
+      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)

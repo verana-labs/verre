@@ -52,7 +52,7 @@ describe('DidValidator', () => {
       agentContext = agent.dependencyManager.resolve(AgentContext)
 
       // Mock verifySignature function since there is no credential signature
-      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue(true)
+      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({ result: true })
 
       // Mock global fetch
       fetchMocker.enable()
