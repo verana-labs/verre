@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.11](https://github.com/verana-labs/verre/compare/v0.0.10...v0.0.11) (2025-07-28)
+
+
+### Features
+
+* add integration tests and improve schema validation & debugging ([#23](https://github.com/verana-labs/verre/issues/23)) ([48c976b](https://github.com/verana-labs/verre/commit/48c976bc0834d5ce90c5a8808239d017d60ccce1))
+
 ## [0.0.10](https://github.com/verana-labs/verre/compare/v0.0.9...v0.0.10) (2025-07-03)
 
 
