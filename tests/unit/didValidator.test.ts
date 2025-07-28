@@ -5,10 +5,9 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, TrustErrorCode } from '../../src'
+import { ECS, resolve } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
-  mockDidDocumentChatbot,
   didExtIssuer,
   didSelfIssued,
   fetchMocker,
@@ -71,25 +70,6 @@ describe('DidValidator', () => {
       fetchMocker.disable()
       vi.clearAllMocks()
     })
-    it('should fail for a valid web DID without LinkedVerifiablePresentation', async () => {
-      // Real case with 'dm.chatbot.demos.dev.2060.io'
-      const did = 'did:web:dm.chatbot.demos.dev.2060.io'
-
-      // Setup spy methods
-      const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
-
-      // Execute method under test
-      const result = await resolve(did, {
-        didResolver,
-        agentContext,
-      })
-
-      // Testing
-      expect(resolveSpy).toHaveBeenCalledTimes(1)
-      expect(resolveSpy).toHaveBeenCalledWith(did)
-      expect(result.verified).toEqual(true)
-      expect(result.didDocument).toEqual({ ...mockDidDocumentChatbot })
-    }, 10000)
 
     it('should work correctly when the issuer is equal to "did".', async () => {
       // mocked data

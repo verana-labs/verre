@@ -46,48 +46,6 @@ export const mockDidDocumentSelfIssuedExtIssuer = {
   },
 }
 
-export const mockDidDocumentChatbot = {
-  context: [
-    'https://w3id.org/did/v1',
-    'https://w3id.org/security/suites/ed25519-2018/v1',
-    'https://w3id.org/security/suites/x25519-2019/v1',
-  ],
-  id: 'did:web:dm.chatbot.demos.dev.2060.io',
-  verificationMethod: [
-    {
-      id: 'did:web:dm.chatbot.demos.dev.2060.io#verkey',
-      type: 'Ed25519VerificationKey2018',
-      controller: 'did:web:dm.chatbot.demos.dev.2060.io',
-      publicKeyBase58: 'DQWusYoBYwZwtneMsvkhNyjy3c2qRER75Gbew94P6Frq',
-    },
-    {
-      id: 'did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1',
-      type: 'X25519KeyAgreementKey2019',
-      controller: 'did:web:dm.chatbot.demos.dev.2060.io',
-      publicKeyBase58: 'DE9peAR8qJr2v5bTd7wXMPtC7hNZwmjYWWAcwVcidf83',
-    },
-  ],
-  service: [
-    {
-      id: 'did:web:dm.chatbot.demos.dev.2060.io#did-communication',
-      serviceEndpoint: 'wss://dm.chatbot.demos.dev.2060.io:443',
-      type: 'did-communication',
-      priority: 0,
-      recipientKeys: ['did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1'],
-      routingKeys: [],
-      accept: ['didcomm/aip2;env=rfc19'],
-    },
-    {
-      id: 'did:web:dm.chatbot.demos.dev.2060.io#anoncreds',
-      serviceEndpoint: 'https://dm.chatbot.demos.dev.2060.io/anoncreds/v1',
-      type: 'AnonCredsRegistry',
-    },
-  ],
-  authentication: ['did:web:dm.chatbot.demos.dev.2060.io#verkey'],
-  assertionMethod: ['did:web:dm.chatbot.demos.dev.2060.io#verkey'],
-  keyAgreement: ['did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1'],
-}
-
 export const mockResolverSelfIssued = {
   didResolutionMetadata: {},
   didDocumentMetadata: {},
@@ -330,6 +288,11 @@ export const mockCredentialSchemaSer = {
 }
 
 // Mock integration didDocument
+
+export const mockDidDocumentChatbot = JSON.parse(
+  '{"@context":["https://w3id.org/did/v1","https://w3id.org/security/suites/ed25519-2018/v1","https://w3id.org/security/suites/x25519-2019/v1"],"id":"did:web:dm.chatbot.demos.dev.2060.io","verificationMethod":[{"id":"did:web:dm.chatbot.demos.dev.2060.io#z6Mkq8fQM7RXugXFtGDEA77mDHTDFVe8RSaxfs2SVxcDX7AY","type":"Ed25519VerificationKey2018","controller":"did:web:dm.chatbot.demos.dev.2060.io","publicKeyBase58":"BgQMksB6a92nmmNXUY9vNBuDRvNH1ZLbyr7WfgeCbtPA"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1","type":"X25519KeyAgreementKey2019","controller":"did:web:dm.chatbot.demos.dev.2060.io","publicKeyBase58":"GLP1WpxfiKGr813mB3chxa6N2peLm6cfehbC5oQvwJTb"}],"service":[{"id":"did:web:dm.chatbot.demos.dev.2060.io#vpr-ecs-trust-registry-1234","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/self-tr","type":"VerifiablePublicRegistry"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#vpr-ecs-service-c-vp","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/self-tr/ecs-service-c-vp.json","type":"LinkedVerifiablePresentation"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#vpr-ecs-org-c-vp","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/self-tr/ecs-org-c-vp.json","type":"LinkedVerifiablePresentation"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#did-communication","serviceEndpoint":"wss://dm.chatbot.demos.dev.2060.io:443","type":"did-communication","priority":0,"recipientKeys":["did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1"],"routingKeys":[],"accept":["didcomm/aip2;env=rfc19"]},{"id":"did:web:dm.chatbot.demos.dev.2060.io#anoncreds","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/anoncreds/v1","type":"AnonCredsRegistry"}],"authentication":["did:web:dm.chatbot.demos.dev.2060.io#z6Mkq8fQM7RXugXFtGDEA77mDHTDFVe8RSaxfs2SVxcDX7AY"],"assertionMethod":["did:web:dm.chatbot.demos.dev.2060.io#z6Mkq8fQM7RXugXFtGDEA77mDHTDFVe8RSaxfs2SVxcDX7AY"],"keyAgreement":["did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1"]}',
+)
+
 export const integrationDidDoc = JSON.parse(
   '{"@context":["https://w3id.org/did/v1","https://w3id.org/security/suites/ed25519-2018/v1","https://w3id.org/security/suites/x25519-2019/v1"],"id":"did:web:bcccdd780017.ngrok-free.app","verificationMethod":[{"id":"did:web:bcccdd780017.ngrok-free.app#z6Mki3RxG2xc2zBeipUV8rkbbTKXJ4XCGLKPNn93atRdMzpV","type":"Ed25519VerificationKey2018","controller":"did:web:bcccdd780017.ngrok-free.app","publicKeyBase58":"4bAufniAhShBcKdnTHnkkMmXUVFLrT52gmE7kcTcSn37"},{"id":"did:web:bcccdd780017.ngrok-free.app#key-agreement-1","type":"X25519KeyAgreementKey2019","controller":"did:web:bcccdd780017.ngrok-free.app","publicKeyBase58":"DnVWEnqGMQidQfsxa5wxBEv6YDKkduGnpxtRPMTAJPk3"}],"service":[{"id":"did:web:bcccdd780017.ngrok-free.app#vpr-ecs-trust-registry-1234","serviceEndpoint":"https://bcccdd780017.ngrok-free.app/self-tr","type":"VerifiablePublicRegistry"},{"id":"did:web:bcccdd780017.ngrok-free.app#vpr-ecs-service-c-vp","serviceEndpoint":"https://bcccdd780017.ngrok-free.app/self-tr/ecs-service-c-vp.json","type":"LinkedVerifiablePresentation"},{"id":"did:web:bcccdd780017.ngrok-free.app#vpr-ecs-org-c-vp","serviceEndpoint":"https://bcccdd780017.ngrok-free.app/self-tr/ecs-org-c-vp.json","type":"LinkedVerifiablePresentation"},{"id":"did:web:bcccdd780017.ngrok-free.app#did-communication","serviceEndpoint":"wss://bcccdd780017.ngrok-free.app","type":"did-communication","priority":0,"recipientKeys":["did:web:bcccdd780017.ngrok-free.app#key-agreement-1"],"routingKeys":[],"accept":["didcomm/aip2;env=rfc19"]},{"id":"did:web:bcccdd780017.ngrok-free.app#anoncreds","serviceEndpoint":"https://bcccdd780017.ngrok-free.app/anoncreds/v1","type":"AnonCredsRegistry"}],"authentication":["did:web:bcccdd780017.ngrok-free.app#z6Mki3RxG2xc2zBeipUV8rkbbTKXJ4XCGLKPNn93atRdMzpV"],"assertionMethod":["did:web:bcccdd780017.ngrok-free.app#z6Mki3RxG2xc2zBeipUV8rkbbTKXJ4XCGLKPNn93atRdMzpV"],"keyAgreement":["did:web:bcccdd780017.ngrok-free.app#key-agreement-1"]}',
 )
