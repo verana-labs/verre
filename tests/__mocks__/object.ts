@@ -206,7 +206,7 @@ export const mockServiceSchemaSelfIssued = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
-    digestSRI: 'sha256-zsuaGIMeA9+gZuDsqWGaGvzKS/z4ACl665cYcGl3I8A=',
+    digestSRI: 'sha256-+HD2SszO0zCJyOCj2VFY65weOqTc/dhTdvzCZgnn6ro=',
   },
 )
 
@@ -223,7 +223,7 @@ export const mockServiceSchemaExtIssuer = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
-    digestSRI: 'sha256-zsuaGIMeA9+gZuDsqWGaGvzKS/z4ACl665cYcGl3I8A=',
+    digestSRI: 'sha256-+HD2SszO0zCJyOCj2VFY65weOqTc/dhTdvzCZgnn6ro=',
   },
 )
 
@@ -259,7 +259,7 @@ export const mockOrgSchema = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
     },
-    digestSRI: 'sha256-gmrv2UhK5alB14eNZfX8zM5Pu8XW8poywGKRe7yPjIc=',
+    digestSRI: 'sha256-Z4tIlaf5mtgZiDhYwaz7GJ2aT58vwPjfrYZ0IPfgfaM=',
   },
 )
 
@@ -295,7 +295,7 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
     },
-    digestSRI: 'sha256-gmrv2UhK5alB14eNZfX8zM5Pu8XW8poywGKRe7yPjIc=',
+    digestSRI: 'sha256-Z4tIlaf5mtgZiDhYwaz7GJ2aT58vwPjfrYZ0IPfgfaM=',
   },
 )
 
