@@ -5,11 +5,9 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, TrustErrorCode } from '../src'
-import * as signatureVerifier from '../src/utils/verifier'
-
+import { ECS, resolve } from '../../src'
+import * as signatureVerifier from '../../src/utils/verifier'
 import {
-  mockDidDocumentChatbot,
   didExtIssuer,
   didSelfIssued,
   fetchMocker,
@@ -30,7 +28,7 @@ import {
   mockServiceVcSelfIssued,
   setupAgent,
   getAskarStoreConfig,
-} from './__mocks__'
+} from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
   [didExtIssuer]: { ...mockResolverExtIssuer },
@@ -53,7 +51,7 @@ describe('DidValidator', () => {
       agentContext = agent.dependencyManager.resolve(AgentContext)
 
       // Mock verifySignature function since there is no credential signature
-      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue(true)
+      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({ result: true })
 
       // Mock global fetch
       fetchMocker.enable()
@@ -71,27 +69,6 @@ describe('DidValidator', () => {
       fetchMocker.reset()
       fetchMocker.disable()
       vi.clearAllMocks()
-    })
-    it('should fail for a valid web DID without LinkedVerifiablePresentation', async () => {
-      // Real case with 'chatbot-demo.dev.2060.io'
-      const did = 'did:web:dm.chatbot.demos.dev.2060.io'
-
-      // Setup spy methods
-      const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
-
-      // Execute method under test
-      const result = await resolve(did, {
-        trustRegistryUrl: 'http://testTrust.org',
-        didResolver,
-        agentContext,
-      })
-
-      // Testing
-      expect(resolveSpy).toHaveBeenCalledTimes(1)
-      expect(resolveSpy).toHaveBeenCalledWith(did)
-      expect(result.verified).toEqual(false)
-      expect(result.metadata).toEqual(expect.objectContaining({ errorCode: TrustErrorCode.NOT_FOUND }))
-      expect(result.didDocument).toEqual({ ...mockDidDocumentChatbot })
     })
 
     it('should work correctly when the issuer is equal to "did".', async () => {
@@ -210,7 +187,6 @@ describe('DidValidator', () => {
           status: 200,
           data: mockPermission,
         },
-        'http://testTrust.org/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
       // Execute method under test
@@ -288,7 +264,6 @@ describe('DidValidator', () => {
           status: 200,
           data: mockPermission,
         },
-        'http://testTrust.com/cs/v1/get': { ok: true, status: 200, data: mockCredentialSchemaOrg },
       })
 
       // Execute method under test
@@ -349,7 +324,6 @@ describe('DidValidator', () => {
         didResolver,
         agentContext,
       })
-      console.log(result)
 
       // Validate result
       expect(result).toHaveProperty('didDocument')

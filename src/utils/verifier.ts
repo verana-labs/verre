@@ -28,7 +28,7 @@ import { TrustError } from './trustError'
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
   agentContext: AgentContext,
-): Promise<boolean> {
+): Promise<{ result: boolean; error?: string }> {
   try {
     if (
       !document.proof ||
@@ -52,7 +52,9 @@ export async function verifySignature(
           credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
           proofPurpose: new purposes.AssertionProofPurpose(),
         })
-    if (!result.isValid) return false
+    if (!result.isValid) {
+      return { result: result.isValid, error: JSON.stringify(result.validations.vcJs?.error) }
+    }
 
     if (isPresentation && isVerifiablePresentation(document)) {
       const credentials = Array.isArray(document.verifiableCredential)
@@ -67,10 +69,10 @@ export async function verifySignature(
         throw new Error('One or more verifiable credentials failed signature verification.')
       }
     }
-    return result.isValid
+    return { result: result.isValid }
   } catch (error) {
     console.error('Error validating the proof:', error.message)
-    return false
+    return { result: false, error: error.message }
   }
 }
 
