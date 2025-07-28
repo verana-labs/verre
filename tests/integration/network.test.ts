@@ -21,7 +21,7 @@ import {
  * Integration Test Documentation
  *
  * This test suite validates the integration of the Verana Blockchain DID resolver and schema retrieval mechanisms.
- * 
+ *
  * Mocking Strategy:
  * -----------------
  * 1. DID Resolution:
