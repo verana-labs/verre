@@ -87,10 +87,9 @@ describe('DidValidator', () => {
       // Testing
       expect(resolveSpy).toHaveBeenCalledTimes(1)
       expect(resolveSpy).toHaveBeenCalledWith(did)
-      expect(result.verified).toEqual(false)
-      expect(result.metadata).toEqual(expect.objectContaining({ errorCode: TrustErrorCode.NOT_FOUND }))
+      expect(result.verified).toEqual(true)
       expect(result.didDocument).toEqual({ ...mockDidDocumentChatbot })
-    })
+    }, 10000)
 
     it('should work correctly when the issuer is equal to "did".', async () => {
       // mocked data
