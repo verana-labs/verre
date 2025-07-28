@@ -8,6 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+    
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -37,3 +41,6 @@ jobs:
 
       - name: Testing
         run: pnpm test
+
+      - name: Integration testing
+        run: pnpm test:integration
