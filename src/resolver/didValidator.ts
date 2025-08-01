@@ -19,7 +19,7 @@ import {
   IOrg,
   IPerson,
   InternalResolverConfig,
-  CredentialSchema,
+  Permission,
 } from '../types'
 import {
   buildMetadata,
@@ -104,7 +104,7 @@ async function resolvePermissionFromService(service: Service, trustRegistry: str
       did,
     )}&type=1&schema_id=${schemaId}`
 
-    const permission = await fetchJson<CredentialSchema>(permUrl)
+    const permission = await fetchJson<Permission>(permUrl)
     return permission
   } catch (error) {
     console.error(`Error processing service: ${service}`, error)
