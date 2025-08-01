@@ -4,6 +4,7 @@ import {
   type W3cJsonLdVerifiablePresentation,
   type AgentContext,
   JsonObject,
+  W3cCredentialSubject,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -18,6 +19,7 @@ import {
   IOrg,
   IPerson,
   InternalResolverConfig,
+  Permission,
 } from '../types'
 import {
   buildMetadata,
@@ -51,6 +53,59 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  */
 export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
   return await _resolve(did, options)
+}
+
+/**
+ * Verifies the authorization of a DID by resolving linked services,
+ * extracting verifiable credentials, and checking permissions from the trust registry.
+ *
+ * @param did - The Decentralized Identifier to be verified.
+ * @returns A list of resolved permissions or nulls for each valid service.
+ */
+export async function verifyDidAuthorization(did: string) {
+  const didDocument = await retrieveDidDocument(did)
+  const trustRegistry = await queryTrustRegistry(didDocument)
+
+  const results = await Promise.all(
+    (didDocument?.service ?? [])
+      .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
+      .map(service => resolvePermissionFromService(service, trustRegistry, did)),
+  )
+
+  return results
+}
+
+/**
+ * Resolves a permission for a given service by extracting and following
+ * the chain of linked credentials, schemas, and trust registry queries.
+ *
+ * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
+ * @param trustRegistryUrl - The base URL of the trust registry to query.
+ * @param did - The original DID whose authorization is being verified.
+ * @returns The resolved permission object or null if resolution fails.
+ */
+async function resolvePermissionFromService(service: Service, trustRegistry: string, did: string) {
+  try {
+    const vp = await resolveServiceVP(service)
+    const credential = resolveCredential(vp)
+    const { schema } = resolveSchemaAndSubject(credential)
+
+    const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
+    const { subject } = resolveSchemaAndSubject(jsonSchemaCredential)
+
+    const refUrl = getRefUrl(subject)
+    const schemaId = refUrl.split('/').pop()
+
+    const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
+      did,
+    )}&type=1&schema_id=${schemaId}`
+
+    const permission = await fetchJson<Permission>(permUrl)
+    return permission
+  } catch (error) {
+    console.error(`Error processing service: ${service}`, error)
+    return null
+  }
 }
 
 /**
@@ -132,11 +187,7 @@ async function processDidDocument(
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
-
-  const registryService = didDocument.service.find(s => s.type === 'VerifiablePublicRegistry')
-  if (!trustRegistryUrl && registryService) {
-    trustRegistryUrl = await queryTrustRegistry(registryService)
-  }
+  trustRegistryUrl = trustRegistryUrl ?? (await queryTrustRegistry(didDocument))
 
   if (!trustRegistryUrl) {
     throw new TrustError(
@@ -287,9 +338,12 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * @param service - The Trust Registry service to query.
  * @throws Error if the service endpoint is invalid or unreachable.
  */
-async function queryTrustRegistry(service: Service): Promise<string> {
+async function queryTrustRegistry(didDocument: DIDDocument): Promise<string> {
+  const registryService = didDocument.service?.find(s => s.type === 'VerifiablePublicRegistry')
+  if (!registryService)
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'The service must have a valid string endpoint.')
   let endpoint: string | undefined
-  const { serviceEndpoint } = service
+  const { serviceEndpoint } = registryService
 
   if (typeof serviceEndpoint === 'string') {
     endpoint = serviceEndpoint
@@ -315,19 +369,7 @@ async function getVerifiedCredential(
   trustRegistryUrl: string,
   agentContext: AgentContext,
 ): Promise<ICredential> {
-  if (
-    !vp.verifiableCredential ||
-    !Array.isArray(vp.verifiableCredential) ||
-    vp.verifiableCredential.length === 0
-  ) {
-    throw new TrustError(TrustErrorCode.NOT_FOUND, 'No verifiable credential found in the response')
-  }
-  const validCredential = vp.verifiableCredential.find(vc => vc.type.includes('VerifiableCredential')) as
-    | W3cVerifiableCredential
-    | undefined
-  if (!validCredential) {
-    throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
-  }
+  const validCredential = resolveCredential(vp)
   const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified.result) {
     throw new TrustError(
@@ -337,6 +379,32 @@ async function getVerifiedCredential(
   }
 
   return await processCredential(validCredential, trustRegistryUrl)
+}
+
+/**
+ * Finds a valid Verifiable Credential inside a Verifiable Presentation.
+ * @param vp - The Verifiable Presentation to search.
+ * @returns The first valid Verifiable Credential.
+ * @throws Error if no valid credential is found.
+ */
+function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
+  if (
+    !vp.verifiableCredential ||
+    !Array.isArray(vp.verifiableCredential) ||
+    vp.verifiableCredential.length === 0
+  ) {
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'No verifiable credential found in the response')
+  }
+
+  const validCredential = vp.verifiableCredential.find(vc => vc.type.includes('VerifiableCredential')) as
+    | W3cVerifiableCredential
+    | undefined
+
+  if (!validCredential) {
+    throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
+  }
+
+  return validCredential
 }
 
 /**
@@ -363,22 +431,10 @@ async function processCredential(
   trustRegistryUrl: string,
   attrs?: Record<string, string>,
 ): Promise<ICredential> {
-  const schema = extractSchema(credential.credentialSchema)
-  const subject = extractSchema(credential.credentialSubject)
-  if (!schema || !subject) {
-    throw new TrustError(
-      TrustErrorCode.NOT_FOUND,
-      "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
-    )
-  }
+  const { schema, subject } = resolveSchemaAndSubject(credential)
   const id = credential.id as string
   const issuer = credential.issuer as string
 
-  if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type))
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Credential schema type must be 'JsonSchemaCredential' or 'JsonSchema'.",
-    )
   if (schema.type === 'JsonSchemaCredential') {
     const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
     return processCredential(jsonSchemaCredential, trustRegistryUrl, subject as Record<string, string>)
@@ -396,9 +452,7 @@ async function processCredential(
       validateSchemaContent(schemaData, credential)
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
-      const refUrl =
-        subject && typeof subject === 'object' && 'jsonSchema' in subject && (subject as any).jsonSchema?.$ref
-
+      const refUrl = getRefUrl(subject)
       // If a reference URL exists, fetch the referenced schema
       const subjectSchema = await fetchJson<JsonObject>(refUrl)
 
@@ -413,6 +467,61 @@ async function processCredential(
     }
   }
   throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, 'Failed to validate credential')
+}
+
+/**
+ * Extracts and validates the credential schema and subject from a verifiable credential.
+ * Ensures the schema is of a supported type.
+ *
+ * @param credential - The verifiable credential to extract data from.
+ * @returns An object containing the validated schema and subject.
+ * @throws TrustError if the schema or subject is missing, or if the schema type is unsupported.
+ */
+function resolveSchemaAndSubject(credential: W3cVerifiableCredential) {
+  const schema = extractSchema(credential.credentialSchema)
+  const subject = extractSchema(credential.credentialSubject)
+
+  if (!schema || !subject) {
+    throw new TrustError(
+      TrustErrorCode.NOT_FOUND,
+      "Missing 'credentialSchema' or 'credentialSubject' in Verifiable Trust Credential.",
+    )
+  }
+
+  if (!['JsonSchemaCredential', 'JsonSchema'].includes(schema.type)) {
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      "Credential schema type must be 'JsonSchemaCredential' or 'JsonSchema'.",
+    )
+  }
+
+  return { schema, subject }
+}
+
+/**
+ * Extracts the `$ref` value from a subject's `jsonSchema` property, if present.
+ *
+ * This utility checks whether the given `subject` is an object containing a `jsonSchema`
+ * property, and if so, returns the `$ref` string inside it. If the property does not
+ * exist or the structure does not match, it returns `undefined`.
+ *
+ * @param subject - The value to inspect. Can be any type.
+ * @returns The `$ref` string if found.
+ * @throws {TrustError} If validation fails due to missing fields, unsupported types.
+ */
+function getRefUrl(subject: W3cCredentialSubject): string {
+  if (
+    subject &&
+    typeof subject === 'object' &&
+    'jsonSchema' in subject &&
+    (subject as any).jsonSchema?.$ref
+  ) {
+    return (subject as any).jsonSchema.$ref
+  }
+  throw new TrustError(
+    TrustErrorCode.NOT_SUPPORTED,
+    'only `$ref` references are currently supported in schemas',
+  )
 }
 
 function extractSchema<T>(value?: T | T[]): T | undefined {
