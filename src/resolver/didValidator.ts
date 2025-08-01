@@ -61,24 +61,45 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  * @param options - Resolver options.
  * @returns An object { isIssuer: boolean, isVerifier: boolean }
  */
-export async function checkDidAuthorization(did: string, options: ResolverConfig) {
-  const resolution = await retrieveDidDocument(did, options.didResolver)
+export async function verifyDidAuthorization(did: string) {
+  const didDocument = await retrieveDidDocument(did)
+  const trustRegistry = await queryTrustRegistry(didDocument)
+
+  const linkedServices = (didDocument?.service ?? []).filter(
+    service => service.type === 'LinkedVerifiablePresentation',
+  )
 
   const results = await Promise.all(
-    (resolution?.service ?? [])
-      .filter(x => x.type === 'LinkedVerifiablePresentation')
-      .map(async document => {
-        const vp = await resolveServiceVP(document.service)
-        const credential = resolveCredential(vp)
-        const { schema } = resolveSchemaAndSubject(credential)
-        const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
-        const { subject } = resolveSchemaAndSubject(jsonSchemaCredential)
-        const refUrl = getRefUrl(subject)
-        const credentialSchema = await fetchJson<CredentialSchema>(refUrl.replace('/js/', '/get/'))
-        // const subjectSchema = await fetchJson<Permission>(credentialSchema.id)
-        return credential
-      }),
+    linkedServices
+      .filter(service => service.id?.includes('org'))
+      .map(service => resolvePermissionFromService(service, trustRegistry, did)),
   )
+
+  return results
+}
+
+async function resolvePermissionFromService(service: Service, trustRegistry: string, did: string) {
+  try {
+    const vp = await resolveServiceVP(service)
+    const credential = resolveCredential(vp)
+    const { schema } = resolveSchemaAndSubject(credential)
+
+    const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
+    const { subject } = resolveSchemaAndSubject(jsonSchemaCredential)
+
+    const refUrl = getRefUrl(subject)
+    const schemaId = refUrl.split('/').pop()
+
+    const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
+      did,
+    )}&type=1&schema_id=${schemaId}`
+
+    const permission = await fetchJson<CredentialSchema>(permUrl)
+    return permission
+  } catch (error) {
+    console.error(`Error processing service: ${service}`, error)
+    return null
+  }
 }
 
 /**
@@ -160,11 +181,7 @@ async function processDidDocument(
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
-
-  const registryService = didDocument.service.find(s => s.type === 'VerifiablePublicRegistry')
-  if (!trustRegistryUrl && registryService) {
-    trustRegistryUrl = await queryTrustRegistry(registryService)
-  }
+  trustRegistryUrl = trustRegistryUrl ?? (await queryTrustRegistry(didDocument))
 
   if (!trustRegistryUrl) {
     throw new TrustError(
@@ -315,9 +332,12 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * @param service - The Trust Registry service to query.
  * @throws Error if the service endpoint is invalid or unreachable.
  */
-async function queryTrustRegistry(service: Service): Promise<string> {
+async function queryTrustRegistry(didDocument: DIDDocument): Promise<string> {
+  const registryService = didDocument.service?.find(s => s.type === 'VerifiablePublicRegistry')
+  if (!registryService)
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'The service must have a valid string endpoint.')
   let endpoint: string | undefined
-  const { serviceEndpoint } = service
+  const { serviceEndpoint } = registryService
 
   if (typeof serviceEndpoint === 'string') {
     endpoint = serviceEndpoint
