@@ -10,12 +10,12 @@ export const mockDidDocumentSelfIssued = {
     id: didSelfIssued,
     service: [
       {
-        id: `${didSelfIssued}#vpr-schemas`,
+        id: `${didSelfIssued}#vpr-schemas-service`,
         type: 'LinkedVerifiablePresentation',
         serviceEndpoint: ['https://example.com/vp-ser-self-issued'],
       },
       {
-        id: `${didSelfIssued}#vpr-schemas`,
+        id: `${didSelfIssued}#vpr-schemas-org`,
         type: 'LinkedVerifiablePresentation',
         serviceEndpoint: ['https://example.com/vp-org'],
       },
@@ -258,25 +258,14 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
 )
 
 export const mockPermission = {
-  id: 1,
-  schema_id: 100,
-  type: 'ISSUER',
-  grantee: 'user123',
-  created: 1710000000,
-  created_by: 'admin',
-  extended: 1710003600,
-  extended_by: 'admin',
-  modified: 1710007200,
-  validation_fees: 10,
-  issuance_fees: 5,
-  verification_fees: 2,
-  deposit: 50,
-  revoked_by: '',
-  terminated_by: '',
-  vp_state: 'PENDING',
-  vp_last_state_change: 1710010800,
-  vp_current_fees: 3,
-  vp_current_deposit: 20,
+  permissions: [
+    {
+      id: '8',
+      schema_id: '6',
+      type: 'PERMISSION_TYPE_ISSUER',
+      did: didSelfIssued,
+    },
+  ],
 }
 
 export const mockCredentialSchemaOrg = {
