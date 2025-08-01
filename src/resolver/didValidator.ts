@@ -66,13 +66,9 @@ export async function verifyDidAuthorization(did: string) {
   const didDocument = await retrieveDidDocument(did)
   const trustRegistry = await queryTrustRegistry(didDocument)
 
-  const linkedServices = (didDocument?.service ?? []).filter(
-    service => service.type === 'LinkedVerifiablePresentation',
-  )
-
   const results = await Promise.all(
-    linkedServices
-      .filter(service => service.id?.includes('org'))
+    (didDocument?.service ?? [])
+      .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
       .map(service => resolvePermissionFromService(service, trustRegistry, did)),
   )
 
