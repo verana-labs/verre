@@ -56,10 +56,11 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
 }
 
 /**
- * Checks if a DID is authorized as an issuer or verifier.
- * @param did - The DID to check.
- * @param options - Resolver options.
- * @returns An object { isIssuer: boolean, isVerifier: boolean }
+ * Verifies the authorization of a DID by resolving linked services,
+ * extracting verifiable credentials, and checking permissions from the trust registry.
+ *
+ * @param did - The Decentralized Identifier to be verified.
+ * @returns A list of resolved permissions or nulls for each valid service.
  */
 export async function verifyDidAuthorization(did: string) {
   const didDocument = await retrieveDidDocument(did)
@@ -78,6 +79,15 @@ export async function verifyDidAuthorization(did: string) {
   return results
 }
 
+/**
+ * Resolves a permission for a given service by extracting and following
+ * the chain of linked credentials, schemas, and trust registry queries.
+ *
+ * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
+ * @param trustRegistryUrl - The base URL of the trust registry to query.
+ * @param did - The original DID whose authorization is being verified.
+ * @returns The resolved permission object or null if resolution fails.
+ */
 async function resolvePermissionFromService(service: Service, trustRegistry: string, did: string) {
   try {
     const vp = await resolveServiceVP(service)
