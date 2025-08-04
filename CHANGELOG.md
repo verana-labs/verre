@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.12](https://github.com/verana-labs/verre/compare/v0.0.11...v0.0.12) (2025-08-04)
+
+
+### Features
+
+* add verifyDidAuthorization method ([#27](https://github.com/verana-labs/verre/issues/27)) ([4dd6a91](https://github.com/verana-labs/verre/commit/4dd6a91e5a401b293be3542ad337cdc5aaca5400))
+
 ## [0.0.11](https://github.com/verana-labs/verre/compare/v0.0.10...v0.0.11) (2025-07-28)
 
 
