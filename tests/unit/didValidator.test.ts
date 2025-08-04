@@ -5,7 +5,7 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve } from '../../src'
+import { ECS, resolve, verifyDidAuthorization } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   didExtIssuer,
@@ -292,6 +292,51 @@ describe('DidValidator', () => {
             ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
           },
         }),
+      )
+    })
+
+    it('should work correctly when ....', async () => {
+      // mocked data
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({
+        'https://example.com/vp-org': {
+          ok: true,
+          status: 200,
+          data: mockOrgVc,
+        },
+        'https://ecs-trust-registry/org-credential-schema-credential.json': {
+          ok: true,
+          status: 200,
+          data: mockOrgSchemaWithoutIssuer,
+        },
+        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
+          ok: true,
+          status: 200,
+          data: mockCredentialSchemaOrg,
+        },
+        'https://example.com/trust-registry/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com&type=1&schema_id=12345673':
+          {
+            ok: true,
+            status: 200,
+            data: mockPermission,
+          },
+      })
+
+      // Execute method under test
+      const result = await verifyDidAuthorization(didSelfIssued)
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            permissions: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'PERMISSION_TYPE_ISSUER',
+                did: didSelfIssued,
+              }),
+            ]),
+          }),
+        ]),
       )
     })
   })
