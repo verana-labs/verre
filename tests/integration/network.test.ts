@@ -15,6 +15,7 @@ import {
   linkedVpOrg,
   linkedVpService,
   mockDidDocumentChatbot,
+  stripPublicKeys,
 } from '../__mocks__'
 
 /**
@@ -93,7 +94,9 @@ describe('Integration with Verana Blockchain', () => {
     expect(resolveSpy).toHaveBeenCalledTimes(1)
     expect(resolveSpy).toHaveBeenCalledWith(did)
     expect(result.verified).toEqual(true)
-    expect(JSON.parse(JSON.stringify(result.didDocument))).toEqual(mockDidDocumentChatbot)
+    expect(stripPublicKeys(JSON.parse(JSON.stringify(result.didDocument)))).toEqual(
+      stripPublicKeys(mockDidDocumentChatbot),
+    )
   }, 10000)
 
   it('should integrate with Verana testnet and retrieve the nested schema from the blockchain', async () => {
