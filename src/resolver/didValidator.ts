@@ -46,7 +46,7 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  *
  * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
  * @param options - Configuration options for the resolver.
- * @param options.trustRegistries - *(Optional)* The Trust Registries URLs used to validate the DID and its services.
+ * @param options.trustRegistries - *(Optional)* The trust registries URLs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  *
@@ -190,7 +190,7 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
  * @param {DIDDocument} didDocument - The DID Document that may include verifiable services.
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
- * @param {VerifiablePublicRegistry[]} trustRegistries - The Trust Registries URLs used for validation and lookup.
+ * @param {VerifiablePublicRegistry[]} trustRegistries - The trust registries URLs used for validation and lookup.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
@@ -369,7 +369,7 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
 /**
  * Extracts a valid verifiable credential from a Verifiable Presentation.
  * @param vp - The Verifiable Presentation to parse.
- * @param trustRegistries - The Trust Registries URLs used for validation and lookup.
+ * @param trustRegistries - The trust registries URLs used for validation and lookup.
  * @param agentContext - The Agent Context for signature verification.
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
@@ -432,7 +432,7 @@ function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
  * - Validating the credential against the schema definitions
  *
  * @param w3cCredential - The Verifiable Credential to validate.
- * @param trustRegistries - The Trust Registries URLs used for validation and lookup.
+ * @param trustRegistries - The trust registries URLs used for validation and lookup.
  * @param attrs - Optional attributes to validate against the credential subject schema.
  * @returns A Promise resolving to the processed and validated credential.
  * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
