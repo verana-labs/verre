@@ -1,5 +1,5 @@
 import { AskarModule } from '@credo-ts/askar'
-import { Agent, AgentContext, DidResolverService, InitConfig } from '@credo-ts/core'
+import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
@@ -37,9 +37,7 @@ const mockResolversByDid: Record<string, any> = {
 
 describe('DidValidator', () => {
   let agent: Agent
-  let didResolverService: DidResolverService
   let agentContext: AgentContext
-  let didResolver: Resolver
 
   describe('resolver method in mocked environment', () => {
     beforeEach(async () => {
@@ -47,7 +45,6 @@ describe('DidValidator', () => {
       agent = await setupAgent({
         name: 'DID Service Test',
       })
-      didResolverService = agent.dependencyManager.resolve(DidResolverService)
       agentContext = agent.dependencyManager.resolve(AgentContext)
 
       // Mock verifySignature function since there is no credential signature
@@ -55,14 +52,6 @@ describe('DidValidator', () => {
 
       // Mock global fetch
       fetchMocker.enable()
-
-      // Create a resolver registry that integrates DID resolution strategies (using the Credo-TS dependency)
-      didResolver = new Resolver({
-        web: async (did: string) => didResolverService.resolve(agentContext, did),
-        key: async (did: string) => didResolverService.resolve(agentContext, did),
-        peer: async (did: string) => didResolverService.resolve(agentContext, did),
-        jwk: async (did: string) => didResolverService.resolve(agentContext, did),
-      })
     })
 
     afterEach(() => {
@@ -112,7 +101,6 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(didSelfIssued, {
         trustRegistryUrl: 'http://testTrust.org',
-        didResolver,
         agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
@@ -269,7 +257,6 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(didExtIssuer, {
         trustRegistryUrl: 'http://testTrust.com',
-        didResolver,
         agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
@@ -358,15 +345,8 @@ describe('DidValidator', () => {
       await agent.initialize()
 
       const agentContext = agent.dependencyManager.resolve(AgentContext)
-      const didResolverService = agent.dependencyManager.resolve(DidResolverService)
-
-      const didResolver = new Resolver({
-        web: async did => didResolverService.resolve(agentContext, did),
-      })
-
       const did = 'did:web:example.com'
       const result = await resolve(did, {
-        didResolver,
         agentContext,
       })
 

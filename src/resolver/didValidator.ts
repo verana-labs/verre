@@ -5,6 +5,7 @@ import {
   type AgentContext,
   JsonObject,
   W3cCredentialSubject,
+  DidResolverService,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -52,6 +53,21 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * DID document metadata, and trust validation outcome.
  */
 export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
+  const { agentContext } = options
+  const didResolverService = agentContext.dependencyManager.resolve(DidResolverService)
+  if (!options.didResolver) {
+    options.didResolver = new Resolver(
+      new Proxy(
+        {},
+        {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          get: (_target, _method: string) => {
+            return async (did: string) => didResolverService.resolve(agentContext, did)
+          },
+        },
+      ),
+    )
+  }
   return await _resolve(did, options)
 }
 
