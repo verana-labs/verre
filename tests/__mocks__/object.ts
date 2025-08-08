@@ -276,7 +276,7 @@ export const mockCredentialSchemaSer = {
   schema: JSON.stringify(loadSchema(ECS.SERVICE)),
 }
 
-export const trustRegistries: VerifiablePublicRegistry[] = [
+export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
   {
     name: 'https://vpr-hostname/vpr',
     baseurls: ['http://testTrust.com'],

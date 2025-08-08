@@ -13,7 +13,7 @@ export type TrustResolution = {
 }
 
 export type ResolverConfig = {
-  trustRegistries?: VerifiablePublicRegistry[]
+  verifiablePublicRegistries?: VerifiablePublicRegistry[]
   didResolver?: Resolver
   agentContext: AgentContext
 }

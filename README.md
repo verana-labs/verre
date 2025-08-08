@@ -47,7 +47,7 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustReso
 
 - `did` (**string**, required): The Decentralized Identifier to resolve.
 - `options` (**ResolverConfig**): Configuration options for the resolver.
-  - `trustRegistries` (**VerifiablePublicRegistry[]**): List of trust registry definitions for validation.
+  - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of verifiable public registry definitions for validation.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
   - `agentContext` (**AgentContext**, mandatory): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
 > **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
@@ -69,7 +69,7 @@ import { resolve } from '@verana-labs/verre';
 
 (async () => {
   const did = 'did:example:123456';
-  const trustRegistries = [
+  const verifiablePublicRegistries = [
     {
       name: 'https://vpr-hostname/vpr',
       baseurls: ['http://testTrust.com'],
@@ -78,7 +78,7 @@ import { resolve } from '@verana-labs/verre';
     },
   ];
 
-  const resolution = await resolve(did, { trustRegistries, agentContext });
+  const resolution = await resolve(did, { verifiablePublicRegistries, agentContext });
   console.log('Resolved DID Document:', resolution.resolvedDidDocument);
   console.log('Trust Metadata:', resolution.metadata);
 })();
@@ -102,7 +102,7 @@ const didResolver = new Resolver({
   peer: async (did: string) => didResolverService.resolve(agentContext, did),
   jwk: async (did: string) => didResolverService.resolve(agentContext, did),
 })
-const trustRegistries = [
+const verifiablePublicRegistries = [
   {
     name: 'https://vpr-hostname/vpr',
     baseurls: ['http://testTrust.com'],
@@ -113,7 +113,7 @@ const trustRegistries = [
 
 // Use the custom resolver in the call to `resolve`
 await resolve('did:web:example.com', {
-  trustRegistries,
+  verifiablePublicRegistries,
   didResolver,
   agentContext,
 })

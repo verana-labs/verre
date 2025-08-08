@@ -16,7 +16,7 @@ import {
   linkedVpService,
   mockDidDocumentChatbot,
   stripPublicKeys,
-  trustRegistries,
+  verifiablePublicRegistries,
 } from '../__mocks__'
 
 /**
@@ -87,7 +87,7 @@ describe('Integration with Verana Blockchain', () => {
     const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
     const result = await resolve(did, {
-      trustRegistries,
+      verifiablePublicRegistries,
       didResolver,
       agentContext,
     })
@@ -147,7 +147,7 @@ describe('Integration with Verana Blockchain', () => {
     })
 
     const result = await resolve(did, {
-      trustRegistries,
+      verifiablePublicRegistries,
       agentContext,
     })
 

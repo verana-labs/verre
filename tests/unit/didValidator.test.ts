@@ -28,7 +28,7 @@ import {
   mockServiceVcSelfIssued,
   setupAgent,
   getAskarStoreConfig,
-  trustRegistries,
+  verifiablePublicRegistries,
 } from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
@@ -107,7 +107,7 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(didSelfIssued, {
-        trustRegistries,
+        verifiablePublicRegistries,
         didResolver,
         agentContext,
       })
@@ -181,7 +181,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didExtIssuer, { trustRegistries, agentContext })
+      const result = await resolve(didExtIssuer, { verifiablePublicRegistries, agentContext })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
@@ -206,7 +206,7 @@ describe('DidValidator', () => {
       )
     })
 
-    it('should work correctly when the issuer is not "did" with different trustRegistries.', async () => {
+    it('should work correctly when the issuer is not "did" with different verifiablePublicRegistries.', async () => {
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -254,7 +254,7 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(didExtIssuer, {
-        trustRegistries,
+        verifiablePublicRegistries,
         didResolver,
         agentContext,
       })
