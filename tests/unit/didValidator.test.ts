@@ -5,7 +5,7 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, verifyDidAuthorization } from '../../src'
+import { ECS, resolve, TrustResolutionOutcome, verifyDidAuthorization } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   didExtIssuer,
@@ -28,6 +28,7 @@ import {
   mockServiceVcSelfIssued,
   setupAgent,
   getAskarStoreConfig,
+  trustRegistries,
 } from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
@@ -71,7 +72,7 @@ describe('DidValidator', () => {
       vi.clearAllMocks()
     })
 
-    it('should work correctly when the issuer is equal to "did".', async () => {
+    it('should work correctly when the issuer is equal to "did" over testing network.', async () => {
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -106,7 +107,7 @@ describe('DidValidator', () => {
 
       // Execute method under test
       const result = await resolve(didSelfIssued, {
-        trustRegistryUrl: 'http://testTrust.org',
+        trustRegistries,
         didResolver,
         agentContext,
       })
@@ -115,6 +116,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           verified: true,
+          outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssued,
           service: {
             schemaType: ECS.SERVICE,
@@ -176,17 +178,17 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
       })
 
       // Execute method under test
-      const result = await resolve(didExtIssuer, { trustRegistryUrl: 'http://testTrust.org', agentContext })
+      const result = await resolve(didExtIssuer, { trustRegistries, agentContext })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
           verified: true,
+          outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssuedExtIssuer,
           service: {
             schemaType: ECS.SERVICE,
@@ -204,7 +206,7 @@ describe('DidValidator', () => {
       )
     })
 
-    it('should work correctly when the issuer is not "did" with different trustRegistryUrl.', async () => {
+    it('should work correctly when the issuer is not "did" with different trustRegistries.', async () => {
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -248,12 +250,11 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
       })
 
       // Execute method under test
       const result = await resolve(didExtIssuer, {
-        trustRegistryUrl: 'http://testTrust.com',
+        trustRegistries,
         didResolver,
         agentContext,
       })
@@ -263,6 +264,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           verified: true,
+          outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssuedExtIssuer,
           service: {
             schemaType: ECS.SERVICE,
@@ -358,6 +360,7 @@ describe('DidValidator', () => {
       // Validate result
       expect(result).toHaveProperty('didDocument')
       expect(result.verified).toBe(false)
+      expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
 
       // Clean up
       await agent.shutdown()

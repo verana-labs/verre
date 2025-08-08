@@ -45,10 +45,9 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustReso
 
 ## Parameters
 
-- `did` (**string**, required): The Decentralized Identifier (DID) to resolve.
-
+- `did` (**string**, required): The Decentralized Identifier to resolve.
 - `options` (**ResolverConfig**): Configuration options for the resolver.
-  - `trustRegistryUrl` (**string**, optional): The URL of the trust registry used to validate the DID and its services.
+  - `trustRegistries` (**VerifiablePublicRegistry[]**): List of trust registry definitions for validation.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
   - `agentContext` (**AgentContext**, mandatory): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
 > **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
@@ -56,29 +55,32 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustReso
 ## Return Value
 Returns a `Promise<TrustResolution>` that resolves to an object containing:
 
-- `resolvedDidDocument` (**ResolvedDidDocument**, optional): The resolved DID document.
-- `metadata` (**TrustResolutionMetadata**, required): Metadata related to the resolution, including possible states and error codes.
-  - `content`
-  - `status`
-  - `errorCode`
-- `verifiableService` (**Record<string, string>**, optional): The entity that provided the credential.
-- `issuerCredential` (**Record<string, string>**, optional): A record indicating the approved issuer.
-- `type` (**ECS**, optional): The type of resolved entity, representing essential credentials.
+* `didDocument` (*DIDDocument* | optional): The resolved DID Document.
+* `verified` (*boolean*): Indicates whether the DID and its services passed trust validation.
+* `outcome` (*TrustResolutionOutcome*): The result status of the trust resolution process.
+* `metadata` (*TrustResolutionMetadata* | optional): Additional resolution metadata such as `errorMessage` or `errorCode`.
+* `service` (*IService* | optional): The verified credential service offered by the resolved entity.
+* `serviceProvider` (*ICredential* | optional): The credential representing the issuer or trust provider for the service.
 
 ## Usage Example
+
 ```typescript
+import { resolve } from '@verana-labs/verre';
+
 (async () => {
-  try {
-    const did = 'did:example:123456';
-    const options = { trustRegistryUrl: 'https://trust-registry.example.com' };
-    
-    const resolution = await resolve(did, options);
-    
-    console.log('Resolved DID Document:', resolution.resolvedDidDocument);
-    console.log('Trust Metadata:', resolution.metadata);
-  } catch (error) {
-    console.error('Error resolving DID:', error);
-  }
+  const did = 'did:example:123456';
+  const trustRegistries = [
+    {
+      name: 'https://vpr-hostname/vpr',
+      baseurls: ['http://testTrust.com'],
+      production: true,
+      version: '1.0',
+    },
+  ];
+
+  const resolution = await resolve(did, { trustRegistries, agentContext });
+  console.log('Resolved DID Document:', resolution.resolvedDidDocument);
+  console.log('Trust Metadata:', resolution.metadata);
 })();
 ```
 
@@ -100,10 +102,18 @@ const didResolver = new Resolver({
   peer: async (did: string) => didResolverService.resolve(agentContext, did),
   jwk: async (did: string) => didResolverService.resolve(agentContext, did),
 })
+const trustRegistries = [
+  {
+    name: 'https://vpr-hostname/vpr',
+    baseurls: ['http://testTrust.com'],
+    production: true,
+    version: '1.0',
+  },
+];
 
 // Use the custom resolver in the call to `resolve`
 await resolve('did:web:example.com', {
-  trustRegistryUrl: 'https://registry.example.com',
+  trustRegistries,
   didResolver,
   agentContext,
 })
