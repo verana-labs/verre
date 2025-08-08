@@ -20,6 +20,8 @@ import {
   IPerson,
   InternalResolverConfig,
   Permission,
+  VerifiablePublicRegistry,
+  TrustResolutionOutcome,
 } from '../types'
 import {
   buildMetadata,
@@ -40,11 +42,11 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  *
  * This is the main entrypoint for resolving a DID. It retrieves the DID Document,
  * validates its structure, and checks the trust status of the identifier and its services
- * using the provided trust registry.
+ * using the provided verifiable public registry.
  *
  * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
  * @param options - Configuration options for the resolver.
- * @param options.trustRegistryUrl - *(Optional)* The base URL of the trust registry used to validate the DID and its services.
+ * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URLs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  *
@@ -64,12 +66,11 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  */
 export async function verifyDidAuthorization(did: string) {
   const didDocument = await retrieveDidDocument(did)
-  const trustRegistry = await queryTrustRegistry(didDocument)
 
   const results = await Promise.all(
     (didDocument?.service ?? [])
       .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
-      .map(service => resolvePermissionFromService(service, trustRegistry, did)),
+      .map(service => resolvePermissionFromService(service, did)),
   )
 
   return results
@@ -80,31 +81,53 @@ export async function verifyDidAuthorization(did: string) {
  * the chain of linked credentials, schemas, and trust registry queries.
  *
  * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
- * @param trustRegistryUrl - The base URL of the trust registry to query.
  * @param did - The original DID whose authorization is being verified.
  * @returns The resolved permission object or null if resolution fails.
  */
-async function resolvePermissionFromService(service: Service, trustRegistry: string, did: string) {
+async function resolvePermissionFromService(service: Service, did: string): Promise<Permission | null> {
   try {
     const vp = await resolveServiceVP(service)
     const credential = resolveCredential(vp)
     const { schema } = resolveSchemaAndSubject(credential)
 
-    const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
-    const { subject } = resolveSchemaAndSubject(jsonSchemaCredential)
+    const schemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
+    const { subject } = resolveSchemaAndSubject(schemaCredential)
 
     const refUrl = getRefUrl(subject)
-    const schemaId = refUrl.split('/').pop()
+    // Extract schema ID and trust registry base
+    const { trustRegistry, schemaId } = resolveTrustRegistry(refUrl)
 
     const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
       did,
     )}&type=1&schema_id=${schemaId}`
 
-    const permission = await fetchJson<Permission>(permUrl)
-    return permission
+    return await fetchJson<Permission>(permUrl)
   } catch (error) {
-    console.error(`Error processing service: ${service}`, error)
+    console.error(`Error processing service:`, service, error)
     return null
+  }
+}
+
+/**
+ * Extracts the Trust Registry base URL and the schema ID from a given schema `refUrl`.
+ *
+ * Example:
+ * Input:  "https://registry.example.com/schemas/v1/1"
+ * Output: {
+ *   trustRegistry: "https://registry.example.com/schemas",
+ *   schemaId: "1"
+ * }
+ *
+ * @param refUrl The reference URL pointing to a schema within a Trust Registry.
+ * @returns An object containing the `trustRegistry` base URL and the `schemaId`.
+ */
+export function resolveTrustRegistry(refUrl: string): { trustRegistry: string; schemaId: string } {
+  const url = new URL(refUrl)
+  const segments = url.pathname.split('/').filter(Boolean)
+
+  return {
+    trustRegistry: `${url.origin}/${segments[0]}`,
+    schemaId: segments.at(-1)!,
   }
 }
 
@@ -121,15 +144,26 @@ async function resolvePermissionFromService(service: Service, trustRegistry: str
  */
 export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
   if (!did) {
-    return { verified: false, metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL') }
+    return {
+      verified: false,
+      outcome: TrustResolutionOutcome.INVALID,
+      metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL'),
+    }
   }
 
-  const { trustRegistryUrl, didResolver, attrs, agentContext } = options
+  const { verifiablePublicRegistries, didResolver, attrs, agentContext } = options
   try {
     const didDocument = await retrieveDidDocument(did, didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, agentContext, trustRegistryUrl, didResolver, attrs)
+      return await processDidDocument(
+        did,
+        didDocument,
+        agentContext,
+        verifiablePublicRegistries || [],
+        didResolver,
+        attrs,
+      )
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -154,9 +188,9 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
  *
  * @param {string} did - The DID being processed.
  * @param {DIDDocument} didDocument - The DID Document that may include verifiable services.
- * @param {string} trustRegistryUrl - The Trust Registry URL used for validation and lookup.
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
+ * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
@@ -176,7 +210,7 @@ async function processDidDocument(
   did: string,
   didDocument: DIDDocument,
   agentContext: AgentContext,
-  trustRegistryUrl?: string,
+  verifiablePublicRegistries: VerifiablePublicRegistry[],
   didResolver?: Resolver,
   attrs?: IService,
 ): Promise<TrustResolution> {
@@ -187,14 +221,7 @@ async function processDidDocument(
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
-  trustRegistryUrl = trustRegistryUrl ?? (await queryTrustRegistry(didDocument))
-
-  if (!trustRegistryUrl) {
-    throw new TrustError(
-      TrustErrorCode.NOT_FOUND,
-      'Missing trustRegistryUrl. You must provide it directly or via a VerifiablePublicRegistry service.',
-    )
-  }
+  let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
 
   await Promise.all(
     didDocument.service.map(async didService => {
@@ -207,15 +234,20 @@ async function processDidDocument(
               `Invalid Linked Verifiable Presentation for service id: '${didService.id}'`,
             )
 
-          const credential = await getVerifiedCredential(vp, trustRegistryUrl, agentContext)
+          const { credential, outcome: vpOutcome } = await getVerifiedCredential(
+            vp,
+            verifiablePublicRegistries,
+            agentContext,
+          )
           credentials.push(credential)
+          outcome = vpOutcome
 
           const isServiceCred = credential.schemaType === ECS.SERVICE
           const isExternalIssuer = credential.issuer !== did
 
           if (isServiceCred && isExternalIssuer) {
             const resolution = await _resolve(credential.issuer, {
-              trustRegistryUrl,
+              verifiablePublicRegistries,
               didResolver,
               attrs: credential,
               agentContext,
@@ -239,6 +271,7 @@ async function processDidDocument(
   if (serviceProvider && service) {
     return {
       didDocument,
+      outcome,
       verified: true,
       service,
       serviceProvider,
@@ -334,42 +367,19 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
 }
 
 /**
- * Fetches and validates exists data from a Trust Registry service.
- * @param service - The Trust Registry service to query.
- * @throws Error if the service endpoint is invalid or unreachable.
- */
-async function queryTrustRegistry(didDocument: DIDDocument): Promise<string> {
-  const registryService = didDocument.service?.find(s => s.type === 'VerifiablePublicRegistry')
-  if (!registryService)
-    throw new TrustError(TrustErrorCode.NOT_FOUND, 'The service must have a valid string endpoint.')
-  let endpoint: string | undefined
-  const { serviceEndpoint } = registryService
-
-  if (typeof serviceEndpoint === 'string') {
-    endpoint = serviceEndpoint
-  } else if (Array.isArray(serviceEndpoint)) {
-    endpoint = serviceEndpoint.find(e => typeof e === 'string')
-  }
-
-  if (!endpoint || typeof endpoint !== 'string') {
-    throw new TrustError(TrustErrorCode.INVALID, 'The service does not have a valid string endpoint.')
-  }
-
-  return endpoint
-}
-
-/**
  * Extracts a valid verifiable credential from a Verifiable Presentation.
  * @param vp - The Verifiable Presentation to parse.
+ * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
+ * @param agentContext - The Agent Context for signature verification.
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
 async function getVerifiedCredential(
   vp: W3cPresentation,
-  trustRegistryUrl: string,
+  verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
-): Promise<ICredential> {
-  const validCredential = resolveCredential(vp)
+): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
+  const w3cCredential = resolveCredential(vp)
   const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified.result) {
     throw new TrustError(
@@ -378,7 +388,7 @@ async function getVerifiedCredential(
     )
   }
 
-  return await processCredential(validCredential, trustRegistryUrl)
+  return await processCredential(w3cCredential, verifiablePublicRegistries)
 }
 
 /**
@@ -421,23 +431,28 @@ function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
  * - Validating schema integrity via SRI
  * - Validating the credential against the schema definitions
  *
- * @param credential - The Verifiable Credential to validate.
+ * @param w3cCredential - The Verifiable Credential to validate.
+ * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
  * @param attrs - Optional attributes to validate against the credential subject schema.
  * @returns A Promise resolving to the processed and validated credential.
  * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
  */
 async function processCredential(
-  credential: W3cVerifiableCredential,
-  trustRegistryUrl: string,
+  w3cCredential: W3cVerifiableCredential,
+  verifiablePublicRegistries: VerifiablePublicRegistry[],
   attrs?: Record<string, string>,
-): Promise<ICredential> {
-  const { schema, subject } = resolveSchemaAndSubject(credential)
-  const id = credential.id as string
-  const issuer = credential.issuer as string
+): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
+  const { schema, subject } = resolveSchemaAndSubject(w3cCredential)
+  const id = w3cCredential.id as string
+  const issuer = w3cCredential.issuer as string
 
   if (schema.type === 'JsonSchemaCredential') {
     const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
-    return processCredential(jsonSchemaCredential, trustRegistryUrl, subject as Record<string, string>)
+    return processCredential(
+      jsonSchemaCredential,
+      verifiablePublicRegistries,
+      subject as Record<string, string>,
+    )
   }
 
   if (schema.type === 'JsonSchema') {
@@ -449,10 +464,18 @@ async function processCredential(
       verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
 
       // Validate the credential against the schema
-      validateSchemaContent(schemaData, credential)
+      validateSchemaContent(schemaData, w3cCredential)
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
+      const { trustRegistry } = resolveTrustRegistry(refUrl)
+      const registry = verifiablePublicRegistries.find(registry => registry.name === trustRegistry)
+      const outcome = !registry
+        ? TrustResolutionOutcome.NOT_TRUSTED
+        : registry.production
+          ? TrustResolutionOutcome.VERIFIED
+          : TrustResolutionOutcome.VERIFIED_TEST
+
       // If a reference URL exists, fetch the referenced schema
       const subjectSchema = await fetchJson<JsonObject>(refUrl)
 
@@ -461,7 +484,8 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
-      return { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
+      const credential = { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
+      return { credential, outcome }
     } catch (error) {
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
     }

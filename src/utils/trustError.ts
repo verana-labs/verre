@@ -1,6 +1,6 @@
 import { DIDDocument } from 'did-resolver'
 
-import { TrustResolutionMetadata, TrustErrorCode } from '../types'
+import { TrustResolutionMetadata, TrustErrorCode, TrustResolutionOutcome } from '../types'
 
 import { buildMetadata } from './helper'
 
@@ -26,11 +26,17 @@ export class TrustError extends Error {
  */
 export function handleTrustError(error: unknown, didDocument?: DIDDocument) {
   if (error instanceof TrustError) {
-    return { didDocument, verified: false, metadata: error.metadata }
+    return {
+      didDocument,
+      outcome: TrustResolutionOutcome.INVALID,
+      verified: false,
+      metadata: error.metadata,
+    }
   }
   return {
     didDocument,
     verified: false,
+    outcome: TrustResolutionOutcome.INVALID,
     metadata: buildMetadata(TrustErrorCode.INVALID, `Unexpected error: ${error}`),
   }
 }
