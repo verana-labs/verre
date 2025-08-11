@@ -279,7 +279,7 @@ export const mockCredentialSchemaSer = {
 export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
   {
     name: 'https://vpr-hostname/vpr',
-    baseurls: ['http://testTrust.com'],
+    baseurls: ['https://testTrust.com'],
     production: true,
   },
   {

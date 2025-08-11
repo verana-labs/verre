@@ -81,12 +81,12 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchema,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345671': {
+        'https://testTrust.com/v1/cs/js/12345671': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+        'https://testTrust.com/v1/cs/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
@@ -156,12 +156,12 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchemaWithoutIssuer,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
+        'https://testTrust.com/v1/cs/js/12345673': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+        'https://testTrust.com/v1/cs/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
@@ -228,12 +228,12 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchemaWithoutIssuer,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
+        'https://testTrust.com/v1/cs/js/12345673': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+        'https://testTrust.com/v1/cs/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
@@ -270,6 +270,7 @@ describe('DidValidator', () => {
     })
 
     it('should work correctly when ....', async () => {
+      // TODO: when integrate verifyDidAuthorization inside resolve, this test should be removed
       // mocked data
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
