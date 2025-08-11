@@ -53,22 +53,38 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * DID document metadata, and trust validation outcome.
  */
 export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
-  const { agentContext } = options
-  const didResolverService = agentContext.dependencyManager.resolve(DidResolverService)
   if (!options.didResolver) {
-    options.didResolver = new Resolver(
-      new Proxy(
-        {},
-        {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          get: (_target, _method: string) => {
-            return async (did: string) => didResolverService.resolve(agentContext, did)
-          },
-        },
-      ),
-    )
+    options.didResolver = getCredoTsDidResolver(options.agentContext)
   }
   return await _resolve(did, options)
+}
+
+/**
+ * Creates a DID Resolver instance that uses the Credo-TS internal `DidResolverService`
+ * to resolve Decentralized Identifiers (DIDs).
+ *
+ * This resolver delegates all resolution requests to the `DidResolverService` registered
+ * within the provided `AgentContext`.
+ *
+ * @param agentContext - The agent context containing the global operational state
+ * of the agent, including registered services, modules, DIDs, wallets, storage, and configuration
+ * from Credo-TS.
+ *
+ * @returns A `did-resolver` `Resolver` instance configured to use Credo-TS for DID resolution.
+ */
+function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
+  const didResolverService = agentContext.dependencyManager.resolve(DidResolverService)
+  return new Resolver(
+    new Proxy(
+      {},
+      {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        get: (_target, _method: string) => {
+          return async (did: string) => didResolverService.resolve(agentContext, did)
+        },
+      },
+    ),
+  )
 }
 
 /**
