@@ -126,7 +126,7 @@ await resolve('did:web:example.com', {
 })
 ```
 
-### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Credo-TS)
+### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
 
 ```ts
 import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
@@ -134,11 +134,13 @@ import { AskarModule } from '@credo-ts/askar'
 import { agentDependencies } from '@credo-ts/node'
 import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
+import * as didWeb from 'web-did-resolver'
 
 import { getAskarStoreConfig } from '../src/helpers'
 
 // Create the in-memory wallet config
 const walletConfig = getAskarStoreConfig('InMemoryTestAgent', { inMemory: true })
+const didResolver = new Resolver(didWeb.getResolver())
 
 // Agent initialization config
 const config: InitConfig = {
@@ -158,7 +160,7 @@ const agent = new Agent({
 await agent.initialize()
 
 // Resolve dependencies
-const agentContext = agent.dependencyManager.resolve(AgentContext)
+const agentContext = agent.dependencyManager.resolve(didResolver, AgentContext)
 
 // Example usage of the DID Resolver
 const result = await resolve('did:web:example.com', {
