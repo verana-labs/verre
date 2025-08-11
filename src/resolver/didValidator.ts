@@ -5,7 +5,7 @@ import {
   type AgentContext,
   JsonObject,
   W3cCredentialSubject,
-  DidResolverService,
+  DidsApi,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -80,7 +80,7 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
       {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         get: (_target, _method: string) => {
-          return async (did: string) => didResolverService.resolve(agentContext, did)
+          return async (did: string) => didResolverApi.resolve(did)
         },
       },
     ),
