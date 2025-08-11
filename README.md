@@ -82,7 +82,7 @@ Returns a `Promise<TrustResolution>` that resolves to an object containing:
 })();
 ```
 
-### Using Credo-TS with a Custom or Default DID Resolver
+### Using Credo-TS with a Default DID Resolver
 
 ```ts
 import { Resolver } from 'did-resolver'
@@ -92,7 +92,6 @@ import { AgentContext } from '@credo-ts/core'
 const agent = await setupAgent({ name: 'Default DID Resolver Test with Credo' })
 const agentContext = agent.dependencyManager.resolve(AgentContext)
 
-// Use the custom resolver in the call to `resolve`
 // By default, if no resolver is provided, the Credo-TS resolver will be used
 await resolve('did:web:example.com', {
   trustRegistryUrl: 'https://registry.example.com',
