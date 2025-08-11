@@ -281,13 +281,11 @@ export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
     name: 'https://vpr-hostname/vpr',
     baseurls: ['http://testTrust.com'],
     production: true,
-    version: '1.0',
   },
   {
     name: 'https://api.testnet.verana.network/verana',
     baseurls: ['https://api.testnet.verana.network/verana'],
     production: false,
-    version: '1.0',
   },
 ]
 

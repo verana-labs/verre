@@ -74,7 +74,6 @@ import { resolve } from '@verana-labs/verre';
       name: 'https://vpr-hostname/vpr',
       baseurls: ['http://testTrust.com'],
       production: true,
-      version: '1.0',
     },
   ];
 
@@ -124,7 +123,6 @@ const verifiablePublicRegistries = [
     name: 'https://vpr-hostname/vpr',
     baseurls: ['http://testTrust.com'],
     production: true,
-    version: '1.0',
   },
 ];
 

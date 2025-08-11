@@ -25,7 +25,7 @@ export type InternalResolverConfig = ResolverConfig & {
 export type VerifiablePublicRegistry = {
   name: string
   baseurls: string[]
-  version: string
+  version?: string
   production: boolean
 }
 
