@@ -78,11 +78,6 @@ describe('Integration with Verana Blockchain', () => {
 
   it('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
     const did = 'did:web:dm.chatbot.demos.dev.2060.io'
-    const didResolverService = agent.dependencyManager.resolve(DidResolverService)
-    const didResolver = new Resolver({
-      web: async (did: string) => didResolverService.resolve(agentContext, did),
-    })
-
     // Setup spy methods
     const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
