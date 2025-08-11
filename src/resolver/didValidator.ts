@@ -73,7 +73,7 @@ export async function resolve(did: string, options: ResolverConfig): Promise<Tru
  * @returns A `did-resolver` `Resolver` instance configured to use Credo-TS for DID resolution.
  */
 function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
-  const didResolverService = agentContext.dependencyManager.resolve(DidResolverService)
+  const didResolverApi = agentContext.dependencyManager.resolve(DidsApi)
   return new Resolver(
     new Proxy(
       {},
