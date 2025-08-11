@@ -82,6 +82,24 @@ Returns a `Promise<TrustResolution>` that resolves to an object containing:
 })();
 ```
 
+### Using Credo-TS with a Custom or Default DID Resolver
+
+```ts
+import { Resolver } from 'did-resolver'
+import { AgentContext } from '@credo-ts/core'
+
+// Set up the agent
+const agent = await setupAgent({ name: 'Default DID Resolver Test with Credo' })
+const agentContext = agent.dependencyManager.resolve(AgentContext)
+
+// Use the custom resolver in the call to `resolve`
+// By default, if no resolver is provided, the Credo-TS resolver will be used
+await resolve('did:web:example.com', {
+  trustRegistryUrl: 'https://registry.example.com',
+  agentContext,
+})
+```
+
 ### Using Credo-TS to Provide a Custom DID Resolver
 
 ```ts
@@ -112,7 +130,7 @@ await resolve('did:web:example.com', {
 ### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Credo-TS)
 
 ```ts
-import { Agent, AgentContext, DidResolverService, InitConfig } from '@credo-ts/core'
+import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
 import { AskarModule } from '@credo-ts/askar'
 import { agentDependencies } from '@credo-ts/node'
 import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
@@ -142,16 +160,9 @@ await agent.initialize()
 
 // Resolve dependencies
 const agentContext = agent.dependencyManager.resolve(AgentContext)
-const didResolverService = agent.dependencyManager.resolve(DidResolverService)
-
-// Set up DID Resolver using Credo-TS resolution strategies
-const didResolver = new Resolver({
-  web: async (did) => didResolverService.resolve(agentContext, did),
-})
 
 // Example usage of the DID Resolver
 const result = await resolve('did:web:example.com', {
-  didResolver,
   agentContext,
 })
 console.log('Resolved DID Document:', result)
