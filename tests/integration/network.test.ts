@@ -83,7 +83,6 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolve(did, {
       verifiablePublicRegistries,
-      didResolver,
       agentContext,
     })
 

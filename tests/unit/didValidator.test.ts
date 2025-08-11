@@ -97,7 +97,6 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(didSelfIssued, {
         verifiablePublicRegistries,
-        didResolver,
         agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
@@ -244,7 +243,6 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolve(didExtIssuer, {
         verifiablePublicRegistries,
-        didResolver,
         agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
