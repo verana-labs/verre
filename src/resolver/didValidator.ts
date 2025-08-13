@@ -500,7 +500,7 @@ async function processCredential(
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const registry = verifiablePublicRegistries.find(registry => refUrl.startsWith(registry.name))
+      const registry = verifiablePublicRegistries.find(registry => refUrl.startsWith(registry.id))
       const outcome = !registry
         ? TrustResolutionOutcome.NOT_TRUSTED
         : registry.production
@@ -509,7 +509,7 @@ async function processCredential(
 
       // If a reference URL exists, fetch the referenced schema
       const subjectSchema = await fetchJson<JsonObject>(
-        registry?.name && registry.baseurls[0] ? refUrl.replace(registry.name, registry.baseurls[0]) : refUrl,
+        registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl,
       )
 
       // Verify the integrity of the referenced subject schema using its SRI digest
