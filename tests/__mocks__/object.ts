@@ -1,6 +1,6 @@
 // __mocks__/didMocks.ts
 
-import { ECS, loadSchema } from '../../src'
+import { ECS, loadSchema, VerifiablePublicRegistry } from '../../src'
 
 export const didExtIssuer = 'did:web:issuer.trusted.example.com'
 export const didSelfIssued = 'did:web:service.self-issued.example.com'
@@ -276,8 +276,20 @@ export const mockCredentialSchemaSer = {
   schema: JSON.stringify(loadSchema(ECS.SERVICE)),
 }
 
-// Mock integration didDocument
+export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
+  {
+    id: 'https://vpr-hostname/vpr',
+    baseUrls: ['https://testTrust.com'],
+    production: true,
+  },
+  {
+    id: 'https://api.testnet.verana.network/verana',
+    baseUrls: ['https://api.testnet.verana.network/verana'],
+    production: false,
+  },
+]
 
+// Mock integration didDocument
 export const mockDidDocumentChatbot = JSON.parse(
   '{"@context":["https://w3id.org/did/v1","https://w3id.org/security/suites/ed25519-2018/v1","https://w3id.org/security/suites/x25519-2019/v1"],"id":"did:web:dm.chatbot.demos.dev.2060.io","verificationMethod":[{"id":"did:web:dm.chatbot.demos.dev.2060.io#z6Mkq8fQM7RXugXFtGDEA77mDHTDFVe8RSaxfs2SVxcDX7AY","type":"Ed25519VerificationKey2018","controller":"did:web:dm.chatbot.demos.dev.2060.io","publicKeyBase58":"BgQMksB6a92nmmNXUY9vNBuDRvNH1ZLbyr7WfgeCbtPA"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1","type":"X25519KeyAgreementKey2019","controller":"did:web:dm.chatbot.demos.dev.2060.io","publicKeyBase58":"GLP1WpxfiKGr813mB3chxa6N2peLm6cfehbC5oQvwJTb"}],"service":[{"id":"did:web:dm.chatbot.demos.dev.2060.io#vpr-ecs-trust-registry-1234","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/self-tr","type":"VerifiablePublicRegistry"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#vpr-ecs-service-c-vp","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/self-tr/ecs-service-c-vp.json","type":"LinkedVerifiablePresentation"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#vpr-ecs-org-c-vp","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/self-tr/ecs-org-c-vp.json","type":"LinkedVerifiablePresentation"},{"id":"did:web:dm.chatbot.demos.dev.2060.io#did-communication","serviceEndpoint":"wss://dm.chatbot.demos.dev.2060.io:443","type":"did-communication","priority":0,"recipientKeys":["did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1"],"routingKeys":[],"accept":["didcomm/aip2;env=rfc19"]},{"id":"did:web:dm.chatbot.demos.dev.2060.io#anoncreds","serviceEndpoint":"https://dm.chatbot.demos.dev.2060.io/anoncreds/v1","type":"AnonCredsRegistry"}],"authentication":["did:web:dm.chatbot.demos.dev.2060.io#z6Mkq8fQM7RXugXFtGDEA77mDHTDFVe8RSaxfs2SVxcDX7AY"],"assertionMethod":["did:web:dm.chatbot.demos.dev.2060.io#z6Mkq8fQM7RXugXFtGDEA77mDHTDFVe8RSaxfs2SVxcDX7AY"],"keyAgreement":["did:web:dm.chatbot.demos.dev.2060.io#key-agreement-1"]}',
 )

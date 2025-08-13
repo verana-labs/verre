@@ -5,7 +5,7 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-import { resolve, verifyDidAuthorization } from '../../src'
+import { resolve, TrustResolutionOutcome, verifyDidAuthorization } from '../../src'
 import {
   fetchMocker,
   getAskarStoreConfig,
@@ -16,6 +16,7 @@ import {
   linkedVpService,
   mockDidDocumentChatbot,
   stripPublicKeys,
+  verifiablePublicRegistries,
 } from '../__mocks__'
 
 /**
@@ -81,6 +82,7 @@ describe('Integration with Verana Blockchain', () => {
     const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
     const result = await resolve(did, {
+      verifiablePublicRegistries,
       agentContext,
     })
 
@@ -139,6 +141,7 @@ describe('Integration with Verana Blockchain', () => {
     })
 
     const result = await resolve(did, {
+      verifiablePublicRegistries,
       agentContext,
     })
 
@@ -148,6 +151,7 @@ describe('Integration with Verana Blockchain', () => {
       expect.objectContaining({
         didDocument: integrationDidDoc,
         verified: true,
+        outcome: TrustResolutionOutcome.VERIFIED_TEST,
         service: {
           ...linkedVpService?.verifiableCredential?.[0]?.credentialSubject,
           issuer: did,

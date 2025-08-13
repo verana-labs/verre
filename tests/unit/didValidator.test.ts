@@ -5,7 +5,7 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, verifyDidAuthorization } from '../../src'
+import { ECS, resolve, TrustResolutionOutcome, verifyDidAuthorization } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   didExtIssuer,
@@ -28,6 +28,7 @@ import {
   mockServiceVcSelfIssued,
   setupAgent,
   getAskarStoreConfig,
+  verifiablePublicRegistries,
 } from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
@@ -60,7 +61,7 @@ describe('DidValidator', () => {
       vi.clearAllMocks()
     })
 
-    it('should work correctly when the issuer is equal to "did".', async () => {
+    it('should work correctly when the issuer is equal to "did" over testing network.', async () => {
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -80,27 +81,22 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchema,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345671': {
+        'https://testTrust.com/v1/cs/js/12345671': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+        'https://testTrust.com/v1/cs/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'http://testTrust.org/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com': {
-          ok: true,
-          status: 200,
-          data: mockPermission,
-        },
       })
 
       // Execute method under test
       const result = await resolve(didSelfIssued, {
-        trustRegistryUrl: 'http://testTrust.org',
+        verifiablePublicRegistries,
         agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
@@ -108,6 +104,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           verified: true,
+          outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssued,
           service: {
             schemaType: ECS.SERVICE,
@@ -159,32 +156,27 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchemaWithoutIssuer,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
+        'https://testTrust.com/v1/cs/js/12345673': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+        'https://testTrust.com/v1/cs/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'http://testTrust.org/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com': {
-          ok: true,
-          status: 200,
-          data: mockPermission,
-        },
       })
 
       // Execute method under test
-      const result = await resolve(didExtIssuer, { trustRegistryUrl: 'http://testTrust.org', agentContext })
+      const result = await resolve(didExtIssuer, { verifiablePublicRegistries, agentContext })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
       expect(result).toEqual(
         expect.objectContaining({
           verified: true,
+          outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssuedExtIssuer,
           service: {
             schemaType: ECS.SERVICE,
@@ -202,7 +194,7 @@ describe('DidValidator', () => {
       )
     })
 
-    it('should work correctly when the issuer is not "did" with different trustRegistryUrl.', async () => {
+    it('should work correctly when the issuer is not "did" with different verifiablePublicRegistries.', async () => {
       // mocked data
       const resolverInstanceSpy = vi
         .spyOn(Resolver.prototype, 'resolve')
@@ -236,27 +228,21 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchemaWithoutIssuer,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345673': {
+        'https://testTrust.com/v1/cs/js/12345673': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/v1/cs/js/12345678': {
+        'https://testTrust.com/v1/cs/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
-        },
-        'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'http://testTrust.com/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com': {
-          ok: true,
-          status: 200,
-          data: mockPermission,
         },
       })
 
       // Execute method under test
       const result = await resolve(didExtIssuer, {
-        trustRegistryUrl: 'http://testTrust.com',
+        verifiablePublicRegistries,
         agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
@@ -265,6 +251,7 @@ describe('DidValidator', () => {
       expect(result).toEqual(
         expect.objectContaining({
           verified: true,
+          outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssuedExtIssuer,
           service: {
             schemaType: ECS.SERVICE,
@@ -283,6 +270,7 @@ describe('DidValidator', () => {
     })
 
     it('should work correctly when ....', async () => {
+      // TODO: when integrate verifyDidAuthorization inside resolve, this test should be removed
       // mocked data
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
@@ -303,7 +291,7 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://example.com/trust-registry/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com&type=1&schema_id=12345673':
+        'https://vpr-hostname/vpr/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com&type=1&schema_id=12345673':
           {
             ok: true,
             status: 200,
@@ -353,6 +341,7 @@ describe('DidValidator', () => {
       // Validate result
       expect(result).toHaveProperty('didDocument')
       expect(result.verified).toBe(false)
+      expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
 
       // Clean up
       await agent.shutdown()
