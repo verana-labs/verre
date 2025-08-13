@@ -222,7 +222,7 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
  * @param {DIDDocument} didDocument - The DID Document that may include verifiable services.
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
- * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
+ * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
