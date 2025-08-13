@@ -71,7 +71,7 @@ import { resolve } from '@verana-labs/verre';
   const did = 'did:example:123456';
   const verifiablePublicRegistries = [
     {
-      name: 'https://vpr-hostname/vpr',
+      name: 'vpr:hostname:main',
       baseurls: ['http://testTrust.com'],
       production: true,
     },
