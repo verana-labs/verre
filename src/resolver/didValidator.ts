@@ -6,6 +6,7 @@ import {
   JsonObject,
   W3cCredentialSubject,
   DidsApi,
+  ConsoleLogger,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -37,6 +38,7 @@ import {
 
 // Generic resolver for DID Web only
 const resolverInstance = new Resolver(didWeb.getResolver())
+const logger = new ConsoleLogger()
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -135,7 +137,7 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
 
     return await fetchJson<Permission>(permUrl)
   } catch (error) {
-    console.error(`Error processing service:`, service, error)
+    logger.error(`Error processing service: ${service}`, error)
     return null
   }
 }

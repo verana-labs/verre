@@ -71,7 +71,7 @@ export async function verifySignature(
     }
     return { result: result.isValid }
   } catch (error) {
-    console.error('Error validating the proof:', error.message)
+    agentContext.config.logger.error('Error validating the proof:', error.message)
     return { result: false, error: error.message }
   }
 }
