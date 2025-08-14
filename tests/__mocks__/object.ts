@@ -278,13 +278,13 @@ export const mockCredentialSchemaSer = {
 
 export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
   {
-    name: 'https://vpr-hostname/vpr',
-    baseurls: ['https://testTrust.com'],
+    id: 'https://vpr-hostname/vpr',
+    baseUrls: ['https://testTrust.com'],
     production: true,
   },
   {
-    name: 'https://api.testnet.verana.network/verana',
-    baseurls: ['https://api.testnet.verana.network/verana'],
+    id: 'https://api.testnet.verana.network/verana',
+    baseUrls: ['https://api.testnet.verana.network/verana'],
     production: false,
   },
 ]

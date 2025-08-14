@@ -6,6 +6,7 @@ import {
   JsonObject,
   W3cCredentialSubject,
   DidsApi,
+  ConsoleLogger,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -37,6 +38,7 @@ import {
 
 // Generic resolver for DID Web only
 const resolverInstance = new Resolver(didWeb.getResolver())
+const logger = new ConsoleLogger()
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -47,7 +49,7 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  *
  * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
  * @param options - Configuration options for the resolver.
- * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URLs used to validate the DID and its services.
+ * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  *
@@ -135,7 +137,7 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
 
     return await fetchJson<Permission>(permUrl)
   } catch (error) {
-    console.error(`Error processing service:`, service, error)
+    logger.error(`Error processing service: ${service}`, error)
     return null
   }
 }
@@ -222,7 +224,7 @@ export async function _resolve(did: string, options: InternalResolverConfig): Pr
  * @param {DIDDocument} didDocument - The DID Document that may include verifiable services.
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
- * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
+ * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
@@ -500,7 +502,7 @@ async function processCredential(
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const registry = verifiablePublicRegistries.find(registry => refUrl.startsWith(registry.name))
+      const registry = verifiablePublicRegistries.find(registry => refUrl.startsWith(registry.id))
       const outcome = !registry
         ? TrustResolutionOutcome.NOT_TRUSTED
         : registry.production
@@ -509,7 +511,7 @@ async function processCredential(
 
       // If a reference URL exists, fetch the referenced schema
       const subjectSchema = await fetchJson<JsonObject>(
-        registry?.name && registry.baseurls[0] ? refUrl.replace(registry.name, registry.baseurls[0]) : refUrl,
+        registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl,
       )
 
       // Verify the integrity of the referenced subject schema using its SRI digest

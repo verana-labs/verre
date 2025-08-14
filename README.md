@@ -47,7 +47,7 @@ async function resolve(did: string, options?: ResolverConfig): Promise<TrustReso
 
 - `did` (**string**, required): The Decentralized Identifier to resolve.
 - `options` (**ResolverConfig**): Configuration options for the resolver.
-  - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of verifiable public registry definitions for validation.
+  - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of known, trusted verifiable public registry definitions for validation.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
   - `agentContext` (**AgentContext**, mandatory): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
 > **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
@@ -71,7 +71,7 @@ import { resolve } from '@verana-labs/verre';
   const did = 'did:example:123456';
   const verifiablePublicRegistries = [
     {
-      name: 'https://vpr-hostname/vpr',
+      name: 'vpr:hostname:main',
       baseurls: ['http://testTrust.com'],
       production: true,
     },
@@ -134,7 +134,7 @@ await resolve('did:web:example.com', {
 })
 ```
 
-### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
+### Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
 
 ```ts
 import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
