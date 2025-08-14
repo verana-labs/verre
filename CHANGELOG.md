@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.13](https://github.com/verana-labs/verre/compare/v0.0.12...v0.0.13) (2025-08-14)
+
+
+### Features
+
+* add verifiable registry support for known networks with trust status outcome ([#30](https://github.com/verana-labs/verre/issues/30)) ([4c83479](https://github.com/verana-labs/verre/commit/4c834798846439718eb816281156a00cc22a9660))
+* use credo resolver by default ([#31](https://github.com/verana-labs/verre/issues/31)) ([6f48f30](https://github.com/verana-labs/verre/commit/6f48f3066fb25144cac2941b354febfbc03ba17e))
+
 ## [0.0.12](https://github.com/verana-labs/verre/compare/v0.0.11...v0.0.12) (2025-08-04)
 
 
