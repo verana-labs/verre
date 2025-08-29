@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.14](https://github.com/verana-labs/verre/compare/v0.0.13...v0.0.14) (2025-08-29)
+
+
+### Bug Fixes
+
+* perform resolution only on relevant linked vp services ([#35](https://github.com/verana-labs/verre/issues/35)) ([dd28ab8](https://github.com/verana-labs/verre/commit/dd28ab8a53c66a44cc79192c27b33c8d5a62d90e))
+
 ## [0.0.13](https://github.com/verana-labs/verre/compare/v0.0.12...v0.0.13) (2025-08-14)
 
 
