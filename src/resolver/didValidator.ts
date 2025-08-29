@@ -256,43 +256,40 @@ async function processDidDocument(
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
+  const pattern = /^vpr-schemas.*-c-vp$/
 
   await Promise.all(
     didDocument.service.map(async didService => {
-      switch (didService.type) {
-        case 'LinkedVerifiablePresentation': {
-          const vp = await resolveServiceVP(didService)
-          if (!vp)
-            throw new TrustError(
-              TrustErrorCode.NOT_SUPPORTED,
-              `Invalid Linked Verifiable Presentation for service id: '${didService.id}'`,
-            )
-
-          const { credential, outcome: vpOutcome } = await getVerifiedCredential(
-            vp,
-            verifiablePublicRegistries,
-            agentContext,
+      const { type, id } = didService
+      if (type === 'LinkedVerifiablePresentation' && pattern.test(id.split('#')[1])) {
+        const vp = await resolveServiceVP(didService)
+        if (!vp)
+          throw new TrustError(
+            TrustErrorCode.NOT_SUPPORTED,
+            `Invalid Linked Verifiable Presentation for service id: '${id}'`,
           )
-          credentials.push(credential)
-          outcome = vpOutcome
 
-          const isServiceCred = credential.schemaType === ECS.SERVICE
-          const isExternalIssuer = credential.issuer !== did
+        const { credential, outcome: vpOutcome } = await getVerifiedCredential(
+          vp,
+          verifiablePublicRegistries,
+          agentContext,
+        )
+        credentials.push(credential)
+        outcome = vpOutcome
 
-          if (isServiceCred && isExternalIssuer) {
-            const resolution = await _resolve(credential.issuer, {
-              verifiablePublicRegistries,
-              didResolver,
-              attrs: credential,
-              agentContext,
-            })
-            service = resolution.service
-            serviceProvider = resolution.serviceProvider
-          }
-          break
+        const isServiceCred = credential.schemaType === ECS.SERVICE
+        const isExternalIssuer = credential.issuer !== did
+
+        if (isServiceCred && isExternalIssuer) {
+          const resolution = await _resolve(credential.issuer, {
+            verifiablePublicRegistries,
+            didResolver,
+            attrs: credential,
+            agentContext,
+          })
+          service = resolution.service
+          serviceProvider = resolution.serviceProvider
         }
-        default:
-          break
       }
     }),
   )
@@ -323,53 +320,6 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
   const resolutionResult = await (didResolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
-
-  const serviceEntries = didDocument.service || []
-  if (!serviceEntries.length)
-    throw new TrustError(TrustErrorCode.NOT_FOUND, 'No services found in the DID Document.')
-
-  // Validate presence of "vpr-schemas"
-  const hasLinkedPresentation = serviceEntries.some(
-    s => s.type === 'LinkedVerifiablePresentation' && s.id.includes('#vpr-schemas'),
-  )
-  const hasTrustRegistry = serviceEntries.some(
-    s => s.type === 'VerifiablePublicRegistry' && s.id.includes('#vpr-schemas-trust-registry'),
-  )
-
-  // Validate presence of "vpr-essential-schemas"
-  const hasEssentialSchemas = serviceEntries.some(
-    s => s.type === 'LinkedVerifiablePresentation' && s.id.includes('#vpr-ecs'),
-  )
-  const hasEssentialTrustRegistry = serviceEntries.some(
-    s => s.type === 'VerifiablePublicRegistry' && s.id.includes('#vpr-ecs-trust-registry'),
-  )
-
-  // Validate schema consistency
-  if (hasLinkedPresentation && !hasTrustRegistry) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Missing 'VerifiablePublicRegistry' entry for existing '#vpr-schemas-trust-registry'.",
-    )
-  }
-  if (hasTrustRegistry && !hasLinkedPresentation) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-schemas'.",
-    )
-  }
-  if (hasEssentialSchemas && !hasEssentialTrustRegistry) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Missing 'VerifiablePublicRegistry' entry for existing '#vpr-essential-schemas'.",
-    )
-  }
-  if (hasEssentialTrustRegistry && !hasEssentialSchemas) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      "Missing 'LinkedVerifiablePresentation' entry for existing '#vpr-essential-schemas-trust-registry'.",
-    )
-  }
-
   return didDocument
 }
 
