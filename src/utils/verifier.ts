@@ -45,8 +45,8 @@ export async function verifySignature(
     const result = isPresentation
       ? await w3c?.verifyPresentation(agentContext, {
           presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
-          challenge: 'challenge',
-          domain: 'example.com',
+          purpose: new purposes.AssertionProofPurpose(),
+          challenge: '', // It is currently mandatory in Credo API
         })
       : await w3c?.verifyCredential(agentContext, {
           credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
