@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.15](https://github.com/verana-labs/verre/compare/v0.0.14...v0.0.15) (2025-09-03)
+
+
+### Bug Fixes
+
+* proof purpose in verifiable presentations ([#37](https://github.com/verana-labs/verre/issues/37)) ([f7cc8c5](https://github.com/verana-labs/verre/commit/f7cc8c56ea134d78998b7bfb724cda1a3ec1c8f5))
+
 ## [0.0.14](https://github.com/verana-labs/verre/compare/v0.0.13...v0.0.14) (2025-08-29)
 
 
