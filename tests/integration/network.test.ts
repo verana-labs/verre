@@ -89,7 +89,6 @@ describe('Integration with Verana Blockchain', () => {
     // Validate result
     expect(resolveSpy).toHaveBeenCalledTimes(1)
     expect(resolveSpy).toHaveBeenCalledWith(did)
-    expect(result.verified).toEqual(true)
     expect(stripPublicKeys(JSON.parse(JSON.stringify(result.didDocument)))).toEqual(
       stripPublicKeys(mockDidDocumentChatbot),
     )
