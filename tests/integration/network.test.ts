@@ -5,7 +5,7 @@ import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-import { resolve, TrustResolutionOutcome, verifyDidAuthorization } from '../../src'
+import { resolve, TrustResolutionOutcome } from '../../src'
 import {
   fetchMocker,
   getAskarStoreConfig,
@@ -165,49 +165,5 @@ describe('Integration with Verana Blockchain', () => {
       }),
     )
   }, 10000)
-
-  it('should resolve the correct schema and permissions when a valid DID with linked services is provided', async () => {
-    const did = 'did:web:bcccdd780017.ngrok-free.app'
-
-    // Create a mock object representing a didDocument
-    // Mock the Resolver's resolve method to return a predefined DID Document for deterministic testing
-    vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => {
-      return {
-        didResolutionMetadata: {},
-        didDocumentMetadata: {},
-        didDocument: integrationDidDoc,
-      }
-    })
-
-    // Mock HTTP responses for schema and verifiable presentation endpoints to avoid real network calls
-    fetchMocker.setMockResponses({
-      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-org-c-vp.json': {
-        ok: true,
-        status: 200,
-        data: linkedVpOrg,
-      },
-      'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-org.json': {
-        ok: true,
-        status: 200,
-        data: jsonSchemaCredentialOrg,
-      },
-    })
-
-    const result = await verifyDidAuthorization(did)
-
-    // Validate result
-    expect(Array.isArray(result)).toBe(true)
-    expect(result).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          permissions: expect.arrayContaining([
-            expect.objectContaining({
-              type: 'PERMISSION_TYPE_ISSUER',
-              did,
-            }),
-          ]),
-        }),
-      ]),
-    )
-  }, 10000)
+  // TODO: add permission testing when the indexer has been added
 })
