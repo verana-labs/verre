@@ -256,12 +256,13 @@ async function processDidDocument(
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
-  const pattern = /^vpr-schemas.*-c-vp$/
+  const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
   await Promise.all(
     didDocument.service.map(async didService => {
       const { type, id } = didService
-      if (type === 'LinkedVerifiablePresentation' && pattern.test(id.split('#')[1])) {
+      const matchesPattern = patterns.some(pattern => pattern.test(id.split('#')[1]))
+      if (type === 'LinkedVerifiablePresentation' && matchesPattern) {
         const vp = await resolveServiceVP(didService)
         if (!vp)
           throw new TrustError(
