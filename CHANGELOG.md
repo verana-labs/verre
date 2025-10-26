@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.16](https://github.com/verana-labs/verre/compare/v0.0.15...v0.0.16) (2025-10-26)
+
+
+### Bug Fixes
+
+* allow vpr-ecs for essential esquemas ([#40](https://github.com/verana-labs/verre/issues/40)) ([48dbe32](https://github.com/verana-labs/verre/commit/48dbe32448a8f7470ed38a365d2859756e828a17))
+
 ## [0.0.15](https://github.com/verana-labs/verre/compare/v0.0.14...v0.0.15) (2025-09-03)
 
 
