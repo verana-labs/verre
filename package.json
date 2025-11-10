@@ -39,8 +39,9 @@
     "prepare": "corepack enable"
   },
   "devDependencies": {
-    "@credo-ts/askar": "^0.5.17",
-    "@credo-ts/node": "^0.5.17",
+    "@credo-ts/askar": "0.5.18",
+    "@credo-ts/node": "0.5.18",
+    "@credo-ts/webvh": "^0.5.18",
     "@eslint/js": "^9.22.0",
     "@hyperledger/aries-askar-nodejs": "^0.2.3",
     "@types/eslint": "^8.56.2",
@@ -65,7 +66,7 @@
     "vitest": "^3.0.9"
   },
   "dependencies": {
-    "@credo-ts/core": "^0.5.17",
+    "@credo-ts/core": "0.5.18",
     "@digitalcredentials/jsonld-signatures": "^12.0.1",
     "@noble/hashes": "^1.8.0",
     "ajv": "^8.17.1",
@@ -80,7 +81,8 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "@credo-ts/core": "patches/@credo-ts__core.patch"
+      "@credo-ts/core": "patches/@credo-ts__core.patch",
+      "didwebvh-ts": "patches/didwebvh-ts.patch"
     }
   }
 }
