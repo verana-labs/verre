@@ -7,7 +7,6 @@ import {
   W3cCredentialSubject,
   DidsApi,
   ConsoleLogger,
-  W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -57,21 +56,11 @@ const logger = new ConsoleLogger()
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
-export async function resolve(
-  input: string | W3cJsonLdVerifiableCredential,
-  options: ResolverConfig,
-): Promise<TrustResolution> {
+export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
   if (!options.didResolver) {
     options.didResolver = getCredoTsDidResolver(options.agentContext)
   }
-  switch (typeof input) {
-    case 'string':
-      return await _resolve(input, options)
-    case 'object':
-      return {} as TrustResolution
-    default:
-      throw new TrustError(TrustErrorCode.NOT_SUPPORTED, 'Invalid input type for resolve().')
-  }
+  return await _resolve(did, options)
 }
 
 /**
