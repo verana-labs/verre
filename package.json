@@ -41,7 +41,7 @@
   "devDependencies": {
     "@credo-ts/askar": "^0.5.17",
     "@credo-ts/node": "^0.5.17",
-    "@credo-ts/webvh": "^0.5.17",
+    "@credo-ts/webvh": "^0.5.18",
     "@eslint/js": "^9.22.0",
     "@openwallet-foundation/askar-nodejs": "^0.4.3",
     "@types/eslint": "^8.56.2",

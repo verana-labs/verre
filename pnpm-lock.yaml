@@ -48,7 +48,7 @@ importers:
         specifier: ^0.5.17
         version: 0.5.18(expo@52.0.43(@babel/core@7.26.10)(@babel/preset-env@7.26.9(@babel/core@7.26.10))(react-native@0.78.2(@babel/core@7.26.10)(@babel/preset-env@7.26.9(@babel/core@7.26.10))(react@19.1.0))(react@19.1.0))(react-native@0.78.2(@babel/core@7.26.10)(@babel/preset-env@7.26.9(@babel/core@7.26.10))(react@19.1.0))(web-streams-polyfill@3.3.3)
       '@credo-ts/webvh':
-        specifier: ^0.5.17
+        specifier: ^0.5.18
         version: 0.5.18(@hyperledger/anoncreds-shared@0.3.3)(expo@52.0.43(@babel/core@7.26.10)(@babel/preset-env@7.26.9(@babel/core@7.26.10))(react-native@0.78.2(@babel/core@7.26.10)(@babel/preset-env@7.26.9(@babel/core@7.26.10))(react@19.1.0))(react@19.1.0))(react-native@0.78.2(@babel/core@7.26.10)(@babel/preset-env@7.26.9(@babel/core@7.26.10))(react@19.1.0))(web-streams-polyfill@3.3.3)
       '@eslint/js':
         specifier: ^9.22.0
