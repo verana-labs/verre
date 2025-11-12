@@ -41,8 +41,9 @@
   "devDependencies": {
     "@credo-ts/askar": "^0.5.17",
     "@credo-ts/node": "^0.5.17",
+    "@credo-ts/webvh": "^0.5.18",
     "@eslint/js": "^9.22.0",
-    "@hyperledger/aries-askar-nodejs": "^0.2.3",
+    "@openwallet-foundation/askar-nodejs": "^0.4.3",
     "@types/eslint": "^8.56.2",
     "@types/jsonld": "^1.5.15",
     "@types/node": "^18.0.0",
@@ -78,9 +79,13 @@
   "engines": {
     "node": ">= 18"
   },
+  "peerDependencies": {
+    "@credo-ts/core": "^0.5.18",
+    "@credo-ts/webvh": "^0.5.18"
+  },
   "pnpm": {
     "patchedDependencies": {
-      "@credo-ts/core": "patches/@credo-ts__core.patch"
+      "didwebvh-ts": "patches/didwebvh-ts.patch"
     }
   }
 }

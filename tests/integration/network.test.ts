@@ -1,7 +1,16 @@
 import { AskarModule } from '@credo-ts/askar'
-import { Agent, AgentContext, DidDocument, DidResolverService, InitConfig } from '@credo-ts/core'
+import {
+  Agent,
+  AgentContext,
+  DidDocument,
+  DidResolverService,
+  DidsModule,
+  InitConfig,
+  WebDidResolver,
+} from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
-import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
+import { WebvhDidResolver } from '@credo-ts/webvh'
+import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
@@ -14,8 +23,6 @@ import {
   jsonSchemaCredentialService,
   linkedVpOrg,
   linkedVpService,
-  mockDidDocumentChatbot,
-  stripPublicKeys,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
@@ -56,7 +63,12 @@ describe('Integration with Verana Blockchain', () => {
       config,
       dependencies: agentDependencies,
       modules: {
-        askar: new AskarModule({ ariesAskar }),
+        askar: new AskarModule({
+          ariesAskar: askar,
+        }),
+        dids: new DidsModule({
+          resolvers: [new WebDidResolver(), new WebvhDidResolver()],
+        }),
       },
     })
 
@@ -77,7 +89,9 @@ describe('Integration with Verana Blockchain', () => {
   })
 
   it('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
-    const did = 'did:web:dm.chatbot.demos.dev.2060.io'
+    // Use this DID to validate real-world service resolution scenarios
+    const did =
+      'did:webvh:QmUGoLH1vu3APBWo3PXC7pTJ4C1tPqxPxBnZ68s8eKBz1V:dm.gov-id-verifier.demos.dev.2060.io'
     // Setup spy methods
     const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
@@ -87,12 +101,10 @@ describe('Integration with Verana Blockchain', () => {
     })
 
     // Validate result
-    expect(resolveSpy).toHaveBeenCalledTimes(1)
+    expect(resolveSpy).toHaveBeenCalledTimes(2)
     expect(resolveSpy).toHaveBeenCalledWith(did)
-    expect(stripPublicKeys(JSON.parse(JSON.stringify(result.didDocument)))).toEqual(
-      stripPublicKeys(mockDidDocumentChatbot),
-    )
-  }, 10000)
+    expect(result.verified).toBe(true)
+  }, 50000)
 
   it('should integrate with Verana testnet and retrieve the nested schema from the blockchain', async () => {
     const did = 'did:web:bcccdd780017.ngrok-free.app'

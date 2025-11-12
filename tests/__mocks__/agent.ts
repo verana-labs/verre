@@ -1,25 +1,14 @@
 import type { InitConfig } from '@credo-ts/core'
 
 import { AskarModule } from '@credo-ts/askar'
-import {
-  Agent,
-  DidsModule,
-  HttpOutboundTransport,
-  KeyDerivationMethod,
-  utils,
-  WsOutboundTransport,
-} from '@credo-ts/core'
+import { Agent, HttpOutboundTransport, KeyDerivationMethod, utils, WsOutboundTransport } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
-import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
+import { askar } from '@openwallet-foundation/askar-nodejs'
 
 export const setupAgent = async ({ name }: { name: string }) => {
   const agentConfig: InitConfig = {
     label: name,
-    walletConfig: {
-      id: name,
-      key: 'someKey',
-    },
-    autoUpdateStorageOnStartup: true,
+    walletConfig: getAskarStoreConfig('InMemoryTestAgent', { inMemory: true }),
   }
 
   const agent = new Agent({
@@ -27,9 +16,8 @@ export const setupAgent = async ({ name }: { name: string }) => {
     dependencies: agentDependencies,
     modules: {
       askar: new AskarModule({
-        ariesAskar,
+        ariesAskar: askar,
       }),
-      calls: new DidsModule(),
     },
   })
 
