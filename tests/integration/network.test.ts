@@ -10,7 +10,7 @@ import {
 } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { WebvhDidResolver } from '@credo-ts/webvh'
-import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
+import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
@@ -63,7 +63,9 @@ describe('Integration with Verana Blockchain', () => {
       config,
       dependencies: agentDependencies,
       modules: {
-        askar: new AskarModule({ ariesAskar }),
+        askar: new AskarModule({
+          ariesAskar: askar,
+        }),
         dids: new DidsModule({
           resolvers: [new WebDidResolver(), new WebvhDidResolver()],
         }),

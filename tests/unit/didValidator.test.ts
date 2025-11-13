@@ -1,7 +1,4 @@
-import { AskarModule } from '@credo-ts/askar'
-import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
-import { agentDependencies } from '@credo-ts/node'
-import { ariesAskar } from '@hyperledger/aries-askar-nodejs'
+import { Agent, AgentContext } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
@@ -27,7 +24,6 @@ import {
   mockServiceSchemaSelfIssued,
   mockServiceVcSelfIssued,
   setupAgent,
-  getAskarStoreConfig,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
@@ -317,20 +313,7 @@ describe('DidValidator', () => {
   })
   describe('resolver method with fully askar initialized agent', () => {
     it('should resolve a did:web using an agent with Askar in-memory wallet', async () => {
-      const walletConfig = getAskarStoreConfig('InMemoryTestAgent', { inMemory: true })
-      const config: InitConfig = {
-        label: 'InMemoryTestAgent',
-        walletConfig,
-      }
-
-      const agent = new Agent({
-        config,
-        dependencies: agentDependencies,
-        modules: {
-          askar: new AskarModule({ ariesAskar }),
-        },
-      })
-      await agent.initialize()
+      const agent = await setupAgent({ name: 'InMemoryTestAgent' })
 
       const agentContext = agent.dependencyManager.resolve(AgentContext)
       const did = 'did:web:example.com'
