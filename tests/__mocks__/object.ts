@@ -129,7 +129,7 @@ export const mockServiceVcSelfIssued = createVerifiablePresentation(
 
 export const mockServiceExtIssuerVc = createVerifiablePresentation(
   'did:example:123',
-  didExtIssuer,
+  didSelfIssued,
   {
     id: 'https://ecs-trust-registry/service-ext-issuer-credential-schema-credential.json',
     type: 'JsonSchemaCredential',
