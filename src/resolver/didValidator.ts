@@ -7,6 +7,7 @@ import {
   W3cCredentialSubject,
   DidsApi,
   ConsoleLogger,
+  W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -56,11 +57,21 @@ const logger = new ConsoleLogger()
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
-export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
+export async function resolve(
+  input: string | W3cJsonLdVerifiableCredential,
+  options: ResolverConfig,
+): Promise<TrustResolution> {
   if (!options.didResolver) {
     options.didResolver = getCredoTsDidResolver(options.agentContext)
   }
-  return await _resolve(did, options)
+  switch (typeof input) {
+    case 'string':
+      return await _resolve(input, options)
+    case 'object':
+      return {} as TrustResolution
+    default:
+      throw new TrustError(TrustErrorCode.NOT_SUPPORTED, 'Invalid input type for resolve().')
+  }
 }
 
 /**
@@ -425,17 +436,18 @@ function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
+  issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   const { schema, subject } = resolveSchemaAndSubject(w3cCredential)
   const id = w3cCredential.id as string
-  const issuer = w3cCredential.issuer as string
 
   if (schema.type === 'JsonSchemaCredential') {
     const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
     return processCredential(
       jsonSchemaCredential,
       verifiablePublicRegistries,
+      w3cCredential.issuer as string,
       subject as Record<string, string>,
     )
   }
