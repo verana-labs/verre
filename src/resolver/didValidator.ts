@@ -425,17 +425,18 @@ function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
+  issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   const { schema, subject } = resolveSchemaAndSubject(w3cCredential)
   const id = w3cCredential.id as string
-  const issuer = w3cCredential.issuer as string
 
   if (schema.type === 'JsonSchemaCredential') {
     const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
     return processCredential(
       jsonSchemaCredential,
       verifiablePublicRegistries,
+      w3cCredential.issuer as string,
       subject as Record<string, string>,
     )
   }

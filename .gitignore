@@ -2,6 +2,9 @@ node_modules
 build
 .npmrc
 
+#test
+test/*
+
 # Yarn
 .yarn/cache
 .yarn/install-state.gz
