@@ -43,13 +43,13 @@ export type Permission = {
   type: PermissionType
   did?: string
   grantee: string
-  created: number
+  created: string
   created_by: string
   extended: number
   extended_by: string
-  effective_from?: number
-  effective_until?: number
-  modified: number
+  effective_from?: string
+  effective_until?: string
+  modified: string
   validation_fees: number
   issuance_fees: number
   verification_fees: number

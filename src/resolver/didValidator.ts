@@ -155,13 +155,25 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
  * @param refUrl The reference URL pointing to a schema within a Trust Registry.
  * @returns An object containing the `trustRegistry` base URL and the `schemaId`.
  */
-export function resolveTrustRegistry(refUrl: string): { trustRegistry: string; schemaId: string } {
-  const url = new URL(refUrl)
+export function resolveTrustRegistry(
+  refUrl: string,
+  verifiablePublicRegistries?: VerifiablePublicRegistry[],
+): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome } {
+  const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
+  const url = new URL(
+    registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl,
+  )
   const segments = url.pathname.split('/').filter(Boolean)
+  const outcome = !registry
+    ? TrustResolutionOutcome.NOT_TRUSTED
+    : registry.production
+      ? TrustResolutionOutcome.VERIFIED
+      : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
     trustRegistry: `${url.origin}/${segments[0]}`,
     schemaId: segments.at(-1)!,
+    outcome,
   }
 }
 
@@ -454,20 +466,16 @@ async function processCredential(
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const registry = verifiablePublicRegistries.find(registry => refUrl.startsWith(registry.id))
-      const outcome = !registry
-        ? TrustResolutionOutcome.NOT_TRUSTED
-        : registry.production
-          ? TrustResolutionOutcome.VERIFIED
-          : TrustResolutionOutcome.VERIFIED_TEST
+      const { trustRegistry, schemaId, outcome } = resolveTrustRegistry(refUrl, verifiablePublicRegistries)
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchJson<JsonObject>(
-        registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl,
-      )
+      const subjectSchema = await fetchJson<JsonObject>(trustRegistry)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+
+      // Verify the issuer permission over the schema
+      verifyPermission(trustRegistry, schemaId, outcome, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -537,4 +545,45 @@ function getRefUrl(subject: W3cCredentialSubject): string {
 
 function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
+}
+
+async function verifyPermission(
+  trustRegistry: string,
+  schemaId: string,
+  outcome: TrustResolutionOutcome,
+  issuer?: string,
+) {
+  if (!issuer) {
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
+  }
+
+  // Replace https://api. with https://idx. when needed
+  let registry = trustRegistry
+  if (registry.startsWith('https://api.')) {
+    registry = registry.replace('https://api.', 'https://idx.')
+  }
+
+  const permUrl = `${registry}/perm/v1/list?did=${encodeURIComponent(
+    issuer,
+  )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
+
+  try {
+    const [perm] = await fetchJson<Permission[]>(permUrl)
+
+    if (outcome === TrustResolutionOutcome.VERIFIED && (!perm || perm.type !== 'ISSUER')) {
+      throw new TrustError(
+        TrustErrorCode.INVALID_ISSUER,
+        'No valid issuer permissions were found for the specified DID',
+      )
+    }
+
+    if (perm?.effective_until) {
+      const ts = Date.parse(perm.effective_until)
+      if (isNaN(ts)) {
+        throw new TrustError(TrustErrorCode.INVALID_ISSUER, 'Invalid expiration date format')
+      }
+    }
+  } catch (error) {
+    handleTrustError(error)
+  }
 }
