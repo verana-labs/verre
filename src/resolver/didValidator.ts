@@ -195,12 +195,12 @@ export async function _resolveCredential(
 export function resolveTrustRegistry(
   refUrl: string,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
-): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome } {
+): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome; schemaUrl: string } {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
-  const url = new URL(
-    registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl,
-  )
-  const segments = url.pathname.split('/').filter(Boolean)
+  const schemaUrl =
+    registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl
+  const urlObj = new URL(schemaUrl)
+  const segments = urlObj.pathname.split('/').filter(Boolean)
   const outcome = !registry
     ? TrustResolutionOutcome.NOT_TRUSTED
     : registry.production
@@ -208,9 +208,10 @@ export function resolveTrustRegistry(
       : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
-    trustRegistry: `${url.origin}/${segments[0]}`,
+    trustRegistry: `${urlObj.origin}/${segments[0]}`,
     schemaId: segments.at(-1)!,
     outcome,
+    schemaUrl,
   }
 }
 
@@ -503,10 +504,13 @@ async function processCredential(
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome } = resolveTrustRegistry(refUrl, verifiablePublicRegistries)
+      const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
+        refUrl,
+        verifiablePublicRegistries,
+      )
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchJson<JsonObject>(trustRegistry)
+      const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
