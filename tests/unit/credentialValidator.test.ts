@@ -2,7 +2,7 @@ import { Agent, AgentContext } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { resolve } from '../../src'
+import { resolve, TrustResolutionOutcome } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,
@@ -69,9 +69,10 @@ describe('DidValidator', () => {
         verifiablePublicRegistries,
         agentContext,
       })
-      console.log(result)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(credentialDid)
-      // expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
+      expect(result.verified).toBe(true)
+      expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
+      expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
     })
   })
 })
