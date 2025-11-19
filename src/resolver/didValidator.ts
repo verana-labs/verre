@@ -7,6 +7,7 @@ import {
   W3cCredentialSubject,
   DidsApi,
   ConsoleLogger,
+  W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -47,7 +48,7 @@ const logger = new ConsoleLogger()
  * validates its structure, and checks the trust status of the identifier and its services
  * using the provided verifiable public registry.
  *
- * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
+ * @param input - A DID string (e.g., did:key:..., did:web:...) or a W3C JSON-LD Verifiable Credential. Any other input type will be rejected
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
@@ -56,11 +57,23 @@ const logger = new ConsoleLogger()
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
-export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
+export async function resolve(
+  input: string | W3cJsonLdVerifiableCredential,
+  options: ResolverConfig,
+): Promise<TrustResolution> {
   if (!options.didResolver) {
     options.didResolver = getCredoTsDidResolver(options.agentContext)
   }
-  return await _resolve(did, options)
+
+  if (typeof input === 'string') return await _resolve(input, options)
+  if (typeof input === 'object' && input !== null && 'credentialSubject' in input) {
+    return await _resolveCredential(input, options)
+  }
+
+  throw new TrustError(
+    TrustErrorCode.NOT_SUPPORTED,
+    'Unsupported input: only DID strings or W3C JSON-LD Verifiable Credentials are allowed.',
+  )
 }
 
 /**
@@ -91,55 +104,27 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
   )
 }
 
-/**
- * Verifies the authorization of a DID by resolving linked services,
- * extracting verifiable credentials, and checking permissions from the trust registry.
- *
- * @param did - The Decentralized Identifier to be verified.
- * @returns A list of resolved permissions or nulls for each valid service.
- */
-export async function verifyDidAuthorization(did: string) {
-  const didDocument = await retrieveDidDocument(did)
-
-  const results = await Promise.all(
-    (didDocument?.service ?? [])
-      .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
-      .map(service => resolvePermissionFromService(service, did)),
-  )
-
-  return results
-}
-
-/**
- * Resolves a permission for a given service by extracting and following
- * the chain of linked credentials, schemas, and trust registry queries.
- *
- * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
- * @param did - The original DID whose authorization is being verified.
- * @returns The resolved permission object or null if resolution fails.
- */
-async function resolvePermissionFromService(service: Service, did: string): Promise<Permission | null> {
-  try {
-    const vp = await resolveServiceVP(service)
-    const credential = resolveCredential(vp)
-    const { schema } = resolveSchemaAndSubject(credential)
-
-    const schemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
-    const { subject } = resolveSchemaAndSubject(schemaCredential)
-
-    const refUrl = getRefUrl(subject)
-    // Extract schema ID and trust registry base
-    const { trustRegistry, schemaId } = resolveTrustRegistry(refUrl)
-
-    const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
-      did,
-    )}&type=1&schema_id=${schemaId}`
-
-    return await fetchJson<Permission>(permUrl)
-  } catch (error) {
-    logger.error(`Error processing service: ${service}`, error)
-    return null
+export async function _resolveCredential(
+  input: W3cJsonLdVerifiableCredential,
+  options: ResolverConfig,
+): Promise<TrustResolution> {
+  let issuerDid: string | undefined
+  const { verifiablePublicRegistries } = options
+  if (typeof input.issuer === 'string') {
+    issuerDid = input.issuer
+  } else if (input.issuer && typeof input.issuer === 'object' && 'id' in input.issuer) {
+    issuerDid = input.issuer.id
+  } else {
+    throw new TrustError(
+      TrustErrorCode.INVALID_ISSUER,
+      'The credential issuer is not a valid DID or supported issuer format',
+    )
   }
+  const didDocument = await retrieveDidDocument(issuerDid)
+  const { credential, outcome } = await processCredential(input, verifiablePublicRegistries ?? [], issuerDid)
+
+  const service = credential.schemaType === ECS.SERVICE ? credential : undefined
+  return { didDocument, verified: true, outcome, service }
 }
 
 /**
