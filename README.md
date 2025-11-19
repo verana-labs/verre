@@ -31,7 +31,7 @@ yarn add @verana-labs/verre
 ```
 
 ## Overview
-The `resolve` method is used to resolve a Decentralized Identifier (DID), validate its associated document, and verify any linked services. This function retrieves the DID document, processes its verifiable credentials, and determines its trust status.
+The `resolve` method resolves a Decentralized Identifier (DID), validates its associated DID Document, and verifies any linked services. It now supports both standard DID Documents and JSON-LD–based representations, ensuring proper processing and validation of JSON-LD credentials and contexts. The method retrieves the DID Document, processes its verifiable credentials, and determines the resulting trust status.
 
 ## Importing the Method
 ```typescript
@@ -40,12 +40,12 @@ import { resolve } from '@verana-labs/verre';
 
 ## Method Signature
 ```typescript
-async function resolve(did: string, options?: ResolverConfig): Promise<TrustResolution>
+async function resolve(did: string | W3cVerifiableCredential, options?: ResolverConfig): Promise<TrustResolution>
 ```
 
 ## Parameters
 
-- `did` (**string**, required): The Decentralized Identifier to resolve.
+- `did` (**string**, required): The Decentralized Identifier to resolve, supporting both standard DID Documents and JSON-LD–based representations.
 - `options` (**ResolverConfig**): Configuration options for the resolver.
   - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of known, trusted verifiable public registry definitions for validation.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.

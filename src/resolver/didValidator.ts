@@ -156,6 +156,19 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
   }
 }
 
+/**
+ * Resolves and validates a W3C Verifiable Credential by extracting and verifying
+ * the issuer's DID, retrieving the corresponding DID Document, and evaluating the
+ * credential against the configured trust registries.
+ *
+ * @param input   The W3C Verifiable Credential to be resolved and assessed.
+ * @param options Configuration object containing the DID resolver and the set
+ *                of verifiable public registries used during trust evaluation.
+ *
+ * @returns A TrustResolution object containing the issuer's DID Document,
+ *          the verification outcome, and any associated service information.
+ */
+
 export async function _resolveCredential(
   input: W3cVerifiableCredential,
   options: ResolverConfig,
@@ -180,17 +193,13 @@ export async function _resolveCredential(
 }
 
 /**
- * Extracts the Trust Registry base URL and the schema ID from a given schema `refUrl`.
+ * Resolves Trust Registry metadata from a schema reference URL by identifying
+ * the matching registry, deriving the normalized schema URL, and determining
+ * the trust outcome.
  *
- * Example:
- * Input:  "https://registry.example.com/schemas/v1/1"
- * Output: {
- *   trustRegistry: "https://registry.example.com/schemas",
- *   schemaId: "1"
- * }
- *
- * @param refUrl The reference URL pointing to a schema within a Trust Registry.
- * @returns An object containing the `trustRegistry` base URL and the `schemaId`.
+ * @param refUrl The schema reference URL to resolve.
+ * @param verifiablePublicRegistries Optional list of registries used for matching and trust evaluation.
+ * @returns The resolved trust registry base URL, schema ID, trust outcome, and normalized schema URL.
  */
 export function resolveTrustRegistry(
   refUrl: string,
