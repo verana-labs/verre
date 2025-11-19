@@ -287,7 +287,7 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://vpr-hostname/vpr/perm/v1/find_with_did?did=did%3Aweb%3Aservice.self-issued.example.com&type=1&schema_id=12345673':
+        'https://vpr-hostname/vpr/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345673':
           {
             ok: true,
             status: 200,
@@ -302,7 +302,7 @@ describe('DidValidator', () => {
           expect.objectContaining({
             permissions: expect.arrayContaining([
               expect.objectContaining({
-                type: 'PERMISSION_TYPE_ISSUER',
+                type: 'ISSUER',
                 did: didSelfIssued,
               }),
             ]),

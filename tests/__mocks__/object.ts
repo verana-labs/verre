@@ -257,7 +257,7 @@ export const mockPermission = {
     {
       id: '8',
       schema_id: '6',
-      type: 'PERMISSION_TYPE_ISSUER',
+      type: 'ISSUER',
       did: didSelfIssued,
     },
   ],
