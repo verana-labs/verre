@@ -28,6 +28,7 @@ import {
 import {
   buildMetadata,
   fetchJson,
+  getWebDid,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -515,7 +516,7 @@ async function processCredential(
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Verify the issuer permission over the schema
-      verifyPermission(trustRegistry, schemaId, outcome, issuer)
+      await verifyPermission(trustRegistry, schemaId, outcome, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -598,12 +599,11 @@ async function verifyPermission(
   }
 
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    issuer,
+    getWebDid(issuer),
   )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
 
   try {
-    const [perm] = await fetchJson<Permission[]>(permUrl)
-
+    const perm = await fetchJson<Permission>(permUrl)
     if (outcome === TrustResolutionOutcome.VERIFIED && (!perm || perm.type !== 'ISSUER')) {
       throw new TrustError(
         TrustErrorCode.INVALID_ISSUER,
