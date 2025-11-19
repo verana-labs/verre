@@ -311,6 +311,7 @@ describe('DidValidator', () => {
       )
     })
   })
+
   describe('resolver method with fully askar initialized agent', () => {
     it('should resolve a did:web using an agent with Askar in-memory wallet', async () => {
       const agent = await setupAgent({ name: 'InMemoryTestAgent' })
