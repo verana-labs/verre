@@ -7,7 +7,6 @@ import {
   W3cCredentialSubject,
   DidsApi,
   ConsoleLogger,
-  W3cJsonLdVerifiableCredential,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -58,7 +57,7 @@ const logger = new ConsoleLogger()
  * DID document metadata, and trust validation outcome.
  */
 export async function resolve(
-  input: string | W3cJsonLdVerifiableCredential,
+  input: string | W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<TrustResolution> {
   if (!options.didResolver) {
@@ -157,11 +156,11 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
 }
 
 export async function _resolveCredential(
-  input: W3cJsonLdVerifiableCredential,
+  input: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<TrustResolution> {
   let issuerDid: string | undefined
-  const { verifiablePublicRegistries } = options
+  const { verifiablePublicRegistries, didResolver } = options
   if (typeof input.issuer === 'string') {
     issuerDid = input.issuer
   } else if (input.issuer && typeof input.issuer === 'object' && 'id' in input.issuer) {
@@ -172,7 +171,7 @@ export async function _resolveCredential(
       'The credential issuer is not a valid DID or supported issuer format',
     )
   }
-  const didDocument = await retrieveDidDocument(issuerDid)
+  const didDocument = await retrieveDidDocument(issuerDid, didResolver)
   const { credential, outcome } = await processCredential(input, verifiablePublicRegistries ?? [], issuerDid)
 
   const service = credential.schemaType === ECS.SERVICE ? credential : undefined

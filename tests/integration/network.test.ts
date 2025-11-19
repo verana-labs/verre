@@ -6,6 +6,7 @@ import {
   DidResolverService,
   DidsModule,
   InitConfig,
+  W3cJsonLdVerifiablePresentation,
   WebDidResolver,
 } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
@@ -14,7 +15,7 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-import { resolve, TrustResolutionOutcome } from '../../src'
+import { fetchJson, resolve, TrustResolutionOutcome } from '../../src'
 import {
   fetchMocker,
   getAskarStoreConfig,
@@ -176,5 +177,22 @@ describe('Integration with Verana Blockchain', () => {
       }),
     )
   }, 10000)
-  // TODO: add permission testing when the indexer has been added
+
+  it('should resolve and validate a real self-signed credential end-to-end', async () => {
+    const presentation = await fetchJson<W3cJsonLdVerifiablePresentation>(
+      'https://dm.chatbot.demos.dev.2060.io/vt/ecs-service-c-vp.json',
+    )
+    const cred = Array.isArray(presentation.verifiableCredential)
+      ? presentation.verifiableCredential[0]
+      : presentation.verifiableCredential
+
+    const result = await resolve(cred, {
+      verifiablePublicRegistries,
+      agentContext,
+    })
+
+    // Validate result
+    expect(result.verified).toBe(true)
+    expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
+  }, 10000)
 })
