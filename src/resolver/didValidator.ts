@@ -145,9 +145,9 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
     // Extract schema ID and trust registry base
     const { trustRegistry, schemaId } = resolveTrustRegistry(refUrl)
 
-    const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
+    const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
       did,
-    )}&type=1&schema_id=${schemaId}`
+    )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
 
     return await fetchJson<Permission>(permUrl)
   } catch (error) {
@@ -594,13 +594,7 @@ async function verifyPermission(
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
   }
 
-  // Replace https://api. with https://idx. when needed
-  let registry = trustRegistry
-  if (registry.startsWith('https://api.')) {
-    registry = registry.replace('https://api.', 'https://idx.')
-  }
-
-  const permUrl = `${registry}/perm/v1/list?did=${encodeURIComponent(
+  const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
     issuer,
   )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
 
@@ -623,4 +617,19 @@ async function verifyPermission(
   } catch (error) {
     handleTrustError(error)
   }
+}
+
+/**
+ * If the registry URL originates from the API (`https://api.`), this function
+ * automatically switches it to the indexer (`https://idx.`) for permission resolution.
+ *
+ * @param registry - The trust registry URL.
+ * @returns A URL pointing to the indexer when needed.
+ */
+function toIndexerUrl(registry: string): string {
+  if (registry.startsWith('https://api.')) {
+    return registry.replace('https://api.', 'https://idx.')
+  }
+
+  return registry
 }
