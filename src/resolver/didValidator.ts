@@ -516,7 +516,7 @@ async function processCredential(
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Verify the issuer permission over the schema
-      await verifyPermission(trustRegistry, schemaId, outcome, issuer)
+      await verifyPermission(trustRegistry, schemaId, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -588,12 +588,7 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
-async function verifyPermission(
-  trustRegistry: string,
-  schemaId: string,
-  outcome: TrustResolutionOutcome,
-  issuer?: string,
-) {
+async function verifyPermission(trustRegistry: string, schemaId: string, issuer?: string) {
   if (!issuer) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
   }
@@ -604,7 +599,7 @@ async function verifyPermission(
 
   try {
     const perm = await fetchJson<Permission>(permUrl)
-    if (outcome === TrustResolutionOutcome.VERIFIED && (!perm || perm.type !== 'ISSUER')) {
+    if (!perm || perm.type !== 'ISSUER') {
       throw new TrustError(
         TrustErrorCode.INVALID_ISSUER,
         'No valid issuer permissions were found for the specified DID',
