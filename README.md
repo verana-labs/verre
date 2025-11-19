@@ -134,7 +134,7 @@ await resolve('did:web:example.com', {
 })
 ```
 
-### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
+### Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
 
 ```ts
 import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
