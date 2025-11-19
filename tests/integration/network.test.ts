@@ -22,8 +22,13 @@ import {
   integrationDidDoc,
   jsonSchemaCredentialOrg,
   jsonSchemaCredentialService,
+  linkedVpContexts,
   linkedVpOrg,
   linkedVpService,
+  nsDid,
+  securityMultikey,
+  securitySuitesed25519,
+  securitySuitesx25519,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
@@ -77,6 +82,35 @@ describe('Integration with Verana Blockchain', () => {
 
     // Mock global fetch
     fetchMocker.enable()
+
+    // Mock context to avoid repeated requests
+    fetchMocker.setMockResponses({
+      'https://www.w3.org/ns/did/v1': {
+        ok: true,
+        status: 200,
+        data: nsDid,
+      },
+      'https://w3id.org/security/multikey/v1': {
+        ok: true,
+        status: 200,
+        data: securityMultikey,
+      },
+      'https://w3id.org/security/suites/x25519-2019/v1': {
+        ok: true,
+        status: 200,
+        data: securitySuitesx25519,
+      },
+      'https://identity.foundation/linked-vp/contexts/v1': {
+        ok: true,
+        status: 200,
+        data: linkedVpContexts,
+      },
+      'https://w3id.org/security/suites/ed25519-2020/v1': {
+        ok: true,
+        status: 200,
+        data: securitySuitesed25519,
+      },
+    })
 
     agentContext = agent.dependencyManager.resolve(AgentContext)
   })
