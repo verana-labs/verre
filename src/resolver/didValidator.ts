@@ -104,6 +104,58 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
   )
 }
 
+/**
+ * @deprecated This function is deprecated and will be removed in an upcoming version.
+ * Verifies the authorization of a DID by resolving linked services,
+ * extracting verifiable credentials, and checking permissions from the trust registry.
+ *
+ * @param did - The Decentralized Identifier to be verified.
+ * @returns A list of resolved permissions or nulls for each valid service.
+ */
+export async function verifyDidAuthorization(did: string) {
+  const didDocument = await retrieveDidDocument(did)
+
+  const results = await Promise.all(
+    (didDocument?.service ?? [])
+      .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
+      .map(service => resolvePermissionFromService(service, did)),
+  )
+
+  return results
+}
+
+/**
+ * Resolves a permission for a given service by extracting and following
+ * the chain of linked credentials, schemas, and trust registry queries.
+ *
+ * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
+ * @param did - The original DID whose authorization is being verified.
+ * @returns The resolved permission object or null if resolution fails.
+ */
+async function resolvePermissionFromService(service: Service, did: string): Promise<Permission | null> {
+  try {
+    const vp = await resolveServiceVP(service)
+    const credential = resolveCredential(vp)
+    const { schema } = resolveSchemaAndSubject(credential)
+
+    const schemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
+    const { subject } = resolveSchemaAndSubject(schemaCredential)
+
+    const refUrl = getRefUrl(subject)
+    // Extract schema ID and trust registry base
+    const { trustRegistry, schemaId } = resolveTrustRegistry(refUrl)
+
+    const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
+      did,
+    )}&type=1&schema_id=${schemaId}`
+
+    return await fetchJson<Permission>(permUrl)
+  } catch (error) {
+    logger.error(`Error processing service: ${service}`, error)
+    return null
+  }
+}
+
 export async function _resolveCredential(
   input: W3cJsonLdVerifiableCredential,
   options: ResolverConfig,
