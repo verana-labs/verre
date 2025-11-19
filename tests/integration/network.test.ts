@@ -105,6 +105,7 @@ describe('Integration with Verana Blockchain', () => {
     expect(resolveSpy).toHaveBeenCalledTimes(2)
     expect(resolveSpy).toHaveBeenCalledWith(did)
     expect(result.verified).toBe(true)
+    expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
   }, 50000)
 
   it('should integrate with Verana testnet and retrieve the nested schema from the blockchain', async () => {
