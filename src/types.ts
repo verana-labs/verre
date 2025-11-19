@@ -41,33 +41,39 @@ export type Permission = {
   id: number
   schema_id: number
   type: PermissionType
-  did?: string
   grantee: string
+  did?: string
+  country?: string
+  validator_perm_id?: number
   created: string
   created_by: string
-  extended: number
-  extended_by: string
-  effective_from?: string
-  effective_until?: string
   modified: string
+  extended?: number | null
+  extended_by?: string | null
+  effective_from?: string | null
+  effective_until?: string | null
+  revoked?: number | null
+  revoked_by?: string | null
+  terminated?: number | null
+  terminated_by?: string | null
   validation_fees: number
   issuance_fees: number
   verification_fees: number
   deposit: number
-  revoked?: number
-  revoked_by: string
-  terminated?: number
-  terminated_by: string
-  country?: string
-  validator_perm_id?: number
+  slashed?: number | null
+  slashed_by?: string | null
+  repaid?: number | null
+  repaid_by?: string | null
+  slashed_deposit?: number | null
+  repaid_deposit?: number | null
   vp_state: VerifiablePresentationState
-  vp_exp?: number
-  vp_last_state_change: number
+  vp_exp?: number | null
+  vp_last_state_change: number | null
   vp_validator_deposit?: number
   vp_current_fees: number
   vp_current_deposit: number
-  vp_summary_digest_sri?: string
-  vp_term_requested?: number
+  vp_summary_digest_sri?: string | null
+  vp_term_requested?: number | null
 }
 
 // Enums
