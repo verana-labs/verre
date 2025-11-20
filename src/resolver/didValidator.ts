@@ -169,7 +169,6 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
  * @returns A TrustResolution object containing the issuer's DID Document,
  *          the verification outcome, and any associated service information.
  */
-
 export async function _resolveCredential(
   input: W3cVerifiableCredential,
   options: ResolverConfig,
@@ -598,6 +597,10 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
+/**
+ * Verifies that the issuer holds a valid ISSUER permission for the specified schema
+ * and ensures the credential’s issuance date is not earlier than the permission creation date.
+ */
 async function verifyPermission(
   trustRegistry: string,
   schemaId: string,
