@@ -151,7 +151,7 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
  * the issuer's DID, retrieving the corresponding DID Document, and evaluating the
  * credential against the configured trust registries.
  *
- * @param input   The W3C Verifiable Credential to be resolved and assessed.
+ * @param cred   The W3C Verifiable Credential to be resolved and assessed.
  * @param options Configuration object containing the DID resolver and the set
  *                of verifiable public registries used during trust evaluation.
  *
@@ -159,26 +159,25 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
  *          the verification outcome, and any associated service information.
  */
 export async function resolveCredential(
-  input: W3cVerifiableCredential,
+  cred: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<TrustResolution> {
   let issuerDid: string | undefined
-  const { verifiablePublicRegistries, didResolver } = options
-  if (typeof input.issuer === 'string') {
-    issuerDid = input.issuer
-  } else if (input.issuer && typeof input.issuer === 'object' && 'id' in input.issuer) {
-    issuerDid = input.issuer.id
+  const { verifiablePublicRegistries } = options
+  if (typeof cred.issuer === 'string') {
+    issuerDid = cred.issuer
+  } else if (cred.issuer && typeof cred.issuer === 'object' && 'id' in cred.issuer) {
+    issuerDid = cred.issuer.id
   } else {
     throw new TrustError(
       TrustErrorCode.INVALID_ISSUER,
       'The credential issuer is not a valid DID or supported issuer format',
     )
   }
-  const didDocument = await retrieveDidDocument(issuerDid, didResolver)
-  const { credential, outcome } = await processCredential(input, verifiablePublicRegistries ?? [], issuerDid)
+  const { credential, outcome } = await processCredential(cred, verifiablePublicRegistries ?? [], issuerDid)
 
   const service = credential.schemaType === ECS.SERVICE ? credential : undefined
-  return { didDocument, verified: true, outcome, service }
+  return { verified: true, outcome, service }
 }
 
 /**
@@ -224,7 +223,7 @@ function resolveTrustRegistry(
  *
  * @internal
  */
-export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
+async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
   if (!did) {
     return {
       verified: false,
