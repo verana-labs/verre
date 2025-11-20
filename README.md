@@ -31,26 +31,45 @@ yarn add @verana-labs/verre
 ```
 
 ## Overview
-The `resolveDID` method is used to resolve a Decentralized Identifier (DID), validate its associated document, and verify any linked services. This function retrieves the DID document, processes its verifiable credentials, and determines its trust status.
+The Verre resolver provides two main resolution methods:
+- `resolveDID:` Resolves a Decentralized Identifier (DID), retrieves its DID Document, validates linked services, and evaluates trust based on configured registries.
+- `resolveCredential:` Resolves and validates a W3C Verifiable Credential by extracting the issuer DID and evaluating it against trust registries
+Both methods return a `TrustResolution` object describing the trust evaluation outcome
 
-## Importing the Method
+### Importing the Method
 ```typescript
-import { resolve } from '@verana-labs/verre';
+import { resolveDID, resolveCredential } from '@verana-labs/verre';
 ```
 
-## Method Signature
+### Method Signature
+#### Resolve DID
 ```typescript
 async function resolveDID(did: string, options?: ResolverConfig): Promise<TrustResolution>
 ```
+#### Resolve Credential
+```typescript
+async function resolveCredential(cred: W3cVerifiableCredential, options?: ResolverConfig): Promise<TrustResolution>
+```
 
 ### Parameters
+#### Common Parameters
 
-- `did` (**string**, required): The Decentralized Identifier to resolve.
-- `options` (**ResolverConfig**): Configuration options for the resolver.
+options — `ResolverConfig`
   - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of known, trusted verifiable public registry definitions for validation.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
   - `agentContext` (**AgentContext**, mandatory): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
 > **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
+
+### Method Details
+#### resolveDID
+##### Parameters
+- `did` (**string**, required): The Decentralized Identifier to resolve.
+- `options` (**ResolverConfig**): Configuration options for the resolver.
+
+#### resolveCredential
+##### Parameters
+- `cred` (**string**, required): W3C Verifiable Credential to resolve.
+- `options` (**ResolverConfig**): Configuration options for the resolver.
 
 ### Return Value
 Returns a `Promise<TrustResolution>` that resolves to an object containing:
