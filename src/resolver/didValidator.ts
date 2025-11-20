@@ -148,8 +148,7 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
 
 /**
  * Resolves and validates a W3C Verifiable Credential by extracting and verifying
- * the issuer's DID, retrieving the corresponding DID Document, and evaluating the
- * credential against the configured trust registries.
+ * the issuer's DID and evaluating the credential against the configured trust registries.
  *
  * @param cred   The W3C Verifiable Credential to be resolved and assessed.
  * @param options Configuration object containing the DID resolver and the set

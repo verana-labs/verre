@@ -54,7 +54,7 @@ async function resolveCredential(cred: W3cVerifiableCredential, options?: Resolv
 ### Parameters
 #### Common Parameters
 
-options — `ResolverConfig`
+**options:**
   - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of known, trusted verifiable public registry definitions for validation.
   - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
   - `agentContext` (**AgentContext**, mandatory): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
