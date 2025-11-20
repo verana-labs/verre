@@ -2,7 +2,7 @@ import { Agent, AgentContext } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolve, TrustResolutionOutcome, verifyDidAuthorization } from '../../src'
+import { ECS, resolveDID, TrustResolutionOutcome, verifyDidAuthorization } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   didExtIssuer,
@@ -95,7 +95,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didSelfIssued, {
+      const result = await resolveDID(didSelfIssued, {
         verifiablePublicRegistries,
         agentContext,
       })
@@ -173,7 +173,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didExtIssuer, { verifiablePublicRegistries, agentContext })
+      const result = await resolveDID(didExtIssuer, { verifiablePublicRegistries, agentContext })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
@@ -257,7 +257,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(didExtIssuer, {
+      const result = await resolveDID(didExtIssuer, {
         verifiablePublicRegistries,
         agentContext,
       })
@@ -343,7 +343,7 @@ describe('DidValidator', () => {
 
       const agentContext = agent.dependencyManager.resolve(AgentContext)
       const did = 'did:web:example.com'
-      const result = await resolve(did, {
+      const result = await resolveDID(did, {
         agentContext,
       })
 

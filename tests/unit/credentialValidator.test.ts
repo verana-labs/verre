@@ -2,7 +2,7 @@ import { Agent, AgentContext } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { resolve, TrustResolutionOutcome } from '../../src'
+import { resolveCredential, TrustResolutionOutcome } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,
@@ -72,7 +72,7 @@ describe('Credential Validator', () => {
       })
 
       // Execute method under test
-      const result = await resolve(jscCredentialService, {
+      const result = await resolveCredential(jscCredentialService, {
         verifiablePublicRegistries,
         agentContext,
       })

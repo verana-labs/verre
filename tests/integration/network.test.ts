@@ -15,7 +15,7 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-import { fetchJson, resolve, TrustResolutionOutcome } from '../../src'
+import { fetchJson, resolveCredential, resolveDID, TrustResolutionOutcome } from '../../src'
 import {
   fetchMocker,
   getAskarStoreConfig,
@@ -97,7 +97,7 @@ describe('Integration with Verana Blockchain', () => {
     // Setup spy methods
     const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
-    const result = await resolve(did, {
+    const result = await resolveDID(did, {
       verifiablePublicRegistries,
       agentContext,
     })
@@ -166,7 +166,7 @@ describe('Integration with Verana Blockchain', () => {
         },
     })
 
-    const result = await resolve(did, {
+    const result = await resolveDID(did, {
       verifiablePublicRegistries,
       agentContext,
     })
@@ -210,7 +210,7 @@ describe('Integration with Verana Blockchain', () => {
       ? presentation.verifiableCredential[0]
       : presentation.verifiableCredential
 
-    const result = await resolve(cred, {
+    const result = await resolveCredential(cred, {
       verifiablePublicRegistries,
       agentContext,
     })

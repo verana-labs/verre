@@ -49,7 +49,7 @@ const logger = new ConsoleLogger()
  * validates its structure, and checks the trust status of the identifier and its services
  * using the provided verifiable public registry.
  *
- * @param input - A DID string (e.g., did:key:..., did:web:...) or a W3C JSON-LD Verifiable Credential. Any other input type will be rejected
+ * @param did - The Decentralized Identifier to resolve (e.g., `did:key:...`, `did:web:...`, etc.).
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
@@ -58,23 +58,12 @@ const logger = new ConsoleLogger()
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
-export async function resolve(
-  input: string | W3cVerifiableCredential,
-  options: ResolverConfig,
-): Promise<TrustResolution> {
+export async function resolveDID(did: string, options: ResolverConfig): Promise<TrustResolution> {
   if (!options.didResolver) {
     options.didResolver = getCredoTsDidResolver(options.agentContext)
   }
 
-  if (typeof input === 'string') return await _resolve(input, options)
-  if (typeof input === 'object' && input !== null && 'credentialSubject' in input) {
-    return await _resolveCredential(input, options)
-  }
-
-  throw new TrustError(
-    TrustErrorCode.NOT_SUPPORTED,
-    'Unsupported input: only DID strings or W3C JSON-LD Verifiable Credentials are allowed.',
-  )
+  return await _resolve(did, options)
 }
 
 /**
@@ -136,7 +125,7 @@ export async function verifyDidAuthorization(did: string) {
 async function resolvePermissionFromService(service: Service, did: string): Promise<Permission | null> {
   try {
     const vp = await resolveServiceVP(service)
-    const credential = resolveCredential(vp)
+    const credential = getCredential(vp)
     const { schema } = resolveSchemaAndSubject(credential)
 
     const schemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
@@ -169,7 +158,7 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
  * @returns A TrustResolution object containing the issuer's DID Document,
  *          the verification outcome, and any associated service information.
  */
-export async function _resolveCredential(
+export async function resolveCredential(
   input: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<TrustResolution> {
@@ -201,7 +190,7 @@ export async function _resolveCredential(
  * @param verifiablePublicRegistries Optional list of registries used for matching and trust evaluation.
  * @returns The resolved trust registry base URL, schema ID, trust outcome, and normalized schema URL.
  */
-export function resolveTrustRegistry(
+function resolveTrustRegistry(
   refUrl: string,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
 ): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome; schemaUrl: string } {
@@ -423,7 +412,7 @@ async function getVerifiedCredential(
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
-  const w3cCredential = resolveCredential(vp)
+  const w3cCredential = getCredential(vp)
   const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified.result) {
     throw new TrustError(
@@ -441,7 +430,7 @@ async function getVerifiedCredential(
  * @returns The first valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
+function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
