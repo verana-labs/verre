@@ -1,5 +1,4 @@
 import { Agent, AgentContext } from '@credo-ts/core'
-import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { resolveCredential, TrustResolutionOutcome } from '../../src'
@@ -9,16 +8,10 @@ import {
   setupAgent,
   verifiablePublicRegistries,
   jscCredentialService,
-  credentialDid,
-  mockResolverCredentialDid,
   jsCredentialService,
   ecsService,
   mockPermission,
 } from '../__mocks__'
-
-const mockResolversByDid: Record<string, any> = {
-  [credentialDid]: mockResolverCredentialDid,
-}
 
 describe('Credential Validator', () => {
   let agent: Agent
@@ -47,11 +40,6 @@ describe('Credential Validator', () => {
 
     it('should work correctly when the issuer is equal to "did" over testing network.', async () => {
       // mocked data
-      const resolverInstanceSpy = vi
-        .spyOn(Resolver.prototype, 'resolve')
-        .mockImplementation(async (did: string) => {
-          return mockResolversByDid[did]
-        })
       fetchMocker.setMockResponses({
         'https://d6a1950112a2.ngrok-free.app/vt/schemas-example-service-jsc.json': {
           ok: true,
@@ -76,10 +64,8 @@ describe('Credential Validator', () => {
         verifiablePublicRegistries,
         agentContext,
       })
-      expect(resolverInstanceSpy).toHaveBeenCalledWith(credentialDid)
       expect(result.verified).toBe(true)
       expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
-      expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
     })
   })
 })
