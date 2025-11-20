@@ -24,6 +24,7 @@ import {
   Permission,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
+  PermissionResponse,
 } from '../types'
 import {
   buildMetadata,
@@ -525,7 +526,7 @@ async function processCredential(
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Verify the issuer permission over the schema
-      await verifyPermission(trustRegistry, schemaId, issuer)
+      await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -597,7 +598,12 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
-async function verifyPermission(trustRegistry: string, schemaId: string, issuer?: string) {
+async function verifyPermission(
+  trustRegistry: string,
+  schemaId: string,
+  issuanceDate: string,
+  issuer?: string,
+) {
   if (!issuer) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
   }
@@ -606,23 +612,22 @@ async function verifyPermission(trustRegistry: string, schemaId: string, issuer?
     getWebDid(issuer),
   )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
 
-  try {
-    const perm = await fetchJson<Permission>(permUrl)
-    if (!perm || perm.type !== 'ISSUER') {
-      throw new TrustError(
-        TrustErrorCode.INVALID_ISSUER,
-        'No valid issuer permissions were found for the specified DID',
-      )
-    }
+  const permResponse = await fetchJson<PermissionResponse>(permUrl)
+  const perm = permResponse.permissions?.[0]
+  if (!perm || perm.type !== 'ISSUER') {
+    throw new TrustError(
+      TrustErrorCode.INVALID_ISSUER,
+      'No valid issuer permissions were found for the specified DID',
+    )
+  }
 
-    if (perm?.effective_until) {
-      const ts = Date.parse(perm.effective_until)
-      if (isNaN(ts)) {
-        throw new TrustError(TrustErrorCode.INVALID_ISSUER, 'Invalid expiration date format')
-      }
-    }
-  } catch (error) {
-    handleTrustError(error)
+  const issuanceTs = Date.parse(issuanceDate)
+  const createdTs = Date.parse(perm.created)
+  if (issuanceTs < createdTs) {
+    throw new TrustError(
+      TrustErrorCode.INVALID_ISSUER,
+      'Credential issuance date is earlier than the permission creation date',
+    )
   }
 }
 
