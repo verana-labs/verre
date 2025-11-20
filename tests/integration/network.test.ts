@@ -22,13 +22,9 @@ import {
   integrationDidDoc,
   jsonSchemaCredentialOrg,
   jsonSchemaCredentialService,
-  linkedVpContexts,
   linkedVpOrg,
   linkedVpService,
-  nsDid,
-  securityMultikey,
-  securitySuitesed25519,
-  securitySuitesx25519,
+  mockPermission,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
@@ -83,35 +79,6 @@ describe('Integration with Verana Blockchain', () => {
     // Mock global fetch
     fetchMocker.enable()
 
-    // Mock context to avoid repeated requests
-    fetchMocker.setMockResponses({
-      'https://www.w3.org/ns/did/v1': {
-        ok: true,
-        status: 200,
-        data: nsDid,
-      },
-      'https://w3id.org/security/multikey/v1': {
-        ok: true,
-        status: 200,
-        data: securityMultikey,
-      },
-      'https://w3id.org/security/suites/x25519-2019/v1': {
-        ok: true,
-        status: 200,
-        data: securitySuitesx25519,
-      },
-      'https://identity.foundation/linked-vp/contexts/v1': {
-        ok: true,
-        status: 200,
-        data: linkedVpContexts,
-      },
-      'https://w3id.org/security/suites/ed25519-2020/v1': {
-        ok: true,
-        status: 200,
-        data: securitySuitesed25519,
-      },
-    })
-
     agentContext = agent.dependencyManager.resolve(AgentContext)
   })
 
@@ -124,7 +91,7 @@ describe('Integration with Verana Blockchain', () => {
   })
 
   it('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
-    // Use this DID to validate real-world service resolution scenarios
+    // Mock context to avoid repeated requests
     const did =
       'did:webvh:QmUGoLH1vu3APBWo3PXC7pTJ4C1tPqxPxBnZ68s8eKBz1V:dm.gov-id-verifier.demos.dev.2060.io'
     // Setup spy methods
@@ -185,6 +152,18 @@ describe('Integration with Verana Blockchain', () => {
         status: 200,
         data: jsonSchemaCredentialOrg,
       },
+      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=13':
+        {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
+      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=14':
+        {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
     })
 
     const result = await resolve(did, {
@@ -217,6 +196,16 @@ describe('Integration with Verana Blockchain', () => {
     const presentation = await fetchJson<W3cJsonLdVerifiablePresentation>(
       'https://dm.chatbot.demos.dev.2060.io/vt/ecs-service-c-vp.json',
     )
+
+    // TODO: Remove once self-permissions are implemented in vs-agent
+    fetchMocker.setMockResponses({
+      'https://dm.chatbot.demos.dev.2060.io/vt/perm/v1/list?did=did%3Aweb%3Adm.chatbot.demos.dev.2060.io&type=ISSUER&response_max_size=1&schema_id=ecs-service':
+        {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
+    })
     const cred = Array.isArray(presentation.verifiableCredential)
       ? presentation.verifiableCredential[0]
       : presentation.verifiableCredential

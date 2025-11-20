@@ -76,6 +76,10 @@ export type Permission = {
   vp_term_requested?: number | null
 }
 
+export interface PermissionResponse {
+  permissions: Permission[]
+}
+
 // Enums
 export enum ECS {
   ORG = 'ecs-org',

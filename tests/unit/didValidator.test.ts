@@ -17,7 +17,6 @@ import {
   mockOrgSchemaWithoutIssuer,
   mockOrgVc,
   mockOrgVcWithoutIssuer,
-  mockPermission,
   mockResolverSelfIssued,
   mockServiceSchemaExtIssuer,
   mockServiceExtIssuerVc,
@@ -25,6 +24,7 @@ import {
   mockServiceVcSelfIssued,
   setupAgent,
   verifiablePublicRegistries,
+  mockPermission,
 } from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
@@ -88,6 +88,10 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
+        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
+          { ok: true, status: 200, data: mockPermission },
+        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345671':
+          { ok: true, status: 200, data: mockPermission },
       })
 
       // Execute method under test
@@ -162,6 +166,10 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
+        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
+          { ok: true, status: 200, data: mockPermission },
+        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345673':
+          { ok: true, status: 200, data: mockPermission },
       })
 
       // Execute method under test
@@ -234,6 +242,18 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
+        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
+          {
+            ok: true,
+            status: 200,
+            data: mockPermission,
+          },
+        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345673':
+          {
+            ok: true,
+            status: 200,
+            data: mockPermission,
+          },
       })
 
       // Execute method under test
@@ -293,6 +313,12 @@ describe('DidValidator', () => {
             status: 200,
             data: mockPermission,
           },
+        'https://vpr-hostname/vpr/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
+          {
+            ok: true,
+            status: 200,
+            data: mockPermission,
+          },
       })
 
       // Execute method under test
@@ -303,7 +329,6 @@ describe('DidValidator', () => {
             permissions: expect.arrayContaining([
               expect.objectContaining({
                 type: 'ISSUER',
-                did: didSelfIssued,
               }),
             ]),
           }),

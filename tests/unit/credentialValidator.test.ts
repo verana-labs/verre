@@ -13,13 +13,14 @@ import {
   mockResolverCredentialDid,
   jsCredentialService,
   ecsService,
+  mockPermission,
 } from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
   [credentialDid]: mockResolverCredentialDid,
 }
 
-describe('DidValidator', () => {
+describe('Credential Validator', () => {
   let agent: Agent
   let agentContext: AgentContext
 
@@ -62,6 +63,12 @@ describe('DidValidator', () => {
           status: 200,
           data: ecsService,
         },
+        'https://d6a1950112a2.ngrok-free.app/vt/perm/v1/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=ecs-service':
+          {
+            ok: true,
+            status: 200,
+            data: mockPermission,
+          },
       })
 
       // Execute method under test
