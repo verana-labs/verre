@@ -23,6 +23,7 @@ import {
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
   PermissionResponse,
+  CredentialResolution,
 } from '../types'
 import {
   buildMetadata,
@@ -105,15 +106,13 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
 export async function resolveCredential(
   credential: W3cVerifiableCredential,
   options: ResolverConfig,
-): Promise<TrustResolution> {
+): Promise<CredentialResolution> {
   const { verifiablePublicRegistries } = options
   const { credential: w3cCredential, outcome } = await processCredential(
     credential,
     verifiablePublicRegistries ?? [],
   )
-
-  const service = w3cCredential.schemaType === ECS.SERVICE ? w3cCredential : undefined
-  return { verified: true, outcome, service }
+  return { verified: true, outcome, issuer: w3cCredential.issuer }
 }
 
 /**

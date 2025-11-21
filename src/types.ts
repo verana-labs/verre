@@ -12,6 +12,12 @@ export type TrustResolution = {
   serviceProvider?: ICredential
 }
 
+export type CredentialResolution = {
+  verified: boolean
+  outcome: TrustResolutionOutcome
+  issuer: string
+}
+
 export type ResolverConfig = {
   verifiablePublicRegistries?: VerifiablePublicRegistry[]
   didResolver?: Resolver
