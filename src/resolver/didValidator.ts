@@ -158,7 +158,7 @@ async function resolvePermissionFromService(service: Service, did: string): Prom
  *          the verification outcome, and any associated service information.
  */
 export async function resolveCredential(
-  cred: W3cVerifiableCredential,
+  credential: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<TrustResolution> {
   let issuerDid: string | undefined
