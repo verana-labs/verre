@@ -106,14 +106,10 @@ Resolves to a `TrustResolution` containing:
 
 #### Parameters
 
-* **issuer** (*string | { id?: string }*):
-  Issuer claiming permission to issue the credential.
-* **jsonSchemaCredentialId** (*string*):
-  URL or reference to the JSON schema defining the credential structure.
-* **issuanceDate** (*string*):
-  Date when the credential was issued.
-* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*):
-  Trusted registries used to validate permission rules.
+* **issuer** (*string | { id?: string }*): Issuer claiming permission to issue the credential.
+* **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
+* **issuanceDate** (*string*): Date when the credential was issued.
+* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
 
 
 ---
