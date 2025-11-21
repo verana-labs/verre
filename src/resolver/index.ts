@@ -1,1 +1,1 @@
-export { resolveDID, resolveCredential } from './didValidator'
+export { resolveDID, resolveCredential, verifyIssuerPermissions } from './didValidator'

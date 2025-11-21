@@ -1,8 +1,7 @@
 import { Agent, AgentContext } from '@credo-ts/core'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { resolveCredential, TrustResolutionOutcome } from '../../src'
-import { verifyIssuerPermissions } from '../../src/resolver/didValidator'
+import { resolveCredential, TrustResolutionOutcome, verifyIssuerPermissions } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,

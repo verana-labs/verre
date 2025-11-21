@@ -15,7 +15,13 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-import { fetchJson, resolveCredential, resolveDID, TrustResolutionOutcome } from '../../src'
+import {
+  fetchJson,
+  resolveCredential,
+  resolveDID,
+  TrustResolutionOutcome,
+  verifyIssuerPermissions,
+} from '../../src'
 import {
   fetchMocker,
   getAskarStoreConfig,
@@ -219,4 +225,14 @@ describe('Integration with Verana Blockchain', () => {
     expect(result.verified).toBe(true)
     expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
   }, 10000)
+
+  it('should return verified: true when permission checks succeed', async () => {
+    const result = await verifyIssuerPermissions({
+      issuer: 'did:webvh:QmS8DRrqwZuTNLk5ZinD91F2o3xn7XwCVCS5CHGfJHyfhb:dm.gov-id-tr.demos.dev.2060.io',
+      jsonSchemaCredentialId: 'https://dm.gov-id-tr.demos.dev.2060.io/vt/schemas-gov-id-jsc.json',
+      issuanceDate: '2025-11-22T00:22:56.885Z',
+      verifiablePublicRegistries,
+    })
+    expect(result.verified).toBe(true)
+  })
 })
