@@ -57,17 +57,9 @@ async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions):
 
 ### Common (`options` shared across methods)
 
-* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*):
-  List of trusted public registries used to evaluate DID Documents and Verifiable Credentials.
-
-* **didResolver** (*Resolver*, optional):
-  Custom DID universal resolver instance.
-
-* **agentContext** (*AgentContext*, required):
-  Global context for Credo-TS agents, containing wallet, storage, configuration, and services.
-
-> **Note:**
-> Additional internal fields (e.g., `attrs`, recursion helpers) may be used internally but are not exposed in this interface.
+* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registry definitions for validation.
+* **didResolver** (*Resolver*, optional): Custom universal resolver instance.
+* **agentContext** (*AgentContext*, required): Global runtime context for Credo-TS agents.
 
 ---
 
