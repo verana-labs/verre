@@ -106,22 +106,10 @@ export async function resolveCredential(
   credential: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<TrustResolution> {
-  let issuerDid: string | undefined
   const { verifiablePublicRegistries } = options
-  if (typeof credential.issuer === 'string') {
-    issuerDid = credential.issuer
-  } else if (credential.issuer && typeof credential.issuer === 'object' && 'id' in credential.issuer) {
-    issuerDid = credential.issuer.id
-  } else {
-    throw new TrustError(
-      TrustErrorCode.INVALID_ISSUER,
-      'The credential issuer is not a valid DID or supported issuer format',
-    )
-  }
   const { credential: w3cCredential, outcome } = await processCredential(
     credential,
     verifiablePublicRegistries ?? [],
-    issuerDid,
   )
 
   const service = w3cCredential.schemaType === ECS.SERVICE ? w3cCredential : undefined
