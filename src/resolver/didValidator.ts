@@ -92,6 +92,17 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
     ),
   )
 }
+
+/**
+ * Verifies whether a given issuer has permission to issue a specific credential
+ * according to the trust registries and schema definitions.
+ *
+ * @param options - Configuration object containing all required data.
+ * @param options.issuer - The issuer to validate (string or object depending on implementation).
+ * @param options.jsonSchemaCredentialId - URL or identifier for the JSON schema of the credential.
+ * @param options.issuanceDate - The date at which the credential was issued.
+ * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
+ */
 export async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions) {
   try {
     const { issuer, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries } = options
