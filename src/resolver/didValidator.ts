@@ -6,7 +6,6 @@ import {
   JsonObject,
   W3cCredentialSubject,
   DidsApi,
-  ConsoleLogger,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -21,7 +20,6 @@ import {
   IOrg,
   IPerson,
   InternalResolverConfig,
-  Permission,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
   PermissionResponse,
@@ -40,7 +38,6 @@ import {
 
 // Generic resolver for DID Web only
 const resolverInstance = new Resolver(didWeb.getResolver())
-const logger = new ConsoleLogger()
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -92,58 +89,6 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
       },
     ),
   )
-}
-
-/**
- * @deprecated This function is deprecated and will be removed in an upcoming version.
- * Verifies the authorization of a DID by resolving linked services,
- * extracting verifiable credentials, and checking permissions from the trust registry.
- *
- * @param did - The Decentralized Identifier to be verified.
- * @returns A list of resolved permissions or nulls for each valid service.
- */
-export async function verifyDidAuthorization(did: string) {
-  const didDocument = await retrieveDidDocument(did)
-
-  const results = await Promise.all(
-    (didDocument?.service ?? [])
-      .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
-      .map(service => resolvePermissionFromService(service, did)),
-  )
-
-  return results
-}
-
-/**
- * Resolves a permission for a given service by extracting and following
- * the chain of linked credentials, schemas, and trust registry queries.
- *
- * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
- * @param did - The original DID whose authorization is being verified.
- * @returns The resolved permission object or null if resolution fails.
- */
-async function resolvePermissionFromService(service: Service, did: string): Promise<Permission | null> {
-  try {
-    const vp = await resolveServiceVP(service)
-    const credential = getCredential(vp)
-    const { schema } = resolveSchemaAndSubject(credential)
-
-    const schemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
-    const { subject } = resolveSchemaAndSubject(schemaCredential)
-
-    const refUrl = getRefUrl(subject)
-    // Extract schema ID and trust registry base
-    const { trustRegistry, schemaId } = resolveTrustRegistry(refUrl)
-
-    const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-      did,
-    )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
-
-    return await fetchJson<Permission>(permUrl)
-  } catch (error) {
-    logger.error(`Error processing service: ${service}`, error)
-    return null
-  }
 }
 
 /**
