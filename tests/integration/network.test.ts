@@ -6,6 +6,7 @@ import {
   DidResolverService,
   DidsModule,
   InitConfig,
+  W3cJsonLdVerifiablePresentation,
   WebDidResolver,
 } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
@@ -14,7 +15,7 @@ import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
-import { resolve, TrustResolutionOutcome } from '../../src'
+import { fetchJson, resolveCredential, resolveDID, TrustResolutionOutcome } from '../../src'
 import {
   fetchMocker,
   getAskarStoreConfig,
@@ -23,6 +24,7 @@ import {
   jsonSchemaCredentialService,
   linkedVpOrg,
   linkedVpService,
+  mockPermission,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
@@ -95,7 +97,7 @@ describe('Integration with Verana Blockchain', () => {
     // Setup spy methods
     const resolveSpy = vi.spyOn(Resolver.prototype, 'resolve')
 
-    const result = await resolve(did, {
+    const result = await resolveDID(did, {
       verifiablePublicRegistries,
       agentContext,
     })
@@ -104,6 +106,7 @@ describe('Integration with Verana Blockchain', () => {
     expect(resolveSpy).toHaveBeenCalledTimes(2)
     expect(resolveSpy).toHaveBeenCalledWith(did)
     expect(result.verified).toBe(true)
+    expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
   }, 50000)
 
   it('should integrate with Verana testnet and retrieve the nested schema from the blockchain', async () => {
@@ -149,9 +152,21 @@ describe('Integration with Verana Blockchain', () => {
         status: 200,
         data: jsonSchemaCredentialOrg,
       },
+      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=13':
+        {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
+      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=14':
+        {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
     })
 
-    const result = await resolve(did, {
+    const result = await resolveDID(did, {
       verifiablePublicRegistries,
       agentContext,
     })
@@ -176,5 +191,32 @@ describe('Integration with Verana Blockchain', () => {
       }),
     )
   }, 10000)
-  // TODO: add permission testing when the indexer has been added
+
+  it('should resolve and validate a real self-signed credential end-to-end', async () => {
+    const presentation = await fetchJson<W3cJsonLdVerifiablePresentation>(
+      'https://dm.chatbot.demos.dev.2060.io/vt/ecs-service-c-vp.json',
+    )
+
+    // TODO: Remove once self-permissions are implemented in vs-agent
+    fetchMocker.setMockResponses({
+      'https://dm.chatbot.demos.dev.2060.io/vt/perm/v1/list?did=did%3Aweb%3Adm.chatbot.demos.dev.2060.io&type=ISSUER&response_max_size=1&schema_id=ecs-service':
+        {
+          ok: true,
+          status: 200,
+          data: mockPermission,
+        },
+    })
+    const cred = Array.isArray(presentation.verifiableCredential)
+      ? presentation.verifiableCredential[0]
+      : presentation.verifiableCredential
+
+    const result = await resolveCredential(cred, {
+      verifiablePublicRegistries,
+      agentContext,
+    })
+
+    // Validate result
+    expect(result.verified).toBe(true)
+    expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
+  }, 10000)
 })

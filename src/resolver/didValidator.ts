@@ -6,7 +6,6 @@ import {
   JsonObject,
   W3cCredentialSubject,
   DidsApi,
-  ConsoleLogger,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 import * as didWeb from 'web-did-resolver'
@@ -21,13 +20,15 @@ import {
   IOrg,
   IPerson,
   InternalResolverConfig,
-  Permission,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
+  PermissionResponse,
+  CredentialResolution,
 } from '../types'
 import {
   buildMetadata,
   fetchJson,
+  getWebDid,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -38,7 +39,6 @@ import {
 
 // Generic resolver for DID Web only
 const resolverInstance = new Resolver(didWeb.getResolver())
-const logger = new ConsoleLogger()
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -56,10 +56,11 @@ const logger = new ConsoleLogger()
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
-export async function resolve(did: string, options: ResolverConfig): Promise<TrustResolution> {
+export async function resolveDID(did: string, options: ResolverConfig): Promise<TrustResolution> {
   if (!options.didResolver) {
     options.didResolver = getCredoTsDidResolver(options.agentContext)
   }
+
   return await _resolve(did, options)
 }
 
@@ -92,76 +93,57 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
 }
 
 /**
- * Verifies the authorization of a DID by resolving linked services,
- * extracting verifiable credentials, and checking permissions from the trust registry.
+ * Resolves and validates a W3C Verifiable Credential by extracting and verifying
+ * the issuer's DID and evaluating the credential against the configured trust registries.
  *
- * @param did - The Decentralized Identifier to be verified.
- * @returns A list of resolved permissions or nulls for each valid service.
+ * @param cred   The W3C Verifiable Credential to be resolved and assessed.
+ * @param options Configuration object containing the DID resolver and the set
+ *                of verifiable public registries used during trust evaluation.
+ *
+ * @returns A TrustResolution object containing the issuer's DID Document,
+ *          the verification outcome, and any associated service information.
  */
-export async function verifyDidAuthorization(did: string) {
-  const didDocument = await retrieveDidDocument(did)
-
-  const results = await Promise.all(
-    (didDocument?.service ?? [])
-      .filter(service => service.type === 'LinkedVerifiablePresentation' && service.id?.includes('org'))
-      .map(service => resolvePermissionFromService(service, did)),
+export async function resolveCredential(
+  credential: W3cVerifiableCredential,
+  options: ResolverConfig,
+): Promise<CredentialResolution> {
+  const { verifiablePublicRegistries } = options
+  const { credential: w3cCredential, outcome } = await processCredential(
+    credential,
+    verifiablePublicRegistries ?? [],
   )
-
-  return results
+  return { verified: true, outcome, issuer: w3cCredential.issuer }
 }
 
 /**
- * Resolves a permission for a given service by extracting and following
- * the chain of linked credentials, schemas, and trust registry queries.
+ * Resolves Trust Registry metadata from a schema reference URL by identifying
+ * the matching registry, deriving the normalized schema URL, and determining
+ * the trust outcome.
  *
- * @param service - A DID Document service entry of type 'LinkedVerifiablePresentation'.
- * @param did - The original DID whose authorization is being verified.
- * @returns The resolved permission object or null if resolution fails.
+ * @param refUrl The schema reference URL to resolve.
+ * @param verifiablePublicRegistries Optional list of registries used for matching and trust evaluation.
+ * @returns The resolved trust registry base URL, schema ID, trust outcome, and normalized schema URL.
  */
-async function resolvePermissionFromService(service: Service, did: string): Promise<Permission | null> {
-  try {
-    const vp = await resolveServiceVP(service)
-    const credential = resolveCredential(vp)
-    const { schema } = resolveSchemaAndSubject(credential)
-
-    const schemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
-    const { subject } = resolveSchemaAndSubject(schemaCredential)
-
-    const refUrl = getRefUrl(subject)
-    // Extract schema ID and trust registry base
-    const { trustRegistry, schemaId } = resolveTrustRegistry(refUrl)
-
-    const permUrl = `${trustRegistry}/perm/v1/find_with_did?did=${encodeURIComponent(
-      did,
-    )}&type=1&schema_id=${schemaId}`
-
-    return await fetchJson<Permission>(permUrl)
-  } catch (error) {
-    logger.error(`Error processing service: ${service}`, error)
-    return null
-  }
-}
-
-/**
- * Extracts the Trust Registry base URL and the schema ID from a given schema `refUrl`.
- *
- * Example:
- * Input:  "https://registry.example.com/schemas/v1/1"
- * Output: {
- *   trustRegistry: "https://registry.example.com/schemas",
- *   schemaId: "1"
- * }
- *
- * @param refUrl The reference URL pointing to a schema within a Trust Registry.
- * @returns An object containing the `trustRegistry` base URL and the `schemaId`.
- */
-export function resolveTrustRegistry(refUrl: string): { trustRegistry: string; schemaId: string } {
-  const url = new URL(refUrl)
-  const segments = url.pathname.split('/').filter(Boolean)
+function resolveTrustRegistry(
+  refUrl: string,
+  verifiablePublicRegistries?: VerifiablePublicRegistry[],
+): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome; schemaUrl: string } {
+  const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
+  const schemaUrl =
+    registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl
+  const urlObj = new URL(schemaUrl)
+  const segments = urlObj.pathname.split('/').filter(Boolean)
+  const outcome = !registry
+    ? TrustResolutionOutcome.NOT_TRUSTED
+    : registry.production
+      ? TrustResolutionOutcome.VERIFIED
+      : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
-    trustRegistry: `${url.origin}/${segments[0]}`,
+    trustRegistry: `${urlObj.origin}/${segments[0]}`,
     schemaId: segments.at(-1)!,
+    outcome,
+    schemaUrl,
   }
 }
 
@@ -176,7 +158,7 @@ export function resolveTrustRegistry(refUrl: string): { trustRegistry: string; s
  *
  * @internal
  */
-export async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
+async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
   if (!did) {
     return {
       verified: false,
@@ -364,7 +346,7 @@ async function getVerifiedCredential(
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
-  const w3cCredential = resolveCredential(vp)
+  const w3cCredential = getCredential(vp)
   const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified.result) {
     throw new TrustError(
@@ -382,7 +364,7 @@ async function getVerifiedCredential(
  * @returns The first valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
-function resolveCredential(vp: W3cPresentation): W3cVerifiableCredential {
+function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
@@ -454,20 +436,19 @@ async function processCredential(
 
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const registry = verifiablePublicRegistries.find(registry => refUrl.startsWith(registry.id))
-      const outcome = !registry
-        ? TrustResolutionOutcome.NOT_TRUSTED
-        : registry.production
-          ? TrustResolutionOutcome.VERIFIED
-          : TrustResolutionOutcome.VERIFIED_TEST
+      const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
+        refUrl,
+        verifiablePublicRegistries,
+      )
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchJson<JsonObject>(
-        registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl,
-      )
+      const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+
+      // Verify the issuer permission over the schema
+      await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -537,4 +518,56 @@ function getRefUrl(subject: W3cCredentialSubject): string {
 
 function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
+}
+
+/**
+ * Verifies that the issuer holds a valid ISSUER permission for the specified schema
+ * and ensures the credential’s issuance date is not earlier than the permission creation date.
+ */
+async function verifyPermission(
+  trustRegistry: string,
+  schemaId: string,
+  issuanceDate: string,
+  issuer?: string,
+) {
+  if (!issuer) {
+    throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
+  }
+
+  const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
+    getWebDid(issuer),
+  )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
+
+  const permResponse = await fetchJson<PermissionResponse>(permUrl)
+  const perm = permResponse.permissions?.[0]
+  if (!perm || perm.type !== 'ISSUER') {
+    throw new TrustError(
+      TrustErrorCode.INVALID_ISSUER,
+      'No valid issuer permissions were found for the specified DID',
+    )
+  }
+
+  const issuanceTs = Date.parse(issuanceDate)
+  const createdTs = Date.parse(perm.created)
+  if (issuanceTs < createdTs) {
+    throw new TrustError(
+      TrustErrorCode.INVALID_ISSUER,
+      'Credential issuance date is earlier than the permission creation date',
+    )
+  }
+}
+
+/**
+ * If the registry URL originates from the API (`https://api.`), this function
+ * automatically switches it to the indexer (`https://idx.`) for permission resolution.
+ *
+ * @param registry - The trust registry URL.
+ * @returns A URL pointing to the indexer when needed.
+ */
+function toIndexerUrl(registry: string): string {
+  if (registry.startsWith('https://api.')) {
+    return registry.replace('https://api.', 'https://idx.')
+  }
+
+  return registry
 }

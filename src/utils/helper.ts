@@ -1,3 +1,5 @@
+import { parseDid } from '@credo-ts/core'
+
 import { TrustResolutionMetadata, TrustErrorCode } from '../types'
 
 import { TrustError } from './trustError'
@@ -41,4 +43,13 @@ export async function fetchJson<T = any>(url: string): Promise<T> {
   }
 
   return response.json() as T
+}
+
+// TODO: Remove when the TR supports the WebVH DID resolution method
+export function getWebDid(did: string) {
+  const parsedDid = parseDid(did)
+
+  if (parsedDid.method === 'web') return did
+  if (parsedDid.method === 'webvh') return `did:web:${parsedDid.id.split(':')[1]}`
+  throw new TrustError(TrustErrorCode.NOT_SUPPORTED, `DID method not supported`)
 }

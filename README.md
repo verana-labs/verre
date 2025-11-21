@@ -31,38 +31,79 @@ yarn add @verana-labs/verre
 ```
 
 ## Overview
-The `resolve` method is used to resolve a Decentralized Identifier (DID), validate its associated document, and verify any linked services. This function retrieves the DID document, processes its verifiable credentials, and determines its trust status.
 
-## Importing the Method
-```typescript
-import { resolve } from '@verana-labs/verre';
+The Verre resolver provides two primary resolution methods:
+
+* **`resolveDID`**: Resolves a Decentralized Identifier (DID), retrieves its DID Document, validates its services, and performs trust evaluation using configured registries.
+* **`resolveCredential`**: Validates a W3C Verifiable Credential by extracting its issuer and evaluating it against trust registries.
+
+Both methods return an object describing the trust evaluation outcome.
+
+### Import
+
+```ts
+import { resolveDID, resolveCredential } from '@verana-labs/verre';
 ```
 
-## Method Signature
-```typescript
-async function resolve(did: string, options?: ResolverConfig): Promise<TrustResolution>
+## Method Signatures
+
+```ts
+async function resolveDID(did: string, options?: ResolverConfig): Promise<TrustResolution>
+async function resolveCredential(credential: W3cVerifiableCredential, options?: ResolverConfig): Promise<TrustResolution>
 ```
 
 ## Parameters
 
-- `did` (**string**, required): The Decentralized Identifier to resolve.
-- `options` (**ResolverConfig**): Configuration options for the resolver.
-  - `verifiablePublicRegistries` (**VerifiablePublicRegistry[]**): List of known, trusted verifiable public registry definitions for validation.
-  - `didResolver` (**Resolver**, optional): A custom [universal resolver](https://github.com/decentralized-identity/did-resolver) instance. Useful when integrating with specific resolution strategies, such as those from Credo-TS.
-  - `agentContext` (**AgentContext**, mandatory): holds the global operational context of the agent, including its current runtime state, registered services, modules, dids, wallets, storage, and configuration from Credo-TS
-> **Note:** This function internally uses additional fields (like `attrs`) for recursion and processing, which are not part of the public configuration interface.
+### Common (`options`)
 
-## Return Value
-Returns a `Promise<TrustResolution>` that resolves to an object containing:
+* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registry definitions for validation.
+* **didResolver** (*Resolver*, optional): Custom universal resolver instance.
+* **agentContext** (*AgentContext*, required): Global runtime context for Credo-TS agents.
 
-* `didDocument` (*DIDDocument* | optional): The resolved DID Document.
-* `verified` (*boolean*): Indicates whether the DID and its services passed trust validation.
-* `outcome` (*TrustResolutionOutcome*): The result status of the trust resolution process.
-* `metadata` (*TrustResolutionMetadata* | optional): Additional resolution metadata such as `errorMessage` or `errorCode`.
-* `service` (*IService* | optional): The verified credential service offered by the resolved entity.
-* `serviceProvider` (*ICredential* | optional): The credential representing the issuer or trust provider for the service.
+> *Note:* Additional internal fields (e.g., `attrs`) are used for recursion and processing but are not part of the public interface.
 
-## Usage Example
+---
+
+## Method Details
+
+### resolveDID
+
+#### Parameters
+
+* **did** (*string*, required): DID to resolve.
+* **options** (*ResolverConfig*): Resolver configuration.
+
+#### Return Value
+
+Resolves to a `TrustResolution` containing:
+
+* **didDocument** (*DIDDocument*, optional): Resolved DID Document.
+* **verified** (*boolean*): Whether the DID and its services passed trust checks.
+* **outcome** (*TrustResolutionOutcome*): Final trust evaluation status.
+* **metadata** (*TrustResolutionMetadata*, optional): Error or diagnostic information.
+* **service** (*IService*, optional): Verified DID service.
+* **serviceProvider** (*ICredential*, optional): Credential representing the trust provider.
+
+---
+
+### resolveCredential
+
+#### Parameters
+
+* **credential** (*W3cVerifiableCredential*, required): Credential to resolve.
+* **options** (*ResolverConfig*): Resolver configuration.
+
+#### Return Value
+
+Resolves to a `TrustResolution` containing:
+
+* **issuer** (*string*): Identifier of the credential issuer.
+* **verified** (*boolean*): Whether the issuer passed trust validation.
+* **outcome** (*TrustResolutionOutcome*): Final trust evaluation status.
+
+---
+
+### Usage Example
 
 ```typescript
 import { resolve } from '@verana-labs/verre';
@@ -77,7 +118,7 @@ import { resolve } from '@verana-labs/verre';
     },
   ];
 
-  const resolution = await resolve(did, { verifiablePublicRegistries, agentContext });
+  const resolution = await resolveDID(did, { verifiablePublicRegistries, agentContext });
   console.log('Resolved DID Document:', resolution.resolvedDidDocument);
   console.log('Trust Metadata:', resolution.metadata);
 })();
@@ -94,7 +135,7 @@ const agent = await setupAgent({ name: 'Default DID Resolver Test with Credo' })
 const agentContext = agent.dependencyManager.resolve(AgentContext)
 
 // By default, if no resolver is provided, the Credo-TS resolver will be used
-await resolve('did:web:example.com', {
+await resolveDID('did:web:example.com', {
   trustRegistryUrl: 'https://registry.example.com',
   agentContext,
 })
@@ -127,14 +168,14 @@ const verifiablePublicRegistries = [
 ];
 
 // Use the custom resolver in the call to `resolve`
-await resolve('did:web:example.com', {
+await resolveDID('did:web:example.com', {
   verifiablePublicRegistries,
   didResolver,
   agentContext,
 })
 ```
 
-### ✅ Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
+### Example: Agent with In-Memory Askar Wallet and DID Resolver (Generic)
 
 ```ts
 import { Agent, AgentContext, InitConfig } from '@credo-ts/core'
@@ -171,7 +212,7 @@ await agent.initialize()
 const agentContext = agent.dependencyManager.resolve(didResolver, AgentContext)
 
 // Example usage of the DID Resolver
-const result = await resolve('did:web:example.com', {
+const result = await resolveDID('did:web:example.com', {
   agentContext,
 })
 console.log('Resolved DID Document:', result)
