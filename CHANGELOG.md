@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.16](https://github.com/verana-labs/verre/compare/v0.0.15...v0.0.16) (2025-11-24)
+
+
+### Features
+
+* Enhance trust-chain resolution and add permission checks ([#45](https://github.com/verana-labs/verre/issues/45)) ([fb1e04d](https://github.com/verana-labs/verre/commit/fb1e04df2a512555c4442d2a6d13130debc16194))
+
+
+### Bug Fixes
+
+* add validation logic for verifiablePublicRegistries and improve error handling in resolveCredential ([#48](https://github.com/verana-labs/verre/issues/48)) ([71b9935](https://github.com/verana-labs/verre/commit/71b9935926ca6b828e8dcb235050e100275bcd41))
+* allow vpr-ecs for essential esquemas ([#40](https://github.com/verana-labs/verre/issues/40)) ([48dbe32](https://github.com/verana-labs/verre/commit/48dbe32448a8f7470ed38a365d2859756e828a17))
+* Implement check issuer vt service ([#46](https://github.com/verana-labs/verre/issues/46)) ([db59946](https://github.com/verana-labs/verre/commit/db59946b4ae31590569e37f2c9f169be461eaf0a))
+
 ## [0.0.15](https://github.com/verana-labs/verre/compare/v0.0.14...v0.0.15) (2025-09-03)
 
 
