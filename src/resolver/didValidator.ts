@@ -24,6 +24,7 @@ import {
   TrustResolutionOutcome,
   PermissionResponse,
   CredentialResolution,
+  VerifyIssuerPermissionsOptions,
 } from '../types'
 import {
   buildMetadata,
@@ -93,6 +94,29 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
 }
 
 /**
+ * Verifies whether a given issuer has permission to issue a specific credential
+ * according to the trust registries and schema definitions.
+ *
+ * @param options - Configuration object containing all required data.
+ * @param options.issuer - The issuer to validate (string or object depending on implementation).
+ * @param options.jsonSchemaCredentialId - URL or identifier for the JSON schema of the credential.
+ * @param options.issuanceDate - The date at which the credential was issued.
+ * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
+ */
+export async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions) {
+  try {
+    const { issuer, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries } = options
+    const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
+    const { subject } = resolveSchemaAndSubject(credential)
+    const { trustRegistry, schemaId } = resolveTrustRegistry(getRefUrl(subject), verifiablePublicRegistries)
+    await verifyPermission(trustRegistry, schemaId, issuanceDate, issuer)
+    return { verified: true }
+  } catch {
+    return { verified: false }
+  }
+}
+
+/**
  * Resolves and validates a W3C Verifiable Credential by extracting and verifying
  * the issuer's DID and evaluating the credential against the configured trust registries.
  *
@@ -107,12 +131,17 @@ export async function resolveCredential(
   credential: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<CredentialResolution> {
-  const { verifiablePublicRegistries } = options
-  const { credential: w3cCredential, outcome } = await processCredential(
-    credential,
-    verifiablePublicRegistries ?? [],
-  )
-  return { verified: true, outcome, issuer: w3cCredential.issuer }
+  try {
+    const { verifiablePublicRegistries } = options
+    const { credential: w3cCredential, outcome } = await processCredential(
+      credential,
+      verifiablePublicRegistries ?? [],
+    )
+    return { verified: true, outcome, issuer: w3cCredential.issuer }
+  } catch {
+    const issuer = typeof credential.issuer === 'string' ? credential.issuer : (credential.issuer?.id ?? null)
+    return { verified: false, outcome: TrustResolutionOutcome.INVALID, issuer }
+  }
 }
 
 /**

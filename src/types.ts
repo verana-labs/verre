@@ -24,6 +24,13 @@ export type ResolverConfig = {
   agentContext: AgentContext
 }
 
+export type VerifyIssuerPermissionsOptions = {
+  issuer: string
+  jsonSchemaCredentialId: string
+  issuanceDate: string
+  verifiablePublicRegistries: VerifiablePublicRegistry[]
+}
+
 export type InternalResolverConfig = ResolverConfig & {
   attrs?: IService
 }

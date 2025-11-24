@@ -42,7 +42,7 @@ Both methods return an object describing the trust evaluation outcome.
 ### Import
 
 ```ts
-import { resolveDID, resolveCredential } from '@verana-labs/verre';
+import { resolveDID, resolveCredential, verifyIssuerPermissions } from '@verana-labs/verre';
 ```
 
 ## Method Signatures
@@ -50,17 +50,16 @@ import { resolveDID, resolveCredential } from '@verana-labs/verre';
 ```ts
 async function resolveDID(did: string, options?: ResolverConfig): Promise<TrustResolution>
 async function resolveCredential(credential: W3cVerifiableCredential, options?: ResolverConfig): Promise<TrustResolution>
+async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions): Promise<{ verified: boolean }>
 ```
 
 ## Parameters
 
-### Common (`options`)
+### Common (`options` shared across methods)
 
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registry definitions for validation.
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **agentContext** (*AgentContext*, required): Global runtime context for Credo-TS agents.
-
-> *Note:* Additional internal fields (e.g., `attrs`) are used for recursion and processing but are not part of the public interface.
 
 ---
 
@@ -100,6 +99,18 @@ Resolves to a `TrustResolution` containing:
 * **issuer** (*string*): Identifier of the credential issuer.
 * **verified** (*boolean*): Whether the issuer passed trust validation.
 * **outcome** (*TrustResolutionOutcome*): Final trust evaluation status.
+
+---
+
+### verifyIssuerPermissions
+
+#### Parameters
+
+* **issuer** (*string | { id?: string }*): Issuer claiming permission to issue the credential.
+* **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
+* **issuanceDate** (*string*): Date when the credential was issued.
+* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
+
 
 ---
 

@@ -1,7 +1,7 @@
 import { Agent, AgentContext } from '@credo-ts/core'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { resolveCredential, TrustResolutionOutcome } from '../../src'
+import { resolveCredential, TrustResolutionOutcome, verifyIssuerPermissions } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,
@@ -66,6 +66,36 @@ describe('Credential Validator', () => {
       })
       expect(result.verified).toBe(true)
       expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
+    })
+
+    it('should return verified: true when permission checks succeed', async () => {
+      // mocked data
+      fetchMocker.setMockResponses({
+        'https://d6a1950112a2.ngrok-free.app/vt/schemas-example-service-jsc.json': {
+          ok: true,
+          status: 200,
+          data: jsCredentialService,
+        },
+        'https://d6a1950112a2.ngrok-free.app/vt/cs/v1/js/ecs-service': {
+          ok: true,
+          status: 200,
+          data: ecsService,
+        },
+        'https://d6a1950112a2.ngrok-free.app/vt/perm/v1/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=ecs-service':
+          {
+            ok: true,
+            status: 200,
+            data: mockPermission,
+          },
+      })
+
+      const result = await verifyIssuerPermissions({
+        issuer: 'did:web:d6a1950112a2.ngrok-free.app',
+        jsonSchemaCredentialId: 'https://d6a1950112a2.ngrok-free.app/vt/schemas-example-service-jsc.json',
+        issuanceDate: '2025-11-20T00:22:56.885Z',
+        verifiablePublicRegistries,
+      })
+      expect(result.verified).toBe(true)
     })
   })
 })
