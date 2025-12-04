@@ -42,6 +42,7 @@
     "@credo-ts/askar": "^0.5.17",
     "@credo-ts/node": "^0.5.17",
     "@credo-ts/webvh": "^0.5.18",
+    "@digitalcredentials/jsonld": "^9.0.0",
     "@eslint/js": "^9.22.0",
     "@openwallet-foundation/askar-nodejs": "^0.4.3",
     "@types/eslint": "^8.56.2",
@@ -85,7 +86,6 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "@credo-ts/core": "patches/@credo-ts__core.patch",
       "didwebvh-ts": "patches/didwebvh-ts.patch"
     }
   }
