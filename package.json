@@ -85,6 +85,7 @@
   },
   "pnpm": {
     "patchedDependencies": {
+      "@credo-ts/core": "patches/@credo-ts__core.patch",
       "didwebvh-ts": "patches/didwebvh-ts.patch"
     }
   }
