@@ -29,6 +29,7 @@ import {
 import {
   buildMetadata,
   fetchJson,
+  FIXED_W3C_DIGEST,
   getWebDid,
   handleTrustError,
   identifySchema,
@@ -458,7 +459,8 @@ async function processCredential(
     try {
       // Fetch and verify the credential schema integrity
       const schemaData = await fetchJson(schema.id)
-      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+      if (schema.id !== FIXED_W3C_DIGEST)
+        verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
 
       // Validate the credential against the schema
       validateSchemaContent(schemaData, w3cCredential)

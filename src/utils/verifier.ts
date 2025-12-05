@@ -13,6 +13,8 @@ import { TrustErrorCode } from '../types'
 import { hash } from './crypto'
 import { TrustError } from './trustError'
 
+export const FIXED_W3C_DIGEST = 'https://www.w3.org/ns/credentials/json-schema/v2.json'
+
 /**
  * Recursively verifies the digital proof of a W3C Verifiable Presentation (VP) or Verifiable Credential (VC).
  *

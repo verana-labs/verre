@@ -6,6 +6,7 @@ import {
   DidResolverService,
   DidsModule,
   InitConfig,
+  W3cCredentialsModule,
   W3cJsonLdVerifiablePresentation,
   WebDidResolver,
 } from '@credo-ts/core'
@@ -23,6 +24,7 @@ import {
   verifyIssuerPermissions,
 } from '../../src'
 import {
+  defaultDocumentLoader,
   fetchMocker,
   getAskarStoreConfig,
   integrationDidDoc,
@@ -76,6 +78,9 @@ describe('Integration with Verana Blockchain', () => {
         }),
         dids: new DidsModule({
           resolvers: [new WebDidResolver(), new WebvhDidResolver()],
+        }),
+        w3cCredentials: new W3cCredentialsModule({
+          documentLoader: defaultDocumentLoader,
         }),
       },
     })
