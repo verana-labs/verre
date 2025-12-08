@@ -1,17 +1,10 @@
-import { AskarModule } from '@credo-ts/askar'
 import {
   Agent,
   AgentContext,
   DidDocument,
   DidResolverService,
-  DidsModule,
-  InitConfig,
   W3cJsonLdVerifiablePresentation,
-  WebDidResolver,
 } from '@credo-ts/core'
-import { agentDependencies } from '@credo-ts/node'
-import { WebvhDidResolver } from '@credo-ts/webvh'
-import { askar } from '@openwallet-foundation/askar-nodejs'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
@@ -24,13 +17,13 @@ import {
 } from '../../src'
 import {
   fetchMocker,
-  getAskarStoreConfig,
   integrationDidDoc,
   jsonSchemaCredentialOrg,
   jsonSchemaCredentialService,
   linkedVpOrg,
   linkedVpService,
   mockPermission,
+  setupAgent as setupAndInitializeAgent,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
@@ -60,27 +53,7 @@ describe('Integration with Verana Blockchain', () => {
   let agentContext: AgentContext
   beforeAll(async () => {
     // Configure an in-memory wallet for the test agent
-    const walletConfig = getAskarStoreConfig('InMemoryTestAgent', { inMemory: true })
-
-    const config: InitConfig = {
-      label: 'InMemoryTestAgent',
-      walletConfig,
-    }
-
-    agent = new Agent({
-      config,
-      dependencies: agentDependencies,
-      modules: {
-        askar: new AskarModule({
-          ariesAskar: askar,
-        }),
-        dids: new DidsModule({
-          resolvers: [new WebDidResolver(), new WebvhDidResolver()],
-        }),
-      },
-    })
-
-    await agent.initialize()
+    agent = await setupAndInitializeAgent({ name: 'InMemoryTestAgent' })
 
     // Mock global fetch
     fetchMocker.enable()
@@ -90,7 +63,7 @@ describe('Integration with Verana Blockchain', () => {
 
   afterAll(async () => {
     await agent?.shutdown()
-    await agent?.wallet?.delete()
+    await agent?.modules.askar?.deleteStore()
     fetchMocker.reset()
     fetchMocker.disable()
     vi.clearAllMocks()
