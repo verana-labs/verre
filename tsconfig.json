@@ -23,7 +23,7 @@
     "require": ["tsconfig-paths/register"],
     "files": true
   },
-  "types": ["jest", "node"],
+  "types": ["node", "vitest/globals"],
   "include": ["src/**/*"],
   "exclude": [
     "node_modules",

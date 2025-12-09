@@ -303,7 +303,7 @@ describe('DidValidator', () => {
 
       // Clean up
       await agent.shutdown()
-      await agent.wallet.delete()
+      await agent.modules.askar.deleteStore()
     })
   })
 })

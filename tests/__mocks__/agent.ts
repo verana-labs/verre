@@ -1,28 +1,26 @@
-import type { InitConfig } from '@credo-ts/core'
+// FIXME: Imports order once https://github.com/openwallet-foundation/askar-wrapper-javascript/issues/77
+// is solved
+// eslint-disable-next-line prettier/prettier, import/order
+import { askar, KdfMethod } from '@openwallet-foundation/askar-nodejs'
 
-import { AskarModule } from '@credo-ts/askar'
-import { Agent, HttpOutboundTransport, KeyDerivationMethod, utils, WsOutboundTransport } from '@credo-ts/core'
+import { AskarModule, AskarModuleConfigStoreOptions } from '@credo-ts/askar'
+import { Agent, DidsModule, utils, WebDidResolver } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
-import { askar } from '@openwallet-foundation/askar-nodejs'
+import { WebVhDidResolver } from '@credo-ts/webvh'
 
 export const setupAgent = async ({ name }: { name: string }) => {
-  const agentConfig: InitConfig = {
-    label: name,
-    walletConfig: getAskarStoreConfig('InMemoryTestAgent', { inMemory: true }),
-  }
-
   const agent = new Agent({
-    config: agentConfig,
     dependencies: agentDependencies,
     modules: {
       askar: new AskarModule({
-        ariesAskar: askar,
+        askar,
+        store: getAskarStoreConfig(name),
+      }),
+      dids: new DidsModule({
+        resolvers: [new WebDidResolver(), new WebVhDidResolver()],
       }),
     },
   })
-
-  agent.registerOutboundTransport(new HttpOutboundTransport())
-  agent.registerOutboundTransport(new WsOutboundTransport())
 
   await agent.initialize()
   return agent
@@ -58,24 +56,10 @@ export const setupAgent = async ({ name }: { name: string }) => {
  * });
  * ```
  */
-export function getAskarStoreConfig(
-  name: string,
-  {
-    inMemory = true,
-    random = utils.uuid().slice(0, 4),
-    maxConnections,
-  }: { inMemory?: boolean; random?: string; maxConnections?: number } = {},
-) {
+export function getAskarStoreConfig(name: string): AskarModuleConfigStoreOptions {
   return {
-    id: `Wallet: ${name} - ${random}`,
+    id: `Wallet: ${name} - ${utils.uuid().slice(0, 4)}`,
     key: 'DZ9hPqFWTPxemcGea72C1X1nusqk5wFNLq6QPjwXGqAa',
-    keyDerivationMethod: KeyDerivationMethod.Raw,
-    database: {
-      type: 'sqlite',
-      config: {
-        inMemory,
-        maxConnections,
-      },
-    },
+    keyDerivationMethod: KdfMethod.Raw,
   }
 }
