@@ -81,5 +81,13 @@
   "peerDependencies": {
     "@credo-ts/core": "^0.6.1",
     "@credo-ts/webvh": "^0.6.1"
+  },
+  "resolutions": {
+    "@digitalcredentials/jsonld": "5.2.2"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@credo-ts/core": "patches/@credo-ts__core.patch"
+    }
   }
 }
