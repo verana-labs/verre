@@ -53,6 +53,9 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
+ * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
+ * for managing cache validity (e.g. TTL, revocation checks).
  *
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
@@ -196,19 +199,11 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
     }
   }
 
-  const { verifiablePublicRegistries, didResolver, attrs, agentContext } = options
   try {
-    const didDocument = await retrieveDidDocument(did, didResolver)
+    const didDocument = await retrieveDidDocument(did, options.didResolver)
 
     try {
-      return await processDidDocument(
-        did,
-        didDocument,
-        agentContext,
-        verifiablePublicRegistries || [],
-        didResolver,
-        attrs,
-      )
+      return await processDidDocument(did, didDocument, options)
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -236,6 +231,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
+ * @param {boolean} cached - Optional indicates whether credential verification should be performed or if a previously validated result can be reused.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
@@ -254,14 +250,12 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
 async function processDidDocument(
   did: string,
   didDocument: DIDDocument,
-  agentContext: AgentContext,
-  verifiablePublicRegistries: VerifiablePublicRegistry[],
-  didResolver?: Resolver,
-  attrs?: IService,
+  options: InternalResolverConfig,
 ): Promise<TrustResolution> {
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
+  const { verifiablePublicRegistries, didResolver, agentContext, attrs } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -283,7 +277,7 @@ async function processDidDocument(
 
         const { credential, outcome: vpOutcome } = await getVerifiedCredential(
           vp,
-          verifiablePublicRegistries,
+          verifiablePublicRegistries || [],
           agentContext,
         )
         credentials.push(credential)
@@ -374,9 +368,12 @@ async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
+  cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   const w3cCredential = getCredential(vp)
-  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
+  let isVerified: { result: boolean; error?: string }
+  if (cached) isVerified = { result: true }
+  else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,
