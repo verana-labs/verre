@@ -1,5 +1,3 @@
-import { parseDid } from '@credo-ts/core'
-
 import { TrustResolutionMetadata, TrustErrorCode } from '../types'
 
 import { TrustError } from './trustError'

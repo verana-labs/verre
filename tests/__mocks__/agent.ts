@@ -1,6 +1,6 @@
 // FIXME: Imports order once https://github.com/openwallet-foundation/askar-wrapper-javascript/issues/77
 // is solved
-// eslint-disable-next-line prettier/prettier, import/order
+// eslint-disable-next-line import/order
 import { askar, KdfMethod } from '@openwallet-foundation/askar-nodejs'
 
 import { AskarModule, AskarModuleConfigStoreOptions } from '@credo-ts/askar'
