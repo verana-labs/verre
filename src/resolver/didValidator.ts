@@ -568,7 +568,7 @@ async function verifyPermission(
   if (!perm || perm.type !== 'ISSUER') {
     throw new TrustError(
       TrustErrorCode.INVALID_ISSUER,
-      'No valid issuer permissions were found for the specified DID',
+      `No valid issuer permissions were found for ${issuer} for schema ${schemaId}`
     )
   }
 
