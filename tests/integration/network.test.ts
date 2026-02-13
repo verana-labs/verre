@@ -169,6 +169,14 @@ describe('Integration with Verana Blockchain', () => {
         },
       }),
     )
+
+    // Cached testing
+    const cachedResult = await resolveDID(did, {
+      verifiablePublicRegistries,
+      agentContext,
+      cached: true,
+    })
+    expect(cachedResult.verified).toBe(true)
   }, 10000)
 
   it('should resolve and validate a real self-signed credential end-to-end', async () => {
