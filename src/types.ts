@@ -22,6 +22,7 @@ export type ResolverConfig = {
   verifiablePublicRegistries?: VerifiablePublicRegistry[]
   didResolver?: Resolver
   agentContext: AgentContext
+  cached?: boolean
 }
 
 export type VerifyIssuerPermissionsOptions = {
