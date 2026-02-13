@@ -277,7 +277,7 @@ async function processDidDocument(
 
         const { credential, outcome: vpOutcome } = await getVerifiedCredential(
           vp,
-          verifiablePublicRegistries || [],
+          verifiablePublicRegistries ?? [],
           agentContext,
         )
         credentials.push(credential)
