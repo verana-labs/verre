@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.17](https://github.com/verana-labs/verre/compare/v0.0.16...v0.0.17) (2026-02-13)
+
+
+### Features
+
+* optional credential verification reusage via cache ([#54](https://github.com/verana-labs/verre/issues/54)) ([aba8be2](https://github.com/verana-labs/verre/commit/aba8be29188c98bd3c29ef11b7dd123a699809f5))
+
 ## [0.0.16](https://github.com/verana-labs/verre/compare/v0.0.15...v0.0.16) (2025-11-24)
 
 
