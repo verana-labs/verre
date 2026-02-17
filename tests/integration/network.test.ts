@@ -203,6 +203,7 @@ describe('Integration with Verana Blockchain', () => {
     })
 
     // Validate result
+    console.log(`result: ${JSON.stringify(result)}`)
     expect(result.verified).toBe(true)
     expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
   }, 10000)

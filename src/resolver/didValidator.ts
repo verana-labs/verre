@@ -29,6 +29,7 @@ import {
 import {
   buildMetadata,
   fetchJson,
+  fetchText,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -453,8 +454,10 @@ async function processCredential(
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
       // Fetch and verify the credential schema integrity
-      const schemaData = await fetchJson(schema.id)
-      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+      const schemaRawText = await fetchText(schema.id)
+      const schemaData = JSON.parse(schemaRawText)
+
+      verifyDigestSRI(schemaRawText, schemaDigestSRI)
 
       // Validate the credential against the schema
       validateSchemaContent(schemaData, w3cCredential)
@@ -467,16 +470,15 @@ async function processCredential(
       )
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
+      const subjectSchemaRawText = await fetchText(schemaUrl)
+      const subjectSchema = JSON.parse(subjectSchemaRawText)
 
-      // Verify the integrity of the referenced subject schema using its SRI digest
-      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
-
+      verifyDigestSRI(subjectSchemaRawText, subjectDigestSRI)
       // Verify the issuer permission over the schema
       await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
-      validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
+      validateSchemaContent(subjectSchema, attrs)
       const credential = { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
       return { credential, outcome }
     } catch (error) {

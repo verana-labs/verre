@@ -11,6 +11,7 @@ import {
   jsCredentialService,
   ecsService,
   mockPermission,
+  mockW3cJsonSchemaV2,
 } from '../__mocks__'
 
 describe('Credential Validator', () => {
@@ -46,6 +47,11 @@ describe('Credential Validator', () => {
           status: 200,
           data: jsCredentialService,
         },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
+        },
         'https://d6a1950112a2.ngrok-free.app/vt/cs/v1/js/ecs-service': {
           ok: true,
           status: 200,
@@ -75,6 +81,11 @@ describe('Credential Validator', () => {
           ok: true,
           status: 200,
           data: jsCredentialService,
+        },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
         },
         'https://d6a1950112a2.ngrok-free.app/vt/cs/v1/js/ecs-service': {
           ok: true,

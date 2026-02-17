@@ -90,18 +90,22 @@ function isVerifiablePresentation(
 }
 
 /**
- * Verifies the integrity of a given JSON schema string using a Subresource Integrity (SRI) digest.
+ * Verifies the integrity of a given raw content string using a Subresource Integrity (SRI) digest.
  *
- * @param {string} schemaJson - The JSON schema as a string to be verified.
+ * The digest is computed over the raw bytes of the content as provided, without any
+ * transformation or canonicalization. This aligns with the SRI specification, which
+ * requires byte-level integrity verification.
+ *
+ * @param {string} rawContent - The raw content string to be verified (e.g. as fetched from a URL).
  * @param {string} expectedDigestSRI - The expected SRI digest in the format `{algorithm}-{hash}`.
- * @param {string} name - The name associated with the schema, used for error messages.
  * @throws {TrustError} Throws an error if the computed hash does not match the expected hash.
  */
-export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
+export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string) {
   const [algorithm, expectedHash] = expectedDigestSRI.split('-')
-  const computedHash = Buffer.from(hash(algorithm, JSON.stringify(JSON.parse(schemaJson)))).toString('base64')
+  const computedHash = Buffer.from(hash(algorithm, rawContent)).toString('base64')
 
   if (computedHash !== expectedHash) {
-    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
+    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, 
+      `digestSRI verification failed for ${rawContent}. Computed: ${computedHash}, Expected: ${expectedHash}`)
   }
 }

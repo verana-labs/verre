@@ -109,6 +109,51 @@ export const createVerifiablePresentation = (
   }
 }
 
+export const mockW3cJsonSchemaV2 = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  $id: 'https://www.w3.org/2022/credentials/v2/json-schema-credential-schema.json',
+  description:
+    'JSON Schema for a Verifiable Credential of type JsonSchemaCredential according to the Verifiable Credentials Data Model v2',
+  type: 'object',
+  properties: {
+    type: {
+      type: 'array',
+      const: ['VerifiableCredential', 'JsonSchemaCredential'],
+    },
+    credentialSubject: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          const: 'JsonSchema',
+        },
+        jsonSchema: {
+          $ref: 'https://json-schema.org/draft/2020-12/schema',
+        },
+      },
+      required: ['type', 'jsonSchema'],
+    },
+    credentialSchema: {
+      type: 'object',
+      properties: {
+        id: {
+          type: 'string',
+          const: 'https://www.w3.org/ns/credentials/json-schema/v2.json',
+        },
+        type: {
+          type: 'string',
+          const: 'JsonSchema',
+        },
+        digestSRI: {
+          type: 'string',
+        },
+      },
+      required: ['id', 'type', 'digestSRI'],
+    },
+  },
+  required: ['type', 'credentialSubject', 'credentialSchema'],
+}
+
 export const mockServiceVcSelfIssued = createVerifiablePresentation(
   'did:example:123',
   didSelfIssued,
