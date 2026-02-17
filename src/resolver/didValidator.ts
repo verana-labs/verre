@@ -3,7 +3,6 @@ import {
   type W3cPresentation,
   type W3cJsonLdVerifiablePresentation,
   type AgentContext,
-  JsonObject,
   W3cCredentialSubject,
   DidsApi,
 } from '@credo-ts/core'
@@ -30,6 +29,7 @@ import {
   buildMetadata,
   fetchJson,
   fetchText,
+  getWebDid,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -562,7 +562,7 @@ async function verifyPermission(
   }
 
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    issuer,
+    getWebDid(issuer),
   )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
 
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
