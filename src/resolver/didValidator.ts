@@ -135,10 +135,11 @@ export async function resolveCredential(
   options: ResolverConfig,
 ): Promise<CredentialResolution> {
   try {
-    const { verifiablePublicRegistries } = options
+    const { verifiablePublicRegistries, verifyIntegrity } = options
     const { credential: w3cCredential, outcome } = await processCredential(
       credential,
       verifiablePublicRegistries ?? [],
+      verifyIntegrity,
     )
     return { verified: true, outcome, issuer: w3cCredential.issuer }
   } catch {
@@ -255,7 +256,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, agentContext, attrs } = options
+  const { verifiablePublicRegistries, didResolver, agentContext, attrs, verifyIntegrity } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -279,6 +280,7 @@ async function processDidDocument(
           vp,
           verifiablePublicRegistries ?? [],
           agentContext,
+          verifyIntegrity,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -368,6 +370,7 @@ async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
+  verifyIntegrity?: boolean,
   cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   const w3cCredential = getCredential(vp)
@@ -381,7 +384,7 @@ async function getVerifiedCredential(
     )
   }
 
-  return await processCredential(w3cCredential, verifiablePublicRegistries)
+  return await processCredential(w3cCredential, verifiablePublicRegistries, verifyIntegrity)
 }
 
 /**
@@ -433,6 +436,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
+  verifyIntegrity?: boolean,
   issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
@@ -444,6 +448,7 @@ async function processCredential(
     return processCredential(
       jsonSchemaCredential,
       verifiablePublicRegistries,
+      verifyIntegrity,
       w3cCredential.issuer as string,
       subject as Record<string, string>,
     )
@@ -455,7 +460,7 @@ async function processCredential(
     try {
       // Fetch and verify the credential schema integrity
       const schemaData = await fetchJson(schema.id)
-      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema', verifyIntegrity)
 
       // Validate the credential against the schema
       validateSchemaContent(schemaData, w3cCredential)
@@ -471,7 +476,7 @@ async function processCredential(
       const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
-      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject', verifyIntegrity)
 
       // Verify the issuer permission over the schema
       await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)

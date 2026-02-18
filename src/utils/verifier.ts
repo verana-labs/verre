@@ -95,9 +95,17 @@ function isVerifiablePresentation(
  * @param {string} schemaJson - The JSON schema as a string to be verified.
  * @param {string} expectedDigestSRI - The expected SRI digest in the format `{algorithm}-{hash}`.
  * @param {string} name - The name associated with the schema, used for error messages.
+ * @param {boolean} [verifyIntegrity=true] - Whether to perform digest verification. Set to `false` to skip validation.
  * @throws {TrustError} Throws an error if the computed hash does not match the expected hash.
  */
-export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
+export function verifyDigestSRI(
+  schemaJson: string,
+  expectedDigestSRI: string,
+  name: string,
+  verifyIntegrity: boolean = true,
+) {
+  if (!verifyIntegrity) return
+
   const [algorithm, expectedHash] = expectedDigestSRI.split('-')
   const computedHash = Buffer.from(hash(algorithm, JSON.stringify(JSON.parse(schemaJson)))).toString('base64')
 

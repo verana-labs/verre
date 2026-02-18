@@ -23,6 +23,7 @@ export type ResolverConfig = {
   didResolver?: Resolver
   agentContext: AgentContext
   cached?: boolean
+  verifyIntegrity?: boolean
 }
 
 export type VerifyIssuerPermissionsOptions = {
