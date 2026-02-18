@@ -296,6 +296,7 @@ async function processDidDocument(
             didResolver,
             attrs: credential,
             agentContext,
+            verifyIntegrity,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
