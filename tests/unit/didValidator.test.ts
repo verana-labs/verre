@@ -289,7 +289,7 @@ describe('DidValidator', () => {
       await resolveDID(didExtIssuer, {
         verifiablePublicRegistries,
         agentContext,
-        verifyIntegrity: false,
+        skipDigestSRICheck: true,
       })
       expect(verifyDigestSRISpy).not.toHaveBeenCalled()
     })

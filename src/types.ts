@@ -23,7 +23,7 @@ export type ResolverConfig = {
   didResolver?: Resolver
   agentContext: AgentContext
   cached?: boolean
-  verifyIntegrity?: boolean
+  skipDigestSRICheck?: boolean
 }
 
 export type VerifyIssuerPermissionsOptions = {
