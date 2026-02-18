@@ -438,7 +438,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
-  verifyIntegrity?: boolean,
+  verifyIntegrity: boolean = true,
   issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
@@ -462,7 +462,7 @@ async function processCredential(
     try {
       // Fetch and verify the credential schema integrity
       const schemaData = await fetchJson(schema.id)
-      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema', verifyIntegrity)
+      if (verifyIntegrity) verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
 
       // Validate the credential against the schema
       validateSchemaContent(schemaData, w3cCredential)
@@ -478,7 +478,8 @@ async function processCredential(
       const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
-      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject', verifyIntegrity)
+      if (verifyIntegrity)
+        verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Verify the issuer permission over the schema
       await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
