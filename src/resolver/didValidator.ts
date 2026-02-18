@@ -438,7 +438,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
-  skipDigestSRICheck: boolean = true,
+  skipDigestSRICheck: boolean = false,
   issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
