@@ -283,6 +283,15 @@ describe('DidValidator', () => {
           },
         }),
       )
+
+      // Add digest verification failure scenario
+      const verifyDigestSRISpy = vi.spyOn(signatureVerifier, 'verifyDigestSRI')
+      await resolveDID(didExtIssuer, {
+        verifiablePublicRegistries,
+        agentContext,
+        verifyIntegrity: false,
+      })
+      expect(verifyDigestSRISpy).not.toHaveBeenCalled()
     })
   })
 
