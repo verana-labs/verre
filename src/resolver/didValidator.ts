@@ -53,7 +53,7 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
- * @param options.skipDigestSRICheck - *(Optional)* Indicates whether to verify the integrity (digestSRI) of the credentials
+ * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
  * for managing cache validity (e.g. TTL, revocation checks).
  *
@@ -233,7 +233,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
  * @param {boolean} cached - Optional indicates whether credential verification should be performed or if a previously validated result can be reused.
- * @param {boolean} skipDigestSRICheck - Optional indicates whether to verify the integrity (digestSRI) of the credentials
+ * @param {boolean} skipDigestSRICheck - Optional When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
