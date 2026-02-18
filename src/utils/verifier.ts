@@ -27,7 +27,9 @@ import { TrustError } from './trustError'
  * @throws Error if the document is not a valid VP or VC, or if any embedded credential fails validation.
  */
 export async function verifySignature(
-document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential, agentContext: AgentContext, logger: VerreLogger,
+  document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
+  agentContext: AgentContext,
+  logger: VerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   try {
     if (
@@ -68,7 +70,9 @@ document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential, agent
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
       logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agentContext, logger)))
+      const results = await Promise.all(
+        jsonLdCredentials.map(vc => verifySignature(vc, agentContext, logger)),
+      )
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
@@ -104,7 +108,12 @@ function isVerifiablePresentation(
  * @param {string} name - The name associated with the schema, used for error messages.
  * @throws {TrustError} Throws an error if the computed hash does not match the expected hash.
  */
-export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string, logger: VerreLogger) {
+export function verifyDigestSRI(
+  schemaJson: string,
+  expectedDigestSRI: string,
+  name: string,
+  logger: VerreLogger,
+) {
   logger.debug('Verifying digest SRI', { name, expectedDigestSRI: `${expectedDigestSRI}` })
 
   const [algorithm, expectedHash] = expectedDigestSRI.split('-')

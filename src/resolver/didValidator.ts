@@ -55,6 +55,7 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param options.debugMode - *(Optional)* Enables debug logging for the resolution process.
  * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
  * for managing cache validity (e.g. TTL, revocation checks).
  *
@@ -295,7 +296,7 @@ async function processDidDocument(
           verifiablePublicRegistries ?? [],
           agentContext,
           logger,
-          options.cached
+          options.cached,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -450,6 +451,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
  *
  * @param w3cCredential - The Verifiable Credential to validate.
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
+ * @param issuer - Optional issuer DID to validate permissions against the trust registry.
  * @param attrs - Optional attributes to validate against the credential subject schema.
  * @returns A Promise resolving to the processed and validated credential.
  * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
@@ -467,7 +469,7 @@ async function processCredential(
   const id = w3cCredential.id as string
 
   if (schema.type === 'JsonSchemaCredential') {
-    logger.debug('Credential references another JsonSchemaCredential, fetching it', { schemaId: schema.id })
+    logger.debug('Processing JsonSchemaCredential Processing, fetching it', { schemaId: schema.id })
     const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
     return processCredential(
       jsonSchemaCredential,
@@ -589,7 +591,11 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
  * and ensures the credential’s issuance date is not earlier than the permission creation date.
  */
 async function verifyPermission(
-trustRegistry: string, schemaId: string, issuanceDate: string, logger: VerreLogger, issuer?: string,
+  trustRegistry: string,
+  schemaId: string,
+  issuanceDate: string,
+  logger: VerreLogger,
+  issuer?: string,
 ) {
   logger.debug('Verifying issuer permission', { schemaId, issuer })
 
