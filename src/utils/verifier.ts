@@ -105,7 +105,9 @@ export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string) {
   const computedHash = Buffer.from(hash(algorithm, rawContent)).toString('base64')
 
   if (computedHash !== expectedHash) {
-    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, 
-      `digestSRI verification failed for ${rawContent}. Computed: ${computedHash}, Expected: ${expectedHash}`)
+    throw new TrustError(
+      TrustErrorCode.VERIFICATION_FAILED,
+      `digestSRI verification failed for ${rawContent}. Computed: ${computedHash}, Expected: ${expectedHash}`,
+    )
   }
 }
