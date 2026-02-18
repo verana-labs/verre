@@ -23,6 +23,7 @@ export type ResolverConfig = {
   didResolver?: Resolver
   agentContext: AgentContext
   cached?: boolean
+  debugMode?: boolean
 }
 
 export type VerifyIssuerPermissionsOptions = {
@@ -30,6 +31,7 @@ export type VerifyIssuerPermissionsOptions = {
   jsonSchemaCredentialId: string
   issuanceDate: string
   verifiablePublicRegistries: VerifiablePublicRegistry[]
+  debugMode?: boolean
 }
 
 export type InternalResolverConfig = ResolverConfig & {
