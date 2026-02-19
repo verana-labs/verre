@@ -109,13 +109,7 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
  */
 export async function verifyPermissions(options: VerifyPermissionsOptions) {
   try {
-    const {
-      did,
-      jsonSchemaCredentialId,
-      issuanceDate,
-      verifiablePublicRegistries,
-      permissionType = PermissionType.ISSUER,
-    } = options
+    const { did, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries, permissionType } = options
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential)
     const { trustRegistry, schemaId } = resolveTrustRegistry(getRefUrl(subject), verifiablePublicRegistries)
@@ -481,14 +475,7 @@ async function processCredential(
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Verify the issuer permission over the schema
-      if (issuer)
-        await verifyPermission(
-          trustRegistry,
-          schemaId,
-          w3cCredential.issuanceDate,
-          issuer,
-          PermissionType.ISSUER,
-        )
+      if (issuer) await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -569,11 +556,11 @@ async function verifyPermission(
   schemaId: string,
   issuanceDate: string,
   did: string,
-  permissionType: PermissionType,
+  permissionType: PermissionType = PermissionType.ISSUER,
 ) {
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    issuer,
-  )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
+    did,
+  )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
 
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
