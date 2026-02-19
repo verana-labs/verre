@@ -17,7 +17,7 @@ import {
   IService,
   ICredential,
   IOrg,
-  IPerson,
+  IPersona,
   InternalResolverConfig,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
@@ -321,7 +321,7 @@ async function processDidDocument(
   )
   service ??= credentials.find((cred): cred is IService => cred.schemaType === ECS.SERVICE)
   serviceProvider ??= credentials.find(
-    (cred): cred is IOrg | IPerson => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSON,
+    (cred): cred is IOrg | IPersona => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSONA,
   )
 
   // If proof of trust exists, return the result with the service (issuer equals did)

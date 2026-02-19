@@ -95,7 +95,7 @@ export type Permission = {
 // Enums
 export enum ECS {
   ORG = 'ecs-org',
-  PERSON = 'ecs-person',
+  PERSONA = 'ecs-persona',
   SERVICE = 'ecs-service',
   USER_AGENT = 'ecs-user-agent',
 }
@@ -167,19 +167,22 @@ export interface IOrg extends BaseCredential {
   name: string
   logo: string
   registryId: string
-  registryUrl: string
+  registryUri?: string
   address: string
-  type: string
   countryCode: string
+  legalJurisdiction?: string
+  lei?: string
+  organizationKind?: string
 }
 
-export interface IPerson extends BaseCredential {
-  schemaType: typeof ECS.PERSON
-  firstName: string
-  lastName: string
-  avatar: string
-  birthDate: string
-  countryOfResidence: string
+export interface IPersona extends BaseCredential {
+  schemaType: typeof ECS.PERSONA
+  name: string
+  avatar?: string
+  controllerCountryCode: string
+  controllerJurisdiction?: string
+  description?: string
+  descriptionFormat?: string
 }
 
 export interface IService extends BaseCredential {
@@ -187,25 +190,19 @@ export interface IService extends BaseCredential {
   name: string
   type: string
   description: string
+  descriptionFormat?: string
   logo: string
   minimumAgeRequired: number
   termsAndConditions: string
-  termsAndConditionsHash?: string
+  termsAndConditionsDigestSri?: string
   privacyPolicy: string
-  privacyPolicyHash?: string
+  privacyPolicyDigestSri?: string
 }
 
 export interface IUserAgent extends BaseCredential {
   schemaType: typeof ECS.USER_AGENT
-  name: string
-  description: string
-  category: string
-  wallet: string
-  logo: string
-  termsAndConditions: string
-  termsAndConditionsHash?: string
-  privacyPolicy: string
-  privacyPolicyHash?: string
+  version: string
+  build?: string
 }
 
 export interface IUnknownCredential extends BaseCredential {
@@ -213,7 +210,7 @@ export interface IUnknownCredential extends BaseCredential {
   [key: string]: any
 }
 
-export type ICredential = IOrg | IPerson | IService | IUserAgent | IUnknownCredential
+export type ICredential = IOrg | IPersona | IService | IUserAgent | IUnknownCredential
 
 export interface IVerreLogger {
   debug(message: string, meta?: Record<string, unknown>): void
