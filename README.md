@@ -113,7 +113,7 @@ Resolves to a `TrustResolution` containing:
 * **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
 * **issuanceDate** (*string*): Date when the credential was issued.
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
-* **permissionType** (*PermissionType*): The type of permission to verify (defaults to 'ISSUER').
+* **permissionType** (*PermissionType*): The type of permission to verify.
 
 
 ---

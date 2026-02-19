@@ -32,7 +32,7 @@ export type VerifyPermissionsOptions = {
   jsonSchemaCredentialId: string
   issuanceDate: string
   verifiablePublicRegistries: VerifiablePublicRegistry[]
-  permissionType?: PermissionType
+  permissionType: PermissionType
   logger?: IVerreLogger
 }
 
@@ -128,6 +128,7 @@ export enum TrustErrorCode {
   INVALID = 'invalid',
   NOT_FOUND = 'not_found',
   NOT_SUPPORTED = 'not_supported',
+  INVALID_PERMISSIONS = 'invalid_permissions',
   INVALID_REQUEST = 'invalid_request',
   SCHEMA_MISMATCH = 'schema_mismatch',
   VERIFICATION_FAILED = 'verification_failed',

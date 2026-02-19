@@ -10,6 +10,7 @@ import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import {
   fetchJson,
+  PermissionType,
   resolveCredential,
   resolveDID,
   TrustResolutionOutcome,
@@ -213,6 +214,7 @@ describe('Integration with Verana Blockchain', () => {
       jsonSchemaCredentialId: 'https://dm.gov-id-tr.demos.dev.2060.io/vt/schemas-gov-id-jsc.json',
       issuanceDate: '2025-11-22T00:22:56.885Z',
       verifiablePublicRegistries,
+      permissionType: PermissionType.ISSUER,
     })
     expect(result.verified).toBe(true)
   })
