@@ -4,12 +4,15 @@
 import { askar, KdfMethod } from '@openwallet-foundation/askar-nodejs'
 
 import { AskarModule, AskarModuleConfigStoreOptions } from '@credo-ts/askar'
-import { Agent, DidsModule, utils, WebDidResolver } from '@credo-ts/core'
+import { Agent, DidsModule, LogLevel, utils, WebDidResolver } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { WebVhDidResolver } from '@credo-ts/webvh'
 
+import { TestLogger } from './logger'
+
 export const setupAgent = async ({ name }: { name: string }) => {
   const agent = new Agent({
+    config: { logger: new TestLogger(LogLevel.off, 'test') },
     dependencies: agentDependencies,
     modules: {
       askar: new AskarModule({

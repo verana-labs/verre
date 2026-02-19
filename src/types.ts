@@ -24,6 +24,7 @@ export type ResolverConfig = {
   agentContext: AgentContext
   cached?: boolean
   skipDigestSRICheck?: boolean
+  logger?: IVerreLogger
 }
 
 export type VerifyIssuerPermissionsOptions = {
@@ -31,6 +32,7 @@ export type VerifyIssuerPermissionsOptions = {
   jsonSchemaCredentialId: string
   issuanceDate: string
   verifiablePublicRegistries: VerifiablePublicRegistry[]
+  logger?: IVerreLogger
 }
 
 export type InternalResolverConfig = ResolverConfig & {
@@ -91,10 +93,6 @@ export type Permission = {
   vp_term_requested?: number | null
 }
 
-export interface PermissionResponse {
-  permissions: Permission[]
-}
-
 // Enums
 export enum ECS {
   ORG = 'ecs-org',
@@ -146,7 +144,19 @@ export enum TrustResolutionOutcome {
   INVALID = 'invalid', // The process failed or the credential is invalid.
 }
 
+export enum LogLevel {
+  NONE = 'none',
+  DEBUG = 'debug',
+  INFO = 'info',
+  WARN = 'warn',
+  ERROR = 'error',
+}
+
 // interfaces
+export interface PermissionResponse {
+  permissions: Permission[]
+}
+
 export interface BaseCredential {
   schemaType: ECS | 'unknown'
   id: string
@@ -205,3 +215,10 @@ export interface IUnknownCredential extends BaseCredential {
 }
 
 export type ICredential = IOrg | IPerson | IService | IUserAgent | IUnknownCredential
+
+export interface IVerreLogger {
+  debug(message: string, meta?: Record<string, unknown>): void
+  info(message: string, meta?: Record<string, unknown>): void
+  warn(message: string, meta?: Record<string, unknown>): void
+  error(message: string, error?: Error | unknown): void
+}
