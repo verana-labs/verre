@@ -299,8 +299,8 @@ async function processDidDocument(
           vp,
           verifiablePublicRegistries ?? [],
           agentContext,
-          skipDigestSRICheck,
           logger,
+          skipDigestSRICheck,
           options.cached,
         )
         credentials.push(credential)
@@ -393,8 +393,8 @@ async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
-  skipDigestSRICheck?: boolean,
   logger: IVerreLogger,
+  skipDigestSRICheck?: boolean,
   cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   logger.debug('Verifying credential', { cached })
