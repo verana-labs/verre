@@ -24,7 +24,8 @@ import {
   TrustResolutionOutcome,
   PermissionResponse,
   CredentialResolution,
-  VerifyIssuerPermissionsOptions,
+  VerifyPermissionsOptions,
+  PermissionType,
 } from '../types'
 import {
   buildMetadata,
@@ -97,22 +98,29 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
 }
 
 /**
- * Verifies whether a given issuer has permission to issue a specific credential
+ * Verifies whether a given did has permission to perform a specific action
  * according to the trust registries and schema definitions.
  *
  * @param options - Configuration object containing all required data.
- * @param options.issuer - The issuer to validate (string or object depending on implementation).
+ * @param options.did - The DID of the entity to validate.
  * @param options.jsonSchemaCredentialId - URL or identifier for the JSON schema of the credential.
  * @param options.issuanceDate - The date at which the credential was issued.
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
+ * @param options.permissionType - The type of permission to verify (defaults to 'ISSUER').
  */
-export async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions) {
+export async function verifyPermissions(options: VerifyPermissionsOptions) {
   try {
-    const { issuer, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries } = options
+    const {
+      did,
+      jsonSchemaCredentialId,
+      issuanceDate,
+      verifiablePublicRegistries,
+      permissionType = PermissionType.ISSUER,
+    } = options
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential)
     const { trustRegistry, schemaId } = resolveTrustRegistry(getRefUrl(subject), verifiablePublicRegistries)
-    await verifyPermission(trustRegistry, schemaId, issuanceDate, issuer)
+    await verifyPermission(trustRegistry, schemaId, issuanceDate, did, permissionType)
     return { verified: true }
   } catch {
     return { verified: false }
@@ -474,7 +482,14 @@ async function processCredential(
       verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
 
       // Verify the issuer permission over the schema
-      await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
+      if (issuer)
+        await verifyPermission(
+          trustRegistry,
+          schemaId,
+          w3cCredential.issuanceDate,
+          issuer,
+          PermissionType.ISSUER,
+        )
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
@@ -547,29 +562,26 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
 }
 
 /**
- * Verifies that the issuer holds a valid ISSUER permission for the specified schema
- * and ensures the credential’s issuance date is not earlier than the permission creation date.
+ * Verifies that an entity holds valid permissions for the specified schema
+ * and ensures the credential's issuance date is not earlier than the permission creation date.
  */
 async function verifyPermission(
   trustRegistry: string,
   schemaId: string,
   issuanceDate: string,
-  issuer?: string,
+  did: string,
+  permissionType: PermissionType,
 ) {
-  if (!issuer) {
-    throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
-  }
-
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    getWebDid(issuer),
-  )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
+    getWebDid(did),
+  )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
 
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
-  if (!perm || perm.type !== 'ISSUER') {
+  if (!perm || perm.type !== permissionType) {
     throw new TrustError(
-      TrustErrorCode.INVALID_ISSUER,
-      'No valid issuer permissions were found for the specified DID',
+      TrustErrorCode.INVALID,
+      `No valid ${permissionType} permissions were found for the specified DID`,
     )
   }
 
@@ -577,7 +589,7 @@ async function verifyPermission(
   const createdTs = Date.parse(perm.created)
   if (issuanceTs < createdTs) {
     throw new TrustError(
-      TrustErrorCode.INVALID_ISSUER,
+      TrustErrorCode.INVALID,
       'Credential issuance date is earlier than the permission creation date',
     )
   }

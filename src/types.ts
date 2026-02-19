@@ -25,11 +25,12 @@ export type ResolverConfig = {
   cached?: boolean
 }
 
-export type VerifyIssuerPermissionsOptions = {
-  issuer: string
+export type VerifyPermissionsOptions = {
+  did: string
   jsonSchemaCredentialId: string
   issuanceDate: string
   verifiablePublicRegistries: VerifiablePublicRegistry[]
+  permissionType?: PermissionType
 }
 
 export type InternalResolverConfig = ResolverConfig & {
@@ -128,7 +129,6 @@ export enum TrustErrorCode {
   INVALID = 'invalid',
   NOT_FOUND = 'not_found',
   NOT_SUPPORTED = 'not_supported',
-  INVALID_ISSUER = 'invalid_issuer',
   INVALID_REQUEST = 'invalid_request',
   SCHEMA_MISMATCH = 'schema_mismatch',
   VERIFICATION_FAILED = 'verification_failed',
