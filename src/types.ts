@@ -23,6 +23,7 @@ export type ResolverConfig = {
   didResolver?: Resolver
   agentContext: AgentContext
   cached?: boolean
+  skipDigestSRICheck?: boolean
   logger?: IVerreLogger
 }
 
