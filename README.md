@@ -42,7 +42,7 @@ Both methods return an object describing the trust evaluation outcome.
 ### Import
 
 ```ts
-import { resolveDID, resolveCredential, verifyIssuerPermissions } from '@verana-labs/verre';
+import { resolveDID, resolveCredential, verifyPermissions } from '@verana-labs/verre';
 ```
 
 ## Method Signatures
@@ -50,7 +50,7 @@ import { resolveDID, resolveCredential, verifyIssuerPermissions } from '@verana-
 ```ts
 async function resolveDID(did: string, options?: ResolverConfig): Promise<TrustResolution>
 async function resolveCredential(credential: W3cVerifiableCredential, options?: ResolverConfig): Promise<TrustResolution>
-async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions): Promise<{ verified: boolean }>
+async function verifyPermissions(options: VerifyPermissionsOptions): Promise<{ verified: boolean }>
 ```
 
 ## Parameters
@@ -105,14 +105,16 @@ Resolves to a `TrustResolution` containing:
 
 ---
 
-### verifyIssuerPermissions
+### verifyPermissions
 
 #### Parameters
 
-* **issuer** (*string | { id?: string }*): Issuer claiming permission to issue the credential.
+* **did** (*string*): The DID of the entity to validate permissions for.
 * **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
 * **issuanceDate** (*string*): Date when the credential was issued.
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
+* **permissionType** (*PermissionType*): The type of permission to verify.
+* **logger** (*IVerreLogger*, optional): Logger used for debugging
 
 
 ---
