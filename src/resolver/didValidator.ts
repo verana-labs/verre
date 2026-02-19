@@ -608,7 +608,7 @@ async function verifyPermission(
   schemaId: string,
   issuanceDate: string,
   did: string,
-  permissionType: PermissionType = PermissionType.ISSUER,
+  permissionType: PermissionType,
 ) {
   logger.debug('Verifying issuer permission', { schemaId, issuer })
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
