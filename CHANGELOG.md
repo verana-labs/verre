@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0](https://github.com/verana-labs/verre/compare/v0.0.16...v0.1.0) (2026-02-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* digestSRI calculation ([#59](https://github.com/verana-labs/verre/issues/59))
+* replace verifyIssuerPermissions by verifyPermissions function ([#66](https://github.com/verana-labs/verre/issues/66))
+
+### Features
+
+* add logger setup ([#65](https://github.com/verana-labs/verre/issues/65)) ([e3558d8](https://github.com/verana-labs/verre/commit/e3558d85eb101ea7df1efcad95ce7fbe84c0b674))
+* add skipDigestSRICheck flag to avoid digest validation ([#64](https://github.com/verana-labs/verre/issues/64)) ([4192a1a](https://github.com/verana-labs/verre/commit/4192a1aba625236c0b6e4276c2dd2e9651d10c55))
+* optional credential verification reusage via cache ([#54](https://github.com/verana-labs/verre/issues/54)) ([aba8be2](https://github.com/verana-labs/verre/commit/aba8be29188c98bd3c29ef11b7dd123a699809f5))
+* replace verifyIssuerPermissions by verifyPermissions function ([#66](https://github.com/verana-labs/verre/issues/66)) ([c3b2fca](https://github.com/verana-labs/verre/commit/c3b2fca2711a3d98ada4c30caaceeb6f507b3d0a))
+
+
+### Bug Fixes
+
+* digestSRI calculation ([#59](https://github.com/verana-labs/verre/issues/59)) ([a3bc726](https://github.com/verana-labs/verre/commit/a3bc726686f1e8b6bca0d1611f444e51227a8b77))
+* remove getWebDid due legacy did support ([#55](https://github.com/verana-labs/verre/issues/55)) ([15c57a1](https://github.com/verana-labs/verre/commit/15c57a1b8519cf6513c4522f00b57dcfeb4b8044))
+
 ## [0.0.16](https://github.com/verana-labs/verre/compare/v0.0.15...v0.0.16) (2025-11-24)
 
 
