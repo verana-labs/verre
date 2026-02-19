@@ -61,6 +61,7 @@ async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions):
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **agentContext** (*AgentContext*, required): Global runtime context for Credo-TS agents.
 * **cached** (*boolean*, optional): Indicates whether credential verification should be performed or if a previously validated result can be reused.
+* **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
 ---
