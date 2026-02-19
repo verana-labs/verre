@@ -1,20 +1,27 @@
 import { Logger, ILogObj } from 'tslog'
 
-export class VerreLogger {
+import { type IVerreLogger, LogLevel } from '../types'
+
+export class VerreLogger implements IVerreLogger {
   private logger: Logger<ILogObj>
 
-  constructor(debugMode = false, context?: string) {
+  constructor(level: LogLevel = LogLevel.NONE, context?: string) {
     this.logger = new Logger<ILogObj>({
       name: context ?? 'Verre',
-      minLevel: debugMode ? 0 : 7,
+      minLevel: this.getLevelValue(level),
       prettyLogTemplate: '{{dateIsoStr}} {{logLevelName}} [{{name}}] ',
     })
   }
 
-  child(context: string): VerreLogger {
-    const child = new VerreLogger()
-    child.logger = this.logger.getSubLogger({ name: context })
-    return child
+  private getLevelValue(level: LogLevel): number {
+    const levelMap: Record<LogLevel, number> = {
+      none: 7,
+      debug: 0,
+      info: 3,
+      warn: 4,
+      error: 5,
+    }
+    return levelMap[level]
   }
 
   debug(message: string, meta?: Record<string, unknown>): void {

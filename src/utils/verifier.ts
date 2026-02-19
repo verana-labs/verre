@@ -8,10 +8,9 @@ import {
 import { Buffer } from 'buffer/'
 
 import { purposes } from '../libraries'
-import { TrustErrorCode } from '../types'
+import { TrustErrorCode, IVerreLogger } from '../types'
 
 import { hash } from './crypto'
-import { VerreLogger } from './logger'
 import { TrustError } from './trustError'
 
 /**
@@ -29,7 +28,7 @@ import { TrustError } from './trustError'
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
   agentContext: AgentContext,
-  logger: VerreLogger,
+  logger: IVerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   try {
     if (
@@ -112,7 +111,7 @@ export function verifyDigestSRI(
   schemaJson: string,
   expectedDigestSRI: string,
   name: string,
-  logger: VerreLogger,
+  logger: IVerreLogger,
 ) {
   logger.debug('Verifying digest SRI', { name, expectedDigestSRI: `${expectedDigestSRI}` })
 

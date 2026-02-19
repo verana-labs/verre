@@ -25,6 +25,8 @@ import {
   PermissionResponse,
   CredentialResolution,
   VerifyIssuerPermissionsOptions,
+  LogLevel,
+  IVerreLogger,
 } from '../types'
 import {
   buildMetadata,
@@ -108,7 +110,7 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
  */
 export async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions) {
-  const logger = new VerreLogger(options.debugMode)
+  const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
     logger.debug('Verifying issuer permissions', { issuer: options.issuer })
     const { issuer, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries } = options
@@ -139,7 +141,7 @@ export async function resolveCredential(
   credential: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<CredentialResolution> {
-  const logger = new VerreLogger(options.debugMode)
+  const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
     const { verifiablePublicRegistries } = options
     const { credential: w3cCredential, outcome } = await processCredential(
@@ -260,7 +262,7 @@ async function processDidDocument(
   didDocument: DIDDocument,
   options: InternalResolverConfig,
 ): Promise<TrustResolution> {
-  const logger = new VerreLogger(options.debugMode)
+  const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   logger.debug('Processing DID document', { did, serviceCount: didDocument?.service?.length })
 
   if (!didDocument?.service) {
@@ -386,7 +388,7 @@ async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
-  logger: VerreLogger,
+  logger: IVerreLogger,
   cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   logger.debug('Verifying credential', { cached })
@@ -458,7 +460,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
-  logger: VerreLogger,
+  logger: IVerreLogger,
   issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
@@ -531,7 +533,7 @@ async function processCredential(
  * @returns An object containing the validated schema and subject.
  * @throws TrustError if the schema or subject is missing, or if the schema type is unsupported.
  */
-function resolveSchemaAndSubject(credential: W3cVerifiableCredential, logger: VerreLogger) {
+function resolveSchemaAndSubject(credential: W3cVerifiableCredential, logger: IVerreLogger) {
   logger.debug('Resolving schema and subject from credential')
 
   const schema = extractSchema(credential.credentialSchema)
@@ -593,7 +595,7 @@ async function verifyPermission(
   trustRegistry: string,
   schemaId: string,
   issuanceDate: string,
-  logger: VerreLogger,
+  logger: IVerreLogger,
   issuer?: string,
 ) {
   logger.debug('Verifying issuer permission', { schemaId, issuer })
