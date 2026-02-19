@@ -30,7 +30,6 @@ import {
 import {
   buildMetadata,
   fetchJson,
-  getWebDid,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -573,8 +572,8 @@ async function verifyPermission(
   permissionType: PermissionType,
 ) {
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    getWebDid(did),
-  )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
+    issuer,
+  )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
 
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
