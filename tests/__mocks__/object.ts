@@ -307,6 +307,15 @@ export const mockPermission = {
   ],
 }
 
+export const mockHolderPermission = {
+  permissions: [
+    {
+      type: 'HOLDER',
+      created: '2000-11-18T15:26:01.487Z',
+    },
+  ],
+}
+
 export const mockCredentialSchemaOrg = {
   schema: JSON.stringify(loadSchema(ECS.ORG)),
 }
