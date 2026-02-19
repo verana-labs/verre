@@ -8,7 +8,7 @@ import {
 import { Buffer } from 'buffer/'
 
 import { purposes } from '../libraries'
-import { TrustErrorCode } from '../types'
+import { TrustErrorCode, IVerreLogger } from '../types'
 
 import { hash } from './crypto'
 import { TrustError } from './trustError'
@@ -28,6 +28,7 @@ import { TrustError } from './trustError'
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
   agentContext: AgentContext,
+  logger: IVerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   try {
     if (
@@ -53,25 +54,34 @@ export async function verifySignature(
           proofPurpose: new purposes.AssertionProofPurpose(),
         })
     if (!result.isValid) {
-      return { result: result.isValid, error: JSON.stringify(result.validations.vcJs?.error) }
+      const error = JSON.stringify(result.validations.vcJs?.error)
+      logger.error('Signature verification failed', { error })
+      return { result: result.isValid, error }
     }
 
+    logger.debug('Document signature verified successfully')
+
     if (isPresentation && isVerifiablePresentation(document)) {
+      logger.debug('Verifying embedded credentials in presentation')
       const credentials = Array.isArray(document.verifiableCredential)
         ? document.verifiableCredential
         : [document.verifiableCredential]
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agentContext)))
+      logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
+      const results = await Promise.all(
+        jsonLdCredentials.map(vc => verifySignature(vc, agentContext, logger)),
+      )
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
         throw new Error('One or more verifiable credentials failed signature verification.')
       }
+      logger.debug('All embedded credentials verified successfully')
     }
     return { result: result.isValid }
   } catch (error) {
-    agentContext.config.logger.error('Error validating the proof:', error.message)
+    logger.error('Signature verification exception', error)
     return { result: false, error: error.message }
   }
 }
@@ -100,9 +110,13 @@ function isVerifiablePresentation(
  * @param {string} expectedDigestSRI - The expected SRI digest in the format `{algorithm}-{hash}`.
  * @throws {TrustError} Throws an error if the computed hash does not match the expected hash.
  */
-export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string) {
+export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string, logger: IVerreLogger) {
   const [algorithm, expectedHash] = expectedDigestSRI.split('-')
+
+  logger.debug('Verifying digest SRI', { expectedDigestSRI: `${expectedDigestSRI}` })
+
   const computedHash = Buffer.from(hash(algorithm, rawContent)).toString('base64')
+  logger.debug('Computing hash', { computedHash: `${computedHash}` })
 
   if (computedHash !== expectedHash) {
     throw new TrustError(
@@ -110,4 +124,6 @@ export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string) {
       `digestSRI verification failed for ${rawContent}. Computed: ${computedHash}, Expected: ${expectedHash}`,
     )
   }
+
+  logger.debug('Digest SRI verified successfully')
 }
