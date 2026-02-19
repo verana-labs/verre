@@ -21,7 +21,7 @@ export const loadSchema = (schemaName: keyof typeof essentialSchemas) => {
  */
 const schemas = {
   [ECS.ORG]: loadSchema(ECS.ORG),
-  [ECS.PERSON]: loadSchema(ECS.PERSON),
+  [ECS.PERSONA]: loadSchema(ECS.PERSONA),
   [ECS.SERVICE]: loadSchema(ECS.SERVICE),
   [ECS.USER_AGENT]: loadSchema(ECS.USER_AGENT),
 }

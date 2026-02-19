@@ -42,3 +42,26 @@ export async function fetchJson<T = any>(url: string): Promise<T> {
 
   return response.json() as T
 }
+
+/**
+ * Fetches and returns the raw text content from a given URL.
+ *
+ * This is useful when byte-level integrity of the response matters,
+ * such as when verifying SRI digests against the original content.
+ *
+ * @param url - The URL to fetch the data from.
+ * @returns A promise resolving to the raw response text.
+ * @throws {TrustError} If the HTTP request fails.
+ */
+export async function fetchText(url: string): Promise<string> {
+  const response = await fetch(url)
+
+  if (!response.ok) {
+    throw new TrustError(
+      TrustErrorCode.INVALID_REQUEST,
+      `Failed to fetch data from ${url}: ${response.status} ${response.statusText}`,
+    )
+  }
+
+  return response.text()
+}

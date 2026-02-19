@@ -3,7 +3,6 @@ import {
   type W3cPresentation,
   type W3cJsonLdVerifiablePresentation,
   type AgentContext,
-  JsonObject,
   W3cCredentialSubject,
   DidsApi,
 } from '@credo-ts/core'
@@ -18,7 +17,7 @@ import {
   IService,
   ICredential,
   IOrg,
-  IPerson,
+  IPersona,
   InternalResolverConfig,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
@@ -32,6 +31,7 @@ import {
 import {
   buildMetadata,
   fetchJson,
+  fetchText,
   handleTrustError,
   identifySchema,
   TrustError,
@@ -329,7 +329,7 @@ async function processDidDocument(
   )
   service ??= credentials.find((cred): cred is IService => cred.schemaType === ECS.SERVICE)
   serviceProvider ??= credentials.find(
-    (cred): cred is IOrg | IPerson => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSON,
+    (cred): cred is IOrg | IPersona => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSONA,
   )
 
   // If proof of trust exists, return the result with the service (issuer equals did)
@@ -499,9 +499,12 @@ async function processCredential(
     try {
       // Fetch and verify the credential schema integrity
       logger.debug('Fetching credential schema', { schemaId: schema.id })
-      const schemaData = await fetchJson(schema.id)
-      if (!skipDigestSRICheck)
-        verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema', logger)
+      const schemaRawText = await fetchText(schema.id)
+      const schemaData = JSON.parse(schemaRawText)
+
+      if (!skipDigestSRICheck) {
+        verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
+      }
 
       // Validate the credential against the schema
       validateSchemaContent(schemaData, w3cCredential)
@@ -516,11 +519,13 @@ async function processCredential(
 
       // If a reference URL exists, fetch the referenced schema
       logger.debug('Fetching subject schema')
-      const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
+      const subjectSchemaRawText = await fetchText(schemaUrl)
+      const subjectSchema = JSON.parse(subjectSchemaRawText)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
-      if (!skipDigestSRICheck)
-        verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject', logger)
+      if (!skipDigestSRICheck) {
+        verifyDigestSRI(subjectSchemaRawText, subjectDigestSRI, logger)
+      }
 
       // Verify the issuer permission over the schema
       if (issuer)
@@ -534,7 +539,7 @@ async function processCredential(
         )
 
       // Validate the credential subject attributes against the JSON schema content
-      validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
+      validateSchemaContent(subjectSchema, attrs)
       const credential = { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
       return { credential, outcome }
     } catch (error) {
@@ -631,7 +636,7 @@ async function verifyPermission(
   if (!perm || perm.type !== permissionType)
     throw new TrustError(
       TrustErrorCode.INVALID_PERMISSIONS,
-      `No valid ${permissionType} permissions were found for the specified DID: ${did}`,
+      `No valid ${permissionType} permissions were found for the specified DID: ${did} for schema ${schemaId}`,
     )
 
   logger.debug('Permission found, verifying dates', { did, created: perm.created })
