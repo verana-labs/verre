@@ -109,11 +109,12 @@ Resolves to a `TrustResolution` containing:
 
 #### Parameters
 
-* **did** (*string*, required): The DID of the entity to validate permissions for.
+* **did** (*string*): The DID of the entity to validate permissions for.
 * **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
 * **issuanceDate** (*string*): Date when the credential was issued.
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
 * **permissionType** (*PermissionType*): The type of permission to verify.
+* **logger** (*IVerreLogger*, optional): Logger used for debugging
 
 
 ---

@@ -111,6 +111,7 @@ function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
  * @param options.issuanceDate - The date at which the credential was issued.
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
  * @param options.permissionType - The type of permission to verify.
+ * @param options.logger - (Optional) Logger used for debugging.
  */
 export async function verifyPermissions(options: VerifyPermissionsOptions) {
   const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
