@@ -47,7 +47,12 @@ export interface VerifyResult {
 
 export const verify = async (options: VerifyOptions): Promise<VerifyResult> => {
   try {
-    const result = await jsonLdVerify(options)
+    const { document, suite, purpose, documentLoader } = options
+    const result = await jsonLdVerify(document, {
+      suite,
+      purpose,
+      documentLoader,
+    })
     return result as VerifyResult
   } catch (error) {
     return {

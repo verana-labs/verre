@@ -36,9 +36,7 @@ import {
   verifyDigestSRI,
   verifySignature,
 } from '../utils'
-
-// Generic resolver for DID Web only
-const resolverInstance = new Resolver(didWeb.getResolver())
+import { resolverInstance } from '../libraries'
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -61,38 +59,9 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  */
 export async function resolveDID(did: string, options: ResolverConfig): Promise<TrustResolution> {
   if (!options.didResolver) {
-    options.didResolver = getCredoTsDidResolver(options.agentContext)
+    options.didResolver = resolverInstance
   }
-
   return await _resolve(did, options)
-}
-
-/**
- * Creates a DID Resolver instance that uses the Credo-TS internal `DidResolverService`
- * to resolve Decentralized Identifiers (DIDs).
- *
- * This resolver delegates all resolution requests to the `DidResolverService` registered
- * within the provided `AgentContext`.
- *
- * @param agentContext - The agent context containing the global operational state
- * of the agent, including registered services, modules, DIDs, wallets, storage, and configuration
- * from Credo-TS.
- *
- * @returns A `did-resolver` `Resolver` instance configured to use Credo-TS for DID resolution.
- */
-function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
-  const didResolverApi = agentContext.dependencyManager.resolve(DidsApi)
-  return new Resolver(
-    new Proxy(
-      {},
-      {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        get: (_target, _method: string) => {
-          return async (did: string) => didResolverApi.resolve(did)
-        },
-      },
-    ),
-  )
 }
 
 /**
