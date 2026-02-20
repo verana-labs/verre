@@ -80,7 +80,6 @@ describe('Integration with Verana Blockchain', () => {
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
       agentContext,
-      skipDigestSRICheck: true,
     })
 
     // Validate result
@@ -150,7 +149,6 @@ describe('Integration with Verana Blockchain', () => {
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
       agentContext,
-      skipDigestSRICheck: true,
     })
 
     // Validate result
@@ -178,7 +176,6 @@ describe('Integration with Verana Blockchain', () => {
       verifiablePublicRegistries,
       agentContext,
       cached: true,
-      skipDigestSRICheck: true,
     })
     expect(cachedResult.verified).toBe(true)
   }, 10000)
