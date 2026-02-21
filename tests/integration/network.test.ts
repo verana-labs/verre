@@ -201,7 +201,6 @@ describe('Integration with Verana Blockchain', () => {
     const result = await resolveCredential(cred, {
       verifiablePublicRegistries,
       agentContext,
-      skipDigestSRICheck: true,
     })
 
     // Validate result
