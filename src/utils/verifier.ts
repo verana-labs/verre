@@ -116,7 +116,7 @@ export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string, l
   logger.debug('Verifying digest SRI', { expectedDigestSRI: `${expectedDigestSRI}` })
 
   const computedHash = Buffer.from(hash(algorithm, rawContent)).toString('base64')
-  logger.debug('Computing hash', { computedHash: `${computedHash}` })
+  logger.debug('Computing hash', { computedHash: `${algorithm}-${computedHash}` })
 
   if (computedHash !== expectedHash) {
     throw new TrustError(

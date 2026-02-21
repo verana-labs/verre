@@ -630,7 +630,7 @@ async function verifyPermission(
     did,
   )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
 
-  logger.debug('Fetching issuer permissions', { permUrl: trustRegistry, schemaId })
+  logger.debug('Fetching issuer permissions', { permUrl, schemaId })
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
   if (!perm || perm.type !== permissionType)
@@ -639,7 +639,7 @@ async function verifyPermission(
       `No valid ${permissionType} permissions were found for the specified DID: ${did} for schema ${schemaId}`,
     )
 
-  logger.debug('Permission found, verifying dates', { did, created: perm.created })
+  logger.debug('Permission found, verifying dates', { did, created: perm.created, issuanceDate })
   const issuanceTs = Date.parse(issuanceDate)
   const createdTs = Date.parse(perm.created)
   if (issuanceTs < createdTs) {
