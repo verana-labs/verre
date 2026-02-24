@@ -1,7 +1,7 @@
 import { Agent, AgentContext } from '@credo-ts/core'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { resolveCredential, TrustResolutionOutcome, verifyIssuerPermissions } from '../../src'
+import { PermissionType, resolveCredential, TrustResolutionOutcome, verifyPermissions } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,
@@ -11,6 +11,8 @@ import {
   jsCredentialService,
   ecsService,
   mockPermission,
+  mockW3cJsonSchemaV2,
+  mockHolderPermission,
 } from '../__mocks__'
 
 describe('Credential Validator', () => {
@@ -46,6 +48,11 @@ describe('Credential Validator', () => {
           status: 200,
           data: jsCredentialService,
         },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
+        },
         'https://d6a1950112a2.ngrok-free.app/vt/cs/v1/js/ecs-service': {
           ok: true,
           status: 200,
@@ -76,24 +83,30 @@ describe('Credential Validator', () => {
           status: 200,
           data: jsCredentialService,
         },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
+        },
         'https://d6a1950112a2.ngrok-free.app/vt/cs/v1/js/ecs-service': {
           ok: true,
           status: 200,
           data: ecsService,
         },
-        'https://d6a1950112a2.ngrok-free.app/vt/perm/v1/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=ecs-service':
+        'https://d6a1950112a2.ngrok-free.app/vt/perm/v1/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&type=HOLDER&response_max_size=1&schema_id=ecs-service':
           {
             ok: true,
             status: 200,
-            data: mockPermission,
+            data: mockHolderPermission,
           },
       })
 
-      const result = await verifyIssuerPermissions({
-        issuer: 'did:web:d6a1950112a2.ngrok-free.app',
+      const result = await verifyPermissions({
+        did: 'did:web:d6a1950112a2.ngrok-free.app',
         jsonSchemaCredentialId: 'https://d6a1950112a2.ngrok-free.app/vt/schemas-example-service-jsc.json',
         issuanceDate: '2025-11-20T00:22:56.885Z',
         verifiablePublicRegistries,
+        permissionType: PermissionType.HOLDER,
       })
       expect(result.verified).toBe(true)
     })

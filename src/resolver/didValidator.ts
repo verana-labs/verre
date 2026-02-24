@@ -3,7 +3,6 @@ import {
   type W3cPresentation,
   type W3cJsonLdVerifiablePresentation,
   type AgentContext,
-  JsonObject,
   W3cCredentialSubject,
   DidsApi,
 } from '@credo-ts/core'
@@ -18,23 +17,28 @@ import {
   IService,
   ICredential,
   IOrg,
-  IPerson,
+  IPersona,
   InternalResolverConfig,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
   PermissionResponse,
   CredentialResolution,
-  VerifyIssuerPermissionsOptions,
+  VerifyPermissionsOptions,
+  PermissionType,
+  LogLevel,
+  IVerreLogger,
 } from '../types'
 import {
   buildMetadata,
   fetchJson,
+  fetchText,
   handleTrustError,
   identifySchema,
   TrustError,
   validateSchemaContent,
   verifyDigestSRI,
   verifySignature,
+  VerreLogger,
 } from '../utils'
 import { resolverInstance } from '../libraries'
 
@@ -51,6 +55,8 @@ import { resolverInstance } from '../libraries'
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
  * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
+ * @param options.logger - *(Optional)* Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
  * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
  * for managing cache validity (e.g. TTL, revocation checks).
  *
@@ -65,24 +71,62 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
 }
 
 /**
+<<<<<<< HEAD
  * Verifies whether a given issuer has permission to issue a specific credential
+=======
+ * Creates a DID Resolver instance that uses the Credo-TS internal `DidResolverService`
+ * to resolve Decentralized Identifiers (DIDs).
+ *
+ * This resolver delegates all resolution requests to the `DidResolverService` registered
+ * within the provided `AgentContext`.
+ *
+ * @param agentContext - The agent context containing the global operational state
+ * of the agent, including registered services, modules, DIDs, wallets, storage, and configuration
+ * from Credo-TS.
+ *
+ * @returns A `did-resolver` `Resolver` instance configured to use Credo-TS for DID resolution.
+ */
+function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
+  const didResolverApi = agentContext.dependencyManager.resolve(DidsApi)
+  return new Resolver(
+    new Proxy(
+      {},
+      {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        get: (_target, _method: string) => {
+          return async (did: string) => didResolverApi.resolve(did)
+        },
+      },
+    ),
+  )
+}
+
+/**
+ * Verifies whether a given did has permission to perform a specific action
+>>>>>>> main
  * according to the trust registries and schema definitions.
  *
  * @param options - Configuration object containing all required data.
- * @param options.issuer - The issuer to validate (string or object depending on implementation).
+ * @param options.did - The DID of the entity to validate.
  * @param options.jsonSchemaCredentialId - URL or identifier for the JSON schema of the credential.
  * @param options.issuanceDate - The date at which the credential was issued.
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
+ * @param options.permissionType - The type of permission to verify.
+ * @param options.logger - (Optional) Logger used for debugging.
  */
-export async function verifyIssuerPermissions(options: VerifyIssuerPermissionsOptions) {
+export async function verifyPermissions(options: VerifyPermissionsOptions) {
+  const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
-    const { issuer, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries } = options
+    const { did, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries, permissionType } = options
+    logger.debug('Verifying permissions', { permissionType })
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
-    const { subject } = resolveSchemaAndSubject(credential)
+    const { subject } = resolveSchemaAndSubject(credential, logger)
     const { trustRegistry, schemaId } = resolveTrustRegistry(getRefUrl(subject), verifiablePublicRegistries)
-    await verifyPermission(trustRegistry, schemaId, issuanceDate, issuer)
+    await verifyPermission(trustRegistry, schemaId, issuanceDate, did, permissionType, logger)
+    logger.debug('Issuer permissions verified successfully')
     return { verified: true }
-  } catch {
+  } catch (error) {
+    logger.error('Issuer permissions verification failed', error)
     return { verified: false }
   }
 }
@@ -102,15 +146,19 @@ export async function resolveCredential(
   credential: W3cVerifiableCredential,
   options: ResolverConfig,
 ): Promise<CredentialResolution> {
+  const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
-    const { verifiablePublicRegistries } = options
+    const { verifiablePublicRegistries, skipDigestSRICheck } = options
     const { credential: w3cCredential, outcome } = await processCredential(
       credential,
       verifiablePublicRegistries ?? [],
+      skipDigestSRICheck,
+      logger,
     )
     return { verified: true, outcome, issuer: w3cCredential.issuer }
-  } catch {
+  } catch (error) {
     const issuer = typeof credential.issuer === 'string' ? credential.issuer : (credential.issuer?.id ?? null)
+    logger.error('Credential resolution failed', error)
     return { verified: false, outcome: TrustResolutionOutcome.INVALID, issuer }
   }
 }
@@ -200,6 +248,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
  * @param {boolean} cached - Optional indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param {boolean} skipDigestSRICheck - Optional When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  *
  * @returns {Promise<TrustResolution>} An object containing:
  * - The original DID Document
@@ -220,10 +269,13 @@ async function processDidDocument(
   didDocument: DIDDocument,
   options: InternalResolverConfig,
 ): Promise<TrustResolution> {
+  const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
+  logger.debug('Processing DID document', { did, serviceCount: didDocument?.service?.length })
+
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, agentContext, attrs } = options
+  const { verifiablePublicRegistries, didResolver, agentContext, attrs, skipDigestSRICheck } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -231,11 +283,14 @@ async function processDidDocument(
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
   const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
+  logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
   await Promise.all(
     didDocument.service.map(async didService => {
       const { type, id } = didService
       const matchesPattern = patterns.some(pattern => pattern.test(id.split('#')[1]))
+      logger.debug('Evaluating DID service', { id, type, matchesPattern })
       if (type === 'LinkedVerifiablePresentation' && matchesPattern) {
+        logger.debug('Resolving linked VP service', { id })
         const vp = await resolveServiceVP(didService)
         if (!vp)
           throw new TrustError(
@@ -243,10 +298,14 @@ async function processDidDocument(
             `Invalid Linked Verifiable Presentation for service id: '${id}'`,
           )
 
+        logger.debug('Getting verified credential from VP', { id })
         const { credential, outcome: vpOutcome } = await getVerifiedCredential(
           vp,
           verifiablePublicRegistries ?? [],
           agentContext,
+          logger,
+          skipDigestSRICheck,
+          options.cached,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -255,11 +314,13 @@ async function processDidDocument(
         const isExternalIssuer = credential.issuer !== did
 
         if (isServiceCred && isExternalIssuer) {
+          logger.debug('Processing external issuer service credential', { issuer: credential.issuer })
           const resolution = await _resolve(credential.issuer, {
             verifiablePublicRegistries,
             didResolver,
             attrs: credential,
             agentContext,
+            skipDigestSRICheck,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
@@ -269,7 +330,7 @@ async function processDidDocument(
   )
   service ??= credentials.find((cred): cred is IService => cred.schemaType === ECS.SERVICE)
   serviceProvider ??= credentials.find(
-    (cred): cred is IOrg | IPerson => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSON,
+    (cred): cred is IOrg | IPersona => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSONA,
   )
 
   // If proof of trust exists, return the result with the service (issuer equals did)
@@ -336,12 +397,18 @@ async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   agentContext: AgentContext,
+  logger: IVerreLogger,
+  skipDigestSRICheck?: boolean,
   cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
+  logger.debug('Verifying credential', { cached })
+
   const w3cCredential = getCredential(vp)
   let isVerified: { result: boolean; error?: string }
-  if (cached) isVerified = { result: true }
-  else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext)
+  if (cached) {
+    logger.debug('Using cached credential verification')
+    isVerified = { result: true }
+  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext, logger)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,
@@ -349,7 +416,8 @@ async function getVerifiedCredential(
     )
   }
 
-  return await processCredential(w3cCredential, verifiablePublicRegistries)
+  logger.debug('Credential verified successfully')
+  return await processCredential(w3cCredential, verifiablePublicRegistries, skipDigestSRICheck, logger)
 }
 
 /**
@@ -394,6 +462,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
  *
  * @param w3cCredential - The Verifiable Credential to validate.
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
+ * @param issuer - Optional issuer DID to validate permissions against the trust registry.
  * @param attrs - Optional attributes to validate against the credential subject schema.
  * @returns A Promise resolving to the processed and validated credential.
  * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
@@ -401,29 +470,42 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
 async function processCredential(
   w3cCredential: W3cVerifiableCredential,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
+  skipDigestSRICheck: boolean = false,
+  logger: IVerreLogger,
   issuer?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
-  const { schema, subject } = resolveSchemaAndSubject(w3cCredential)
+  logger.debug('Processing credential', { id: w3cCredential.id })
+
+  const { schema, subject } = resolveSchemaAndSubject(w3cCredential, logger)
   const id = w3cCredential.id as string
 
   if (schema.type === 'JsonSchemaCredential') {
+    logger.debug('Processing JsonSchemaCredential Processing, fetching it', { schemaId: schema.id })
     const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
     return processCredential(
       jsonSchemaCredential,
       verifiablePublicRegistries,
+      skipDigestSRICheck,
+      logger,
       w3cCredential.issuer as string,
       subject as Record<string, string>,
     )
   }
 
   if (schema.type === 'JsonSchema') {
+    logger.debug('Processing JsonSchema credential')
     const { digestSRI: schemaDigestSRI } = schema as Record<string, any>
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
       // Fetch and verify the credential schema integrity
-      const schemaData = await fetchJson(schema.id)
-      verifyDigestSRI(JSON.stringify(schemaData), schemaDigestSRI, 'Credential Schema')
+      logger.debug('Fetching credential schema', { schemaId: schema.id })
+      const schemaRawText = await fetchText(schema.id)
+      const schemaData = JSON.parse(schemaRawText)
+
+      if (!skipDigestSRICheck) {
+        verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
+      }
 
       // Validate the credential against the schema
       validateSchemaContent(schemaData, w3cCredential)
@@ -434,24 +516,39 @@ async function processCredential(
         refUrl,
         verifiablePublicRegistries,
       )
+      logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
 
       // If a reference URL exists, fetch the referenced schema
-      const subjectSchema = await fetchJson<JsonObject>(schemaUrl)
+      logger.debug('Fetching subject schema')
+      const subjectSchemaRawText = await fetchText(schemaUrl)
+      const subjectSchema = JSON.parse(subjectSchemaRawText)
 
       // Verify the integrity of the referenced subject schema using its SRI digest
-      verifyDigestSRI(JSON.stringify(subjectSchema), subjectDigestSRI, 'Credential Subject')
+      if (!skipDigestSRICheck) {
+        verifyDigestSRI(subjectSchemaRawText, subjectDigestSRI, logger)
+      }
 
       // Verify the issuer permission over the schema
-      await verifyPermission(trustRegistry, schemaId, w3cCredential.issuanceDate, issuer)
+      if (issuer)
+        await verifyPermission(
+          trustRegistry,
+          schemaId,
+          w3cCredential.issuanceDate,
+          issuer,
+          PermissionType.ISSUER,
+          logger,
+        )
 
       // Validate the credential subject attributes against the JSON schema content
-      validateSchemaContent(JSON.parse(subjectSchema.schema as string), attrs)
+      validateSchemaContent(subjectSchema, attrs)
       const credential = { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
       return { credential, outcome }
     } catch (error) {
+      logger.error('Failed to process credential', error)
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
     }
   }
+  logger.error('Unsupported schema type', { schemaType: schema.type })
   throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, 'Failed to validate credential')
 }
 
@@ -463,7 +560,9 @@ async function processCredential(
  * @returns An object containing the validated schema and subject.
  * @throws TrustError if the schema or subject is missing, or if the schema type is unsupported.
  */
-function resolveSchemaAndSubject(credential: W3cVerifiableCredential) {
+function resolveSchemaAndSubject(credential: W3cVerifiableCredential, logger: IVerreLogger) {
+  logger.debug('Resolving schema and subject from credential')
+
   const schema = extractSchema(credential.credentialSchema)
   const subject = extractSchema(credential.credentialSubject)
 
@@ -481,6 +580,7 @@ function resolveSchemaAndSubject(credential: W3cVerifiableCredential) {
     )
   }
 
+  logger.debug('Schema and subject extracted', { schemaType: schema?.type, hasSubject: !!subject })
   return { schema, subject }
 }
 
@@ -515,40 +615,42 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
 }
 
 /**
- * Verifies that the issuer holds a valid ISSUER permission for the specified schema
- * and ensures the credential’s issuance date is not earlier than the permission creation date.
+ * Verifies that an entity holds valid permissions for the specified schema
+ * and ensures the credential's issuance date is not earlier than the permission creation date.
  */
 async function verifyPermission(
   trustRegistry: string,
   schemaId: string,
   issuanceDate: string,
-  issuer?: string,
+  did: string,
+  permissionType: PermissionType,
+  logger: IVerreLogger,
 ) {
-  if (!issuer) {
-    throw new TrustError(TrustErrorCode.NOT_FOUND, 'Issuer not found')
-  }
-
+  logger.debug('Verifying permission', { schemaId, did })
   const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    issuer,
-  )}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
+    did,
+  )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
 
+  logger.debug('Fetching issuer permissions', { permUrl, schemaId })
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
-  if (!perm || perm.type !== 'ISSUER') {
+  if (!perm || perm.type !== permissionType)
     throw new TrustError(
-      TrustErrorCode.INVALID_ISSUER,
-      'No valid issuer permissions were found for the specified DID',
+      TrustErrorCode.INVALID_PERMISSIONS,
+      `No valid ${permissionType} permissions were found for the specified DID: ${did} for schema ${schemaId}`,
     )
-  }
 
+  logger.debug('Permission found, verifying dates', { did, created: perm.created, issuanceDate })
   const issuanceTs = Date.parse(issuanceDate)
   const createdTs = Date.parse(perm.created)
   if (issuanceTs < createdTs) {
     throw new TrustError(
-      TrustErrorCode.INVALID_ISSUER,
+      TrustErrorCode.INVALID_PERMISSIONS,
       'Credential issuance date is earlier than the permission creation date',
     )
   }
+
+  logger.debug('Permission verified successfully', { did, schemaId })
 }
 
 /**

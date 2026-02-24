@@ -8,7 +8,7 @@ import {
 import { Buffer } from 'buffer/'
 
 import { purposes } from '../libraries'
-import { TrustErrorCode } from '../types'
+import { TrustErrorCode, IVerreLogger } from '../types'
 
 import { hash } from './crypto'
 import { TrustError } from './trustError'
@@ -28,6 +28,7 @@ import { TrustError } from './trustError'
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
   agentContext: AgentContext,
+  logger: IVerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   try {
     if (
@@ -53,25 +54,34 @@ export async function verifySignature(
           proofPurpose: new purposes.AssertionProofPurpose(),
         })
     if (!result.isValid) {
-      return { result: result.isValid, error: JSON.stringify(result.validations.vcJs?.error) }
+      const error = JSON.stringify(result.validations.vcJs?.error)
+      logger.error('Signature verification failed', { error })
+      return { result: result.isValid, error }
     }
 
+    logger.debug('Document signature verified successfully')
+
     if (isPresentation && isVerifiablePresentation(document)) {
+      logger.debug('Verifying embedded credentials in presentation')
       const credentials = Array.isArray(document.verifiableCredential)
         ? document.verifiableCredential
         : [document.verifiableCredential]
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, agentContext)))
+      logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
+      const results = await Promise.all(
+        jsonLdCredentials.map(vc => verifySignature(vc, agentContext, logger)),
+      )
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
         throw new Error('One or more verifiable credentials failed signature verification.')
       }
+      logger.debug('All embedded credentials verified successfully')
     }
     return { result: result.isValid }
   } catch (error) {
-    agentContext.config.logger.error('Error validating the proof:', error.message)
+    logger.error('Signature verification exception', error)
     return { result: false, error: error.message }
   }
 }
@@ -90,18 +100,30 @@ function isVerifiablePresentation(
 }
 
 /**
- * Verifies the integrity of a given JSON schema string using a Subresource Integrity (SRI) digest.
+ * Verifies the integrity of a given raw content string using a Subresource Integrity (SRI) digest.
  *
- * @param {string} schemaJson - The JSON schema as a string to be verified.
+ * The digest is computed over the raw bytes of the content as provided, without any
+ * transformation or canonicalization. This aligns with the SRI specification, which
+ * requires byte-level integrity verification.
+ *
+ * @param {string} rawContent - The raw content string to be verified (e.g. as fetched from a URL).
  * @param {string} expectedDigestSRI - The expected SRI digest in the format `{algorithm}-{hash}`.
- * @param {string} name - The name associated with the schema, used for error messages.
  * @throws {TrustError} Throws an error if the computed hash does not match the expected hash.
  */
-export function verifyDigestSRI(schemaJson: string, expectedDigestSRI: string, name: string) {
+export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string, logger: IVerreLogger) {
   const [algorithm, expectedHash] = expectedDigestSRI.split('-')
-  const computedHash = Buffer.from(hash(algorithm, JSON.stringify(JSON.parse(schemaJson)))).toString('base64')
+
+  logger.debug('Verifying digest SRI', { expectedDigestSRI: `${expectedDigestSRI}` })
+
+  const computedHash = Buffer.from(hash(algorithm, rawContent)).toString('base64')
+  logger.debug('Computing hash', { computedHash: `${algorithm}-${computedHash}` })
 
   if (computedHash !== expectedHash) {
-    throw new TrustError(TrustErrorCode.VERIFICATION_FAILED, `digestSRI verification failed for ${name}.`)
+    throw new TrustError(
+      TrustErrorCode.VERIFICATION_FAILED,
+      `digestSRI verification failed for ${rawContent}. Computed: ${computedHash}, Expected: ${expectedHash}`,
+    )
   }
+
+  logger.debug('Digest SRI verified successfully')
 }

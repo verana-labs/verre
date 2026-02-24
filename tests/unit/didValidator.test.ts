@@ -22,6 +22,7 @@ import {
   mockServiceExtIssuerVc,
   mockServiceSchemaSelfIssued,
   mockServiceVcSelfIssued,
+  mockW3cJsonSchemaV2,
   setupAgent,
   verifiablePublicRegistries,
   mockPermission,
@@ -76,6 +77,11 @@ describe('DidValidator', () => {
           ok: true,
           status: 200,
           data: mockOrgSchema,
+        },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
         },
         'https://testTrust.com/v1/cs/js/12345671': {
           ok: true,
@@ -156,6 +162,11 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchemaWithoutIssuer,
         },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
+        },
         'https://testTrust.com/v1/cs/js/12345673': {
           ok: true,
           status: 200,
@@ -232,6 +243,11 @@ describe('DidValidator', () => {
           status: 200,
           data: mockOrgSchemaWithoutIssuer,
         },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
+        },
         'https://testTrust.com/v1/cs/js/12345673': {
           ok: true,
           status: 200,
@@ -283,6 +299,15 @@ describe('DidValidator', () => {
           },
         }),
       )
+
+      // Add digest verification failure scenario
+      const verifyDigestSRISpy = vi.spyOn(signatureVerifier, 'verifyDigestSRI')
+      await resolveDID(didExtIssuer, {
+        verifiablePublicRegistries,
+        agentContext,
+        skipDigestSRICheck: true,
+      })
+      expect(verifyDigestSRISpy).not.toHaveBeenCalled()
     })
   })
 

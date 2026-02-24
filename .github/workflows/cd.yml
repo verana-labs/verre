@@ -5,6 +5,7 @@ on:
       - main
 
 permissions:
+  id-token: write
   issues: write
   contents: write
   pull-requests: write
@@ -33,18 +34,17 @@ jobs:
           cache: pnpm
         if: ${{ steps.release.outputs.release_created }}
 
-      - name: Setup npm auth for pnpm
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Corepack pnpm
+        # OIDC publishing requires a very up to date npm version
+        run: |
+          npm install -g npm@latest
+          corepack enable
         if: ${{ steps.release.outputs.release_created }}
 
       - run: pnpm install --frozen-lockfile
         if: ${{ steps.release.outputs.release_created }}
 
       - run: pnpm publish
-        env:
-          NPM_TOKEN: ${{secrets.NPM_TOKEN}}
         if: ${{ steps.release.outputs.release_created }}
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@verana-labs/verre",
-  "version": "0.0.16",
+  "version": "0.1.0",
   "type": "module",
   "main": "./build/cjs/index.js",
   "module": "./build/index.js",
@@ -73,6 +73,7 @@
     "buffer": "^6.0.3",
     "did-resolver": "^4.1.0",
     "jsonld": "^8.3.3",
+    "tslog": "^4.10.2",
     "web-did-resolver": "^2.0.29"
   },
   "engines": {

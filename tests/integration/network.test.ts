@@ -10,10 +10,11 @@ import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import {
   fetchJson,
+  PermissionType,
   resolveCredential,
   resolveDID,
   TrustResolutionOutcome,
-  verifyIssuerPermissions,
+  verifyPermissions,
 } from '../../src'
 import {
   fetchMocker,
@@ -208,11 +209,12 @@ describe('Integration with Verana Blockchain', () => {
   }, 10000)
 
   it('should return verified: true when permission checks succeed', async () => {
-    const result = await verifyIssuerPermissions({
-      issuer: 'did:webvh:QmS8DRrqwZuTNLk5ZinD91F2o3xn7XwCVCS5CHGfJHyfhb:dm.gov-id-tr.demos.dev.2060.io',
+    const result = await verifyPermissions({
+      did: 'did:webvh:QmS8DRrqwZuTNLk5ZinD91F2o3xn7XwCVCS5CHGfJHyfhb:dm.gov-id-tr.demos.dev.2060.io',
       jsonSchemaCredentialId: 'https://dm.gov-id-tr.demos.dev.2060.io/vt/schemas-gov-id-jsc.json',
-      issuanceDate: '2025-11-22T00:22:56.885Z',
+      issuanceDate: '2026-02-20T16:57.885Z',
       verifiablePublicRegistries,
+      permissionType: PermissionType.ISSUER,
     })
     expect(result.verified).toBe(true)
   })
