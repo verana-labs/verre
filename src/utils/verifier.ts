@@ -3,7 +3,7 @@ import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } f
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { base58, base64url } from '@scure/base'
-import { Buffer } from 'buffer/'
+import { Buffer } from 'buffer'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
 import { TrustErrorCode, IVerreLogger } from '../types'
