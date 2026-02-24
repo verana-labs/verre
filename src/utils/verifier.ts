@@ -4,9 +4,8 @@ import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { base58, base64url } from '@scure/base'
 import { Buffer } from 'buffer/'
-import { VerificationMethod } from 'did-resolver'
+import { Resolver, VerificationMethod } from 'did-resolver'
 
-import { resolveDID } from '../libraries'
 import { TrustErrorCode, IVerreLogger } from '../types'
 
 import { hash } from './crypto'
@@ -29,6 +28,7 @@ const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
+  didResolver: Resolver,
   logger: IVerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   try {
@@ -42,7 +42,11 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const result = await verifyJsonLdCredential(document as unknown as Record<string, unknown>, logger)
+    const result = await verifyJsonLdCredential(
+      document as unknown as Record<string, unknown>,
+      didResolver,
+      logger,
+    )
     if (!result.result) {
       const error = JSON.stringify(result?.error)
       logger.error('Signature verification failed', { error })
@@ -59,7 +63,7 @@ export async function verifySignature(
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
       logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, logger)))
+      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, didResolver, logger)))
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
@@ -101,6 +105,7 @@ export async function verifySignature(
  */
 async function verifyJsonLdCredential(
   vc: Record<string, unknown>,
+  didResolver: Resolver,
   logger: IVerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   const supportedProofTypes = ['Ed25519Signature2020', 'Ed25519Signature2018']
@@ -167,7 +172,7 @@ async function verifyJsonLdCredential(
     return { result: false, error: `Unsupported proof type: ${proofType}` }
   }
 
-  const publicKeyBytes = await resolvePublicKey(verificationMethodId, logger)
+  const publicKeyBytes = await resolvePublicKey(verificationMethodId, didResolver, logger)
   if (!publicKeyBytes) {
     return { result: false, error: `Cannot resolve verification method: ${verificationMethodId}` }
   }
@@ -188,10 +193,11 @@ async function verifyJsonLdCredential(
  */
 async function resolvePublicKey(
   verificationMethodId: string,
+  didResolver: Resolver,
   logger: IVerreLogger,
 ): Promise<Uint8Array | null> {
   const did = verificationMethodId.split('#')[0]
-  const resolution = await resolveDID(did)
+  const resolution = await didResolver.resolve(did)
   if (resolution.didResolutionMetadata?.error || !resolution.didDocument) {
     logger.debug('Failed to resolve DID for verification method', {
       did,

@@ -33,7 +33,8 @@ export type VerifyPermissionsOptions = {
   logger?: IVerreLogger
 }
 
-export type InternalResolverConfig = ResolverConfig & {
+export type InternalResolverConfig = Omit<ResolverConfig, 'didResolver'> & {
+  didResolver: Resolver
   attrs?: IService
 }
 

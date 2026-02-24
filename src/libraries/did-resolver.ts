@@ -48,34 +48,3 @@ export const resolverInstance = new Resolver({
   ...didWeb.getResolver(),
   webvh: webVhDidResolver,
 })
-
-/**
- * Resolves a DID (did:web or did:webvh) and returns the DIDResolutionResult.
- * Throws if the DID method is not supported or resolution fails.
- */
-export async function resolveDID(did: string): Promise<DIDResolutionResult> {
-  const supportedMethods = ['web', 'webvh']
-  const method = did.split(':')[1]
-
-  if (!method || !supportedMethods.includes(method)) {
-    return {
-      didResolutionMetadata: {
-        error: 'methodNotSupported',
-        message: `Method "${method}" is not supported. Supported methods: ${supportedMethods.join(', ')}`,
-      },
-      didDocument: null,
-      didDocumentMetadata: {},
-    }
-  }
-
-  const result = await resolverInstance.resolve(did)
-
-  if (result.didResolutionMetadata?.error) {
-    throw new Error(
-      `Failed to resolve DID "${did}": ${result.didResolutionMetadata.error}` +
-        (result.didResolutionMetadata.message ? ` — ${result.didResolutionMetadata.message}` : ''),
-    )
-  }
-
-  return result
-}

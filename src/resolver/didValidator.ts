@@ -61,10 +61,11 @@ import {
  * DID document metadata, and trust validation outcome.
  */
 export async function resolveDID(did: string, options: ResolverConfig): Promise<TrustResolution> {
-  if (!options.didResolver) {
-    options.didResolver = resolverInstance
+  const internalOptions: InternalResolverConfig = {
+    ...options,
+    didResolver: options.didResolver ?? resolverInstance,
   }
-  return await _resolve(did, options)
+  return await _resolve(did, internalOptions)
 }
 
 /**
@@ -268,6 +269,7 @@ async function processDidDocument(
           vp,
           verifiablePublicRegistries ?? [],
           logger,
+          didResolver,
           skipDigestSRICheck,
           options.cached,
         )
@@ -359,6 +361,7 @@ async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   logger: IVerreLogger,
+  didResolver: Resolver,
   skipDigestSRICheck?: boolean,
   cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
@@ -369,7 +372,7 @@ async function getVerifiedCredential(
   if (cached) {
     logger.debug('Using cached credential verification')
     isVerified = { result: true }
-  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, logger)
+  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,
