@@ -71,39 +71,7 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
 }
 
 /**
-<<<<<<< HEAD
  * Verifies whether a given issuer has permission to issue a specific credential
-=======
- * Creates a DID Resolver instance that uses the Credo-TS internal `DidResolverService`
- * to resolve Decentralized Identifiers (DIDs).
- *
- * This resolver delegates all resolution requests to the `DidResolverService` registered
- * within the provided `AgentContext`.
- *
- * @param agentContext - The agent context containing the global operational state
- * of the agent, including registered services, modules, DIDs, wallets, storage, and configuration
- * from Credo-TS.
- *
- * @returns A `did-resolver` `Resolver` instance configured to use Credo-TS for DID resolution.
- */
-function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
-  const didResolverApi = agentContext.dependencyManager.resolve(DidsApi)
-  return new Resolver(
-    new Proxy(
-      {},
-      {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        get: (_target, _method: string) => {
-          return async (did: string) => didResolverApi.resolve(did)
-        },
-      },
-    ),
-  )
-}
-
-/**
- * Verifies whether a given did has permission to perform a specific action
->>>>>>> main
  * according to the trust registries and schema definitions.
  *
  * @param options - Configuration object containing all required data.
