@@ -1,6 +1,6 @@
-import { createPublicKey, verify } from 'node:crypto'
-import { resolveDID } from 'didwebvh-ts'
 import { DIDResolutionResult, DIDResolver, Resolver } from 'did-resolver'
+import { resolveDID } from 'didwebvh-ts'
+import { createPublicKey, verify } from 'node:crypto'
 import * as didWeb from 'web-did-resolver'
 
 const ED25519_SPKI_PREFIX = Buffer.from([
@@ -8,11 +8,7 @@ const ED25519_SPKI_PREFIX = Buffer.from([
 ])
 
 const ed25519Verifier = {
-  async verify(
-    signature: Uint8Array,
-    message: Uint8Array,
-    publicKey: Uint8Array
-  ): Promise<boolean> {
+  async verify(signature: Uint8Array, message: Uint8Array, publicKey: Uint8Array): Promise<boolean> {
     const key = createPublicKey({
       key: Buffer.concat([ED25519_SPKI_PREFIX, Buffer.from(publicKey)]),
       format: 'der',

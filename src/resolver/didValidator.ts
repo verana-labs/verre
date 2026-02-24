@@ -4,11 +4,10 @@ import {
   type W3cJsonLdVerifiablePresentation,
   type AgentContext,
   W3cCredentialSubject,
-  DidsApi,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
-import * as didWeb from 'web-did-resolver'
 
+import { resolverInstance } from '../libraries'
 import {
   ECS,
   ResolverConfig,
@@ -40,7 +39,6 @@ import {
   verifySignature,
   VerreLogger,
 } from '../utils'
-import { resolverInstance } from '../libraries'
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
