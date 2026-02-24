@@ -1,7 +1,7 @@
 import { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
-import { base58 } from '@scure/base'
+import { base58, base64url } from '@scure/base'
 import { Buffer } from 'buffer/'
 import { VerificationMethod } from 'did-resolver'
 
@@ -36,7 +36,7 @@ export async function verifySignature(
       !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential'))
     ) {
       throw new Error(
-        'The document must be a Verifiable Presentation, Verifiable Credential with a valid proof and the agentContext must be added.',
+        'The document must be a Verifiable Presentation, Verifiable Credential with a valid proof must be added.',
       )
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
@@ -104,17 +104,13 @@ async function verifyJsonLdCredential(
 ): Promise<{ result: boolean; error?: string }> {
   const supportedProofTypes = ['Ed25519Signature2020', 'Ed25519Signature2018']
   const proof = vc.proof as Record<string, unknown> | undefined
-  if (!proof) {
-    return { result: false, error: 'Credential has no proof' }
-  }
+  const context = vc['@context'] || vc['context']
+  if (!context) return { result: false, error: 'Credential is missing context (@context)' }
+  if (!proof) return { result: false, error: 'Credential has no proof' }
 
-  if (!supportedProofTypes.includes(proof.type as string)) {
-    return { result: false, error: `Unsupported proof type: ${proof.type}` }
-  }
-
-  const proofValue = proof.proofValue as string | undefined
-  if (!proofValue || typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
-    return { result: false, error: 'Missing or invalid proofValue (expected multibase base58)' }
+  const proofType = proof.type as string
+  if (!supportedProofTypes.includes(proofType)) {
+    return { result: false, error: `Unsupported proof type: ${proofType}` }
   }
 
   const verificationMethodId = proof.verificationMethod as string | undefined
@@ -124,7 +120,8 @@ async function verifyJsonLdCredential(
 
   const proofOptions: Record<string, unknown> = { ...proof }
   delete proofOptions.proofValue
-  proofOptions['@context'] = vc['@context']
+  delete proofOptions.jws
+  proofOptions['@context'] = context
 
   const document: Record<string, unknown> = { ...vc }
   delete document.proof
@@ -144,9 +141,31 @@ async function verifyJsonLdCredential(
 
   const proofHash = hash('SHA256', proofNQuads as string)
   const docHash = hash('SHA256', docNQuads as string)
-  const verifyData = Buffer.concat([proofHash, docHash])
 
-  const signatureBytes = base58.decode(proofValue.slice(1))
+  let signatureBytes: Buffer
+  let verifyData: Buffer
+
+  if (proofType === 'Ed25519Signature2020') {
+    const proofValue = proof.proofValue as string | undefined
+    if (!proofValue || typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
+      return { result: false, error: 'Missing or invalid proofValue (expected multibase base58)' }
+    }
+    signatureBytes = Buffer.from(base58.decode(proofValue.slice(1)))
+    verifyData = Buffer.concat([proofHash, docHash])
+  } else if (proofType === 'Ed25519Signature2018') {
+    const { jws } = proof
+
+    if (typeof jws !== 'string' || !jws.includes('..')) {
+      return { result: false, error: 'Invalid or missing JWS detached signature' }
+    }
+
+    const [header, , signaturePart] = jws.split('.')
+    signatureBytes = Buffer.from(base64url.decode(signaturePart))
+    verifyData = Buffer.concat([Buffer.from(`${header}.`, 'utf8'), proofHash as Buffer, docHash as Buffer])
+  } else {
+    return { result: false, error: `Unsupported proof type: ${proofType}` }
+  }
+
   const publicKeyBytes = await resolvePublicKey(verificationMethodId)
   if (!publicKeyBytes) {
     return { result: false, error: `Cannot resolve verification method: ${verificationMethodId}` }
@@ -157,7 +176,7 @@ async function verifyJsonLdCredential(
     return { result: false, error: 'Ed25519 signature verification failed' }
   }
 
-  logger.debug('Ed25519Signature2020 verified OK', { vcId: vc.id, verificationMethod: verificationMethodId })
+  logger.debug(`${proofType} verified OK`, { vcId: vc.id, verificationMethod: verificationMethodId })
   return { result: true }
 }
 
