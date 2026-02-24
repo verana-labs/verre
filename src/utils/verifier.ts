@@ -167,7 +167,7 @@ async function verifyJsonLdCredential(
     return { result: false, error: `Unsupported proof type: ${proofType}` }
   }
 
-  const publicKeyBytes = await resolvePublicKey(verificationMethodId)
+  const publicKeyBytes = await resolvePublicKey(verificationMethodId, logger)
   if (!publicKeyBytes) {
     return { result: false, error: `Cannot resolve verification method: ${verificationMethodId}` }
   }
@@ -181,34 +181,41 @@ async function verifyJsonLdCredential(
   return { result: true }
 }
 
-// ---------------------------------------------------------------------------
-// Resolve a verification method DID URL to a raw Ed25519 public key (32 bytes)
-// ---------------------------------------------------------------------------
-
-async function resolvePublicKey(verificationMethodId: string): Promise<Uint8Array | null> {
-  // Extract the DID (before the fragment)
+/**
+ * Resolve a verification method DID URL to a raw Ed25519 public key (32 bytes)
+ * @param verificationMethodId Full DID URL of the verification method * (e.g. did:example:123#key-1).
+ * @returns
+ */
+async function resolvePublicKey(
+  verificationMethodId: string,
+  logger: IVerreLogger,
+): Promise<Uint8Array | null> {
   const did = verificationMethodId.split('#')[0]
   const resolution = await resolveDID(did)
   if (resolution.didResolutionMetadata?.error || !resolution.didDocument) {
-    // logger.debug({ did, error: error?.error }, 'Failed to resolve DID for verification method');
+    logger.debug('Failed to resolve DID for verification method', {
+      did,
+      error: resolution.didResolutionMetadata?.error,
+    })
     return null
   }
 
   const didDoc = resolution.didDocument
 
-  // Find the verification method by id
   const verificationMethods: VerificationMethod[] = didDoc.verificationMethod ?? didDoc.publicKey ?? []
   const vm = verificationMethods.find(m => m.id === verificationMethodId)
   if (!vm) {
-    // logger.debug({ verificationMethodId, available: verificationMethods.map((m) => m.id) }, 'Verification method not found');
+    logger.debug('Verification method not found', {
+      verificationMethodId,
+      available: verificationMethods.map(m => m.id),
+    })
     return null
   }
 
-  // Extract raw public key bytes
   if (vm.publicKeyMultibase && typeof vm.publicKeyMultibase === 'string') {
     const multibase = vm.publicKeyMultibase as string
     if (!multibase.startsWith('z')) {
-      //   logger.debug({ verificationMethodId }, 'Unsupported multibase prefix');
+      logger.debug('Unsupported multibase prefix', { verificationMethodId })
       return null
     }
     const decoded = base58.decode(multibase.slice(1))
@@ -224,7 +231,7 @@ async function resolvePublicKey(verificationMethodId: string): Promise<Uint8Arra
     if (decoded.length === 32) {
       return decoded
     }
-    // logger.debug({ verificationMethodId, decodedLength: decoded.length }, 'Unexpected public key length');
+    logger.debug('Unexpected public key length', { verificationMethodId, decodedLength: decoded.length })
     return null
   }
 
@@ -239,7 +246,7 @@ async function resolvePublicKey(verificationMethodId: string): Promise<Uint8Arra
     }
   }
 
-  //   logger.debug({ verificationMethodId, vmType: vm.type }, 'No supported public key format found');
+  logger.debug('No supported public key format found', { verificationMethodId, vmType: vm.type })
   return null
 }
 
