@@ -121,7 +121,6 @@ export enum VerifiablePresentationState {
   PENDING = 'PENDING',
   VALIDATED = 'VALIDATED',
   TERMINATED = 'TERMINATED',
-  TERMINATION_REQUESTED = 'TERMINATION_REQUESTED',
 }
 
 export enum TrustErrorCode {
