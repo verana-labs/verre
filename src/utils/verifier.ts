@@ -1,17 +1,18 @@
-import {
-  AgentContext,
-  JsonTransformer,
-  W3cCredentialService,
-  W3cJsonLdVerifiableCredential,
-  W3cJsonLdVerifiablePresentation,
-} from '@credo-ts/core'
+import { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import jsonld from '@digitalcredentials/jsonld'
+import { ed25519 } from '@noble/curves/ed25519.js'
+import { base58 } from '@scure/base'
 import { Buffer } from 'buffer/'
+import { VerificationMethod } from 'did-resolver'
 
-import { purposes } from '../libraries'
+import { resolveDID } from '../libraries'
 import { TrustErrorCode, IVerreLogger } from '../types'
 
 import { hash } from './crypto'
 import { TrustError } from './trustError'
+
+// Ed25519 multicodec prefix: 0xed01
+const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
 
 /**
  * Recursively verifies the digital proof of a W3C Verifiable Presentation (VP) or Verifiable Credential (VC).
@@ -27,14 +28,12 @@ import { TrustError } from './trustError'
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
-  agentContext: AgentContext,
   logger: IVerreLogger,
 ): Promise<{ result: boolean; error?: string }> {
   try {
     if (
       !document.proof ||
-      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential')) ||
-      !agentContext
+      !(document.type.includes('VerifiablePresentation') || document.type.includes('VerifiableCredential'))
     ) {
       throw new Error(
         'The document must be a Verifiable Presentation, Verifiable Credential with a valid proof and the agentContext must be added.',
@@ -42,21 +41,11 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    const w3c = await agentContext.dependencyManager.resolve(W3cCredentialService)
-    const result = isPresentation
-      ? await w3c?.verifyPresentation(agentContext, {
-          presentation: JsonTransformer.fromJSON(document, W3cJsonLdVerifiablePresentation),
-          purpose: new purposes.AssertionProofPurpose(),
-          challenge: '', // It is currently mandatory in Credo API
-        })
-      : await w3c?.verifyCredential(agentContext, {
-          credential: JsonTransformer.fromJSON(document, W3cJsonLdVerifiableCredential),
-          proofPurpose: new purposes.AssertionProofPurpose(),
-        })
-    if (!result.isValid) {
-      const error = JSON.stringify(result.validations.vcJs?.error)
+    const result = await verifyJsonLdCredential(document as unknown as Record<string, unknown>, logger)
+    if (!result.result) {
+      const error = JSON.stringify(result?.error)
       logger.error('Signature verification failed', { error })
-      return { result: result.isValid, error }
+      return { result: result.result, error }
     }
 
     logger.debug('Document signature verified successfully')
@@ -69,9 +58,7 @@ export async function verifySignature(
 
       const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
       logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
-      const results = await Promise.all(
-        jsonLdCredentials.map(vc => verifySignature(vc, agentContext, logger)),
-      )
+      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, logger)))
 
       const allCredentialsVerified = results.every(verified => verified)
       if (!allCredentialsVerified) {
@@ -79,11 +66,161 @@ export async function verifySignature(
       }
       logger.debug('All embedded credentials verified successfully')
     }
-    return { result: result.isValid }
+    return { result: result.result }
   } catch (error) {
     logger.error('Signature verification exception', error)
     return { result: false, error: error.message }
   }
+}
+
+/**
+ * Verifies a JSON-LD Verifiable Credential signed using
+ * Ed25519Signature2020 or Ed25519Signature2018.
+ *
+ * ---------------------------------------------------------------------------
+ * Ed25519Signature2020 / Ed25519Signature2018 verification
+ * (JSON-LD Data Integrity / Linked Data Proofs)
+ *
+ * Algorithm (W3C LD-Proofs + Ed25519Signature2020 spec):
+ *   1. Ensure proof exists and is of a supported type
+ *   2. Separate proof from document
+ *   3. Canonicalize proof options (proof without proofValue, with @context)
+ *   4. Canonicalize document (without proof)
+ *   5. verifyData = SHA-256(proofOptionsNQuads) || SHA-256(documentNQuads)
+ *   6. Decode proofValue from multibase base58 ('z' prefix)
+ *   7. Resolve verification method DID → extract public key
+ *   8. Verify Ed25519 signature over verifyData
+ *
+ * @param vc      The Verifiable Credential as a JSON-LD object.
+ * @param logger  Logger instance used for debug information.
+ *
+ * @returns       Promise resolving to:
+ *                - { result: true } if signature is valid
+ *                - { result: false, error } if verification fails
+ */
+async function verifyJsonLdCredential(
+  vc: Record<string, unknown>,
+  logger: IVerreLogger,
+): Promise<{ result: boolean; error?: string }> {
+  const supportedProofTypes = ['Ed25519Signature2020', 'Ed25519Signature2018']
+  const proof = vc.proof as Record<string, unknown> | undefined
+  if (!proof) {
+    return { result: false, error: 'Credential has no proof' }
+  }
+
+  if (!supportedProofTypes.includes(proof.type as string)) {
+    return { result: false, error: `Unsupported proof type: ${proof.type}` }
+  }
+
+  const proofValue = proof.proofValue as string | undefined
+  if (!proofValue || typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
+    return { result: false, error: 'Missing or invalid proofValue (expected multibase base58)' }
+  }
+
+  const verificationMethodId = proof.verificationMethod as string | undefined
+  if (!verificationMethodId) {
+    return { result: false, error: 'Missing verificationMethod in proof' }
+  }
+
+  const proofOptions: Record<string, unknown> = { ...proof }
+  delete proofOptions.proofValue
+  proofOptions['@context'] = vc['@context']
+
+  const document: Record<string, unknown> = { ...vc }
+  delete document.proof
+
+  const [proofNQuads, docNQuads] = await Promise.all([
+    jsonld.canonize(proofOptions, {
+      algorithm: 'URDNA2015',
+      format: 'application/n-quads',
+      safe: false,
+    }),
+    jsonld.canonize(document, {
+      algorithm: 'URDNA2015',
+      format: 'application/n-quads',
+      safe: false,
+    }),
+  ])
+
+  const proofHash = hash('SHA256', proofNQuads as string)
+  const docHash = hash('SHA256', docNQuads as string)
+  const verifyData = Buffer.concat([proofHash, docHash])
+
+  const signatureBytes = base58.decode(proofValue.slice(1))
+  const publicKeyBytes = await resolvePublicKey(verificationMethodId)
+  if (!publicKeyBytes) {
+    return { result: false, error: `Cannot resolve verification method: ${verificationMethodId}` }
+  }
+
+  const valid = ed25519.verify(signatureBytes, verifyData, publicKeyBytes)
+  if (!valid) {
+    return { result: false, error: 'Ed25519 signature verification failed' }
+  }
+
+  logger.debug('Ed25519Signature2020 verified OK', { vcId: vc.id, verificationMethod: verificationMethodId })
+  return { result: true }
+}
+
+// ---------------------------------------------------------------------------
+// Resolve a verification method DID URL to a raw Ed25519 public key (32 bytes)
+// ---------------------------------------------------------------------------
+
+async function resolvePublicKey(verificationMethodId: string): Promise<Uint8Array | null> {
+  // Extract the DID (before the fragment)
+  const did = verificationMethodId.split('#')[0]
+  const resolution = await resolveDID(did)
+  if (resolution.didResolutionMetadata?.error || !resolution.didDocument) {
+    // logger.debug({ did, error: error?.error }, 'Failed to resolve DID for verification method');
+    return null
+  }
+
+  const didDoc = resolution.didDocument
+
+  // Find the verification method by id
+  const verificationMethods: VerificationMethod[] = didDoc.verificationMethod ?? didDoc.publicKey ?? []
+  const vm = verificationMethods.find(m => m.id === verificationMethodId)
+  if (!vm) {
+    // logger.debug({ verificationMethodId, available: verificationMethods.map((m) => m.id) }, 'Verification method not found');
+    return null
+  }
+
+  // Extract raw public key bytes
+  if (vm.publicKeyMultibase && typeof vm.publicKeyMultibase === 'string') {
+    const multibase = vm.publicKeyMultibase as string
+    if (!multibase.startsWith('z')) {
+      //   logger.debug({ verificationMethodId }, 'Unsupported multibase prefix');
+      return null
+    }
+    const decoded = base58.decode(multibase.slice(1))
+    // Strip multicodec prefix if present (0xed 0x01 for Ed25519)
+    if (
+      decoded.length === 34 &&
+      decoded[0] === ED25519_MULTICODEC_PREFIX[0] &&
+      decoded[1] === ED25519_MULTICODEC_PREFIX[1]
+    ) {
+      return decoded.slice(2)
+    }
+    // Already raw 32-byte key
+    if (decoded.length === 32) {
+      return decoded
+    }
+    // logger.debug({ verificationMethodId, decodedLength: decoded.length }, 'Unexpected public key length');
+    return null
+  }
+
+  if (vm.publicKeyBase58 && typeof vm.publicKeyBase58 === 'string') {
+    return base58.decode(vm.publicKeyBase58 as string)
+  }
+
+  if (vm.publicKeyJwk && typeof vm.publicKeyJwk === 'object') {
+    const jwk = vm.publicKeyJwk as Record<string, unknown>
+    if (jwk.x && typeof jwk.x === 'string') {
+      return Buffer.from(jwk.x as string, 'base64url')
+    }
+  }
+
+  //   logger.debug({ verificationMethodId, vmType: vm.type }, 'No supported public key format found');
+  return null
 }
 
 /**

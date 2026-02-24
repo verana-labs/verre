@@ -1,10 +1,4 @@
-import {
-  Agent,
-  AgentContext,
-  DidDocument,
-  DidResolverService,
-  W3cJsonLdVerifiablePresentation,
-} from '@credo-ts/core'
+import { Agent, DidDocument, DidResolverService, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
@@ -51,15 +45,12 @@ import {
 let agent: Agent
 
 describe('Integration with Verana Blockchain', () => {
-  let agentContext: AgentContext
   beforeAll(async () => {
     // Configure an in-memory wallet for the test agent
     agent = await setupAndInitializeAgent({ name: 'InMemoryTestAgent' })
 
     // Mock global fetch
     fetchMocker.enable()
-
-    agentContext = agent.dependencyManager.resolve(AgentContext)
   })
 
   afterAll(async () => {
@@ -79,11 +70,10 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
-      agentContext,
     })
 
     // Validate result
-    expect(resolveSpy).toHaveBeenCalledTimes(2)
+    expect(resolveSpy).toHaveBeenCalledTimes(6)
     expect(resolveSpy).toHaveBeenCalledWith(did)
     expect(result.verified).toBe(true)
     expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
@@ -148,7 +138,6 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
-      agentContext,
     })
 
     // Validate result
@@ -174,7 +163,6 @@ describe('Integration with Verana Blockchain', () => {
     // Cached testing
     const cachedResult = await resolveDID(did, {
       verifiablePublicRegistries,
-      agentContext,
       cached: true,
     })
     expect(cachedResult.verified).toBe(true)
@@ -200,7 +188,6 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolveCredential(cred, {
       verifiablePublicRegistries,
-      agentContext,
     })
 
     // Validate result

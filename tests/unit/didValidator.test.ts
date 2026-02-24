@@ -1,4 +1,3 @@
-import { Agent, AgentContext } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
@@ -34,17 +33,8 @@ const mockResolversByDid: Record<string, any> = {
 }
 
 describe('DidValidator', () => {
-  let agent: Agent
-  let agentContext: AgentContext
-
   describe('resolver method in mocked environment', () => {
     beforeEach(async () => {
-      // Create an agent for Credo-TS using the DID resolver
-      agent = await setupAgent({
-        name: 'DID Service Test',
-      })
-      agentContext = agent.dependencyManager.resolve(AgentContext)
-
       // Mock verifySignature function since there is no credential signature
       vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({ result: true })
 
@@ -103,7 +93,6 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolveDID(didSelfIssued, {
         verifiablePublicRegistries,
-        agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(1)
@@ -184,7 +173,7 @@ describe('DidValidator', () => {
       })
 
       // Execute method under test
-      const result = await resolveDID(didExtIssuer, { verifiablePublicRegistries, agentContext })
+      const result = await resolveDID(didExtIssuer, { verifiablePublicRegistries })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
       expect(resolverInstanceSpy).toHaveBeenCalledTimes(2)
@@ -275,7 +264,6 @@ describe('DidValidator', () => {
       // Execute method under test
       const result = await resolveDID(didExtIssuer, {
         verifiablePublicRegistries,
-        agentContext,
       })
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didExtIssuer)
       expect(resolverInstanceSpy).toHaveBeenCalledWith(didSelfIssued)
@@ -304,7 +292,6 @@ describe('DidValidator', () => {
       const verifyDigestSRISpy = vi.spyOn(signatureVerifier, 'verifyDigestSRI')
       await resolveDID(didExtIssuer, {
         verifiablePublicRegistries,
-        agentContext,
         skipDigestSRICheck: true,
       })
       expect(verifyDigestSRISpy).not.toHaveBeenCalled()
@@ -315,11 +302,8 @@ describe('DidValidator', () => {
     it('should resolve a did:web using an agent with Askar in-memory wallet', async () => {
       const agent = await setupAgent({ name: 'InMemoryTestAgent' })
 
-      const agentContext = agent.dependencyManager.resolve(AgentContext)
       const did = 'did:web:example.com'
-      const result = await resolveDID(did, {
-        agentContext,
-      })
+      const result = await resolveDID(did, {})
 
       // Validate result
       expect(result).toHaveProperty('didDocument')

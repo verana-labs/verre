@@ -2,7 +2,6 @@ import {
   type W3cVerifiableCredential,
   type W3cPresentation,
   type W3cJsonLdVerifiablePresentation,
-  type AgentContext,
   W3cCredentialSubject,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'
@@ -51,7 +50,6 @@ import {
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
- * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
  * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  * @param options.logger - *(Optional)* Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
@@ -241,7 +239,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, agentContext, attrs, skipDigestSRICheck } = options
+  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -268,7 +266,6 @@ async function processDidDocument(
         const { credential, outcome: vpOutcome } = await getVerifiedCredential(
           vp,
           verifiablePublicRegistries ?? [],
-          agentContext,
           logger,
           skipDigestSRICheck,
           options.cached,
@@ -285,7 +282,6 @@ async function processDidDocument(
             verifiablePublicRegistries,
             didResolver,
             attrs: credential,
-            agentContext,
             skipDigestSRICheck,
           })
           service = resolution.service
@@ -355,14 +351,12 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * Extracts a valid verifiable credential from a Verifiable Presentation.
  * @param vp - The Verifiable Presentation to parse.
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
- * @param agentContext - The Agent Context for signature verification.
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
 async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
-  agentContext: AgentContext,
   logger: IVerreLogger,
   skipDigestSRICheck?: boolean,
   cached = false,
@@ -374,7 +368,7 @@ async function getVerifiedCredential(
   if (cached) {
     logger.debug('Using cached credential verification')
     isVerified = { result: true }
-  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext, logger)
+  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, logger)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,

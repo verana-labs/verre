@@ -73,7 +73,7 @@ export async function resolveDID(did: string): Promise<DIDResolutionResult> {
   if (result.didResolutionMetadata?.error) {
     throw new Error(
       `Failed to resolve DID "${did}": ${result.didResolutionMetadata.error}` +
-        (result.didResolutionMetadata.message ? ` — ${result.didResolutionMetadata.message}` : '')
+        (result.didResolutionMetadata.message ? ` — ${result.didResolutionMetadata.message}` : ''),
     )
   }
 

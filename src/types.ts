@@ -1,5 +1,3 @@
-import type { AgentContext } from '@credo-ts/core'
-
 import { DIDDocument, Resolver } from 'did-resolver'
 
 // types
@@ -21,7 +19,6 @@ export type CredentialResolution = {
 export type ResolverConfig = {
   verifiablePublicRegistries?: VerifiablePublicRegistry[]
   didResolver?: Resolver
-  agentContext: AgentContext
   cached?: boolean
   skipDigestSRICheck?: boolean
   logger?: IVerreLogger
