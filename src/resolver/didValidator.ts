@@ -1,7 +1,7 @@
-import {
-  type W3cVerifiableCredential,
-  type W3cPresentation,
-  type W3cJsonLdVerifiablePresentation,
+import type {
+  W3cVerifiableCredential,
+  W3cPresentation,
+  W3cJsonLdVerifiablePresentation,
   W3cCredentialSubject,
 } from '@credo-ts/core'
 import { DIDDocument, Resolver, Service } from 'did-resolver'

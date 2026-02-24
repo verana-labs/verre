@@ -1,4 +1,4 @@
-import { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { base58, base64url } from '@scure/base'
