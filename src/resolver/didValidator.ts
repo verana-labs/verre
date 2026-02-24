@@ -4,6 +4,7 @@ import type {
   W3cJsonLdVerifiablePresentation,
   W3cCredentialSubject,
 } from '@credo-ts/core'
+
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 
 import { resolverInstance } from '../libraries'
