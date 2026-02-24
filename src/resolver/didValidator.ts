@@ -472,6 +472,7 @@ async function processCredential(
   skipDigestSRICheck: boolean = false,
   logger: IVerreLogger,
   issuer?: string,
+  issuanceDate?: string,
   attrs?: Record<string, string>,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   logger.debug('Processing credential', { id: w3cCredential.id })
@@ -488,6 +489,7 @@ async function processCredential(
       skipDigestSRICheck,
       logger,
       w3cCredential.issuer as string,
+      w3cCredential.issuanceDate as string,
       subject as Record<string, string>,
     )
   }
@@ -528,15 +530,12 @@ async function processCredential(
       }
 
       // Verify the issuer permission over the schema
-      if (issuer)
-        await verifyPermission(
-          trustRegistry,
-          schemaId,
-          w3cCredential.issuanceDate,
-          issuer,
-          PermissionType.ISSUER,
-          logger,
+      if (!issuer || !issuanceDate)
+        throw new TrustError(
+          TrustErrorCode.INVALID_PERMISSIONS,
+          `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
         )
+      await verifyPermission(trustRegistry, schemaId, issuanceDate, issuer, PermissionType.ISSUER, logger)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
@@ -639,13 +638,21 @@ async function verifyPermission(
       `No valid ${permissionType} permissions were found for the specified DID: ${did} for schema ${schemaId}`,
     )
 
-  logger.debug('Permission found, verifying dates', { did, created: perm.created, issuanceDate })
+  const effectiveFrom = perm.effective_from ?? perm.created
+  const effectiveUntil = perm.effective_until ?? new Date().toISOString()
+  logger.debug('Permission found, verifying dates', {
+    did,
+    issuanceDate,
+    effectiveFrom,
+    effectiveUntil,
+  })
   const issuanceTs = Date.parse(issuanceDate)
-  const createdTs = Date.parse(perm.created)
-  if (issuanceTs < createdTs) {
+  const effectiveFromTs = Date.parse(effectiveFrom)
+  const effectiveUntilTs = Date.parse(effectiveUntil)
+  if (issuanceTs < effectiveFromTs || issuanceTs > effectiveUntilTs) {
     throw new TrustError(
       TrustErrorCode.INVALID_PERMISSIONS,
-      'Credential issuance date is earlier than the permission creation date',
+      `Credential issuance date (${issuanceDate}) is not within the permission effective range (${effectiveFrom} - ${effectiveUntil})`,
     )
   }
 
