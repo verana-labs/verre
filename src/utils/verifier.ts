@@ -2,7 +2,7 @@ import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } f
 
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
-import { concatBytes } from '@noble/hashes/utils'
+import { bytesToHex, concatBytes } from '@noble/hashes/utils'
 import { base58, base64, base64url } from '@scure/base'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
@@ -14,6 +14,12 @@ import { TrustError } from './trustError'
 
 // Ed25519 multicodec prefix: 0xed01
 const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
+
+const createMessageDigest = () => ({
+  _data: '' as string,
+  update(msg: string) { this._data += msg },
+  digest() { return bytesToHex(hash('SHA256', this._data)) },
+})
 
 /**
  * Recursively verifies the digital proof of a W3C Verifiable Presentation (VP) or Verifiable Credential (VC).
@@ -134,19 +140,16 @@ async function verifyJsonLdCredential(
   delete document.proof
 
   const documentLoader = createDocumentLoader(didResolver)
+  const canonizeOpts = {
+    algorithm: 'URDNA2015' as const,
+    format: 'application/n-quads' as const,
+    safe: false,
+    documentLoader,
+    createMessageDigest,
+  }
   const [proofNQuads, docNQuads] = await Promise.all([
-    jsonld.canonize(proofOptions, {
-      algorithm: 'URDNA2015',
-      format: 'application/n-quads',
-      safe: false,
-      documentLoader,
-    }),
-    jsonld.canonize(document, {
-      algorithm: 'URDNA2015',
-      format: 'application/n-quads',
-      safe: false,
-      documentLoader,
-    }),
+    jsonld.canonize(proofOptions, canonizeOpts),
+    jsonld.canonize(document, canonizeOpts),
   ])
 
   const proofHash = hash('SHA256', proofNQuads as string)
