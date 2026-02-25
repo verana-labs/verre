@@ -48,10 +48,10 @@ export async function verifySignature(
       didResolver,
       logger,
     )
-    if (!result.result) {
+    if (!result.isValid) {
       const error = JSON.stringify(result?.error)
       logger.error('Signature verification failed', { error })
-      return { result: result.result, error }
+      return { result: result.isValid, error }
     }
 
     logger.debug('Document signature verified successfully')
@@ -72,7 +72,7 @@ export async function verifySignature(
       }
       logger.debug('All embedded credentials verified successfully')
     }
-    return { result: result.result }
+    return { result: result.isValid }
   } catch (error) {
     logger.error('Signature verification exception', error)
     return { result: false, error: error.message }
@@ -108,21 +108,21 @@ async function verifyJsonLdCredential(
   vc: Record<string, unknown>,
   didResolver: Resolver,
   logger: IVerreLogger,
-): Promise<{ result: boolean; error?: string }> {
+): Promise<{ isValid: boolean; error?: string }> {
   const supportedProofTypes = ['Ed25519Signature2020', 'Ed25519Signature2018']
   const proof = vc.proof as Record<string, unknown> | undefined
   const context = vc['@context'] || vc['context']
-  if (!context) return { result: false, error: 'Credential is missing context (@context)' }
-  if (!proof) return { result: false, error: 'Credential has no proof' }
+  if (!context) return { isValid: false, error: 'Credential is missing context (@context)' }
+  if (!proof) return { isValid: false, error: 'Credential has no proof' }
 
   const proofType = proof.type as string
   if (!supportedProofTypes.includes(proofType)) {
-    return { result: false, error: `Unsupported proof type: ${proofType}` }
+    return { isValid: false, error: `Unsupported proof type: ${proofType}` }
   }
 
   const verificationMethodId = proof.verificationMethod as string | undefined
   if (!verificationMethodId) {
-    return { result: false, error: 'Missing verificationMethod in proof' }
+    return { isValid: false, error: 'Missing verificationMethod in proof' }
   }
 
   const proofOptions: Record<string, unknown> = { ...proof }
@@ -158,7 +158,7 @@ async function verifyJsonLdCredential(
   if (proofType === 'Ed25519Signature2020') {
     const proofValue = proof.proofValue as string | undefined
     if (!proofValue || typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
-      return { result: false, error: 'Missing or invalid proofValue (expected multibase base58)' }
+      return { isValid: false, error: 'Missing or invalid proofValue (expected multibase base58)' }
     }
     signatureBytes = Buffer.from(base58.decode(proofValue.slice(1)))
     verifyData = Buffer.concat([proofHash, docHash])
@@ -166,28 +166,28 @@ async function verifyJsonLdCredential(
     const { jws } = proof
 
     if (typeof jws !== 'string' || !jws.includes('..')) {
-      return { result: false, error: 'Invalid or missing JWS detached signature' }
+      return { isValid: false, error: 'Invalid or missing JWS detached signature' }
     }
 
     const [header, , signaturePart] = jws.split('.')
     signatureBytes = Buffer.from(base64url.decode(signaturePart))
     verifyData = Buffer.concat([Buffer.from(`${header}.`, 'utf8'), proofHash as Buffer, docHash as Buffer])
   } else {
-    return { result: false, error: `Unsupported proof type: ${proofType}` }
+    return { isValid: false, error: `Unsupported proof type: ${proofType}` }
   }
 
   const publicKeyBytes = await resolvePublicKey(verificationMethodId, didResolver, logger)
   if (!publicKeyBytes) {
-    return { result: false, error: `Cannot resolve verification method: ${verificationMethodId}` }
+    return { isValid: false, error: `Cannot resolve verification method: ${verificationMethodId}` }
   }
 
   const valid = ed25519.verify(signatureBytes, verifyData, publicKeyBytes)
   if (!valid) {
-    return { result: false, error: 'Ed25519 signature verification failed' }
+    return { isValid: false, error: 'Ed25519 signature verification failed' }
   }
 
   logger.debug(`${proofType} verified OK`, { vcId: vc.id, verificationMethod: verificationMethodId })
-  return { result: true }
+  return { isValid: true }
 }
 
 /**
