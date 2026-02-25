@@ -27,19 +27,20 @@
     "compile:esm": "tsc -p tsconfig.json",
     "compile:cjs": "tsc -p tsconfig.cjs.json",
     "prepublishOnly": "pnpm run build",
-    "check-types": "eslint \"{src,apps,libs,tests}/**/*.ts\"",
+    "check-types": "eslint \"{src,tests}/**/*.ts\"",
     "format": "prettier \"src/**/*.ts\" --write",
     "check-format": "prettier -c \"src/**/*.ts\"",
     "test": "vitest --dir tests/unit",
     "test:integration": "vitest run --dir tests/integration",
     "test:watch": "vitest --watch --dir tests/unit",
     "test:coverage": "vitest --coverage --dir tests/unit",
-    "lint": "eslint \"{src,apps,libs,tests}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,tests}/**/*.ts\" --fix",
     "validate": "pnpm run check-types && pnpm run check-format",
     "prepare": "corepack enable"
   },
   "devDependencies": {
     "@credo-ts/askar": "^0.6.1",
+    "@credo-ts/core": "^0.6.1",
     "@credo-ts/node": "^0.6.1",
     "@credo-ts/webvh": "^0.6.1",
     "@eslint/js": "^9.22.0",
@@ -66,29 +67,19 @@
     "vitest": "^3.0.9"
   },
   "dependencies": {
-    "@digitalcredentials/jsonld-signatures": "^12.0.1",
+    "@digitalcredentials/jsonld": "^9.0.0",
+    "@noble/curves": "^2.0.1",
     "@noble/hashes": "^1.8.0",
+    "@scure/base": "^2.0.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "buffer": "^6.0.3",
     "did-resolver": "^4.1.0",
+    "didwebvh-ts": "^2.7.1",
     "jsonld": "^8.3.3",
     "tslog": "^4.10.2",
     "web-did-resolver": "^2.0.29"
   },
   "engines": {
     "node": ">= 18"
-  },
-  "peerDependencies": {
-    "@credo-ts/core": "^0.6.1",
-    "@credo-ts/webvh": "^0.6.1"
-  },
-  "resolutions": {
-    "@digitalcredentials/jsonld": "5.2.2"
-  },
-  "pnpm": {
-    "patchedDependencies": {
-      "@credo-ts/core": "patches/@credo-ts__core.patch"
-    }
   }
 }

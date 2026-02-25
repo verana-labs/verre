@@ -1,11 +1,9 @@
-import { Agent, AgentContext } from '@credo-ts/core'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { PermissionType, resolveCredential, TrustResolutionOutcome, verifyPermissions } from '../../src'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,
-  setupAgent,
   verifiablePublicRegistries,
   jscCredentialService,
   jsCredentialService,
@@ -16,17 +14,8 @@ import {
 } from '../__mocks__'
 
 describe('Credential Validator', () => {
-  let agent: Agent
-  let agentContext: AgentContext
-
   describe('resolver method in mocked environment', () => {
     beforeEach(async () => {
-      // Create an agent for Credo-TS using the DID resolver
-      agent = await setupAgent({
-        name: 'DID Service Test',
-      })
-      agentContext = agent.dependencyManager.resolve(AgentContext)
-
       // Mock verifySignature function since there is no credential signature
       vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({ result: true })
 
@@ -69,7 +58,6 @@ describe('Credential Validator', () => {
       // Execute method under test
       const result = await resolveCredential(jscCredentialService, {
         verifiablePublicRegistries,
-        agentContext,
       })
       expect(result.verified).toBe(true)
       expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)

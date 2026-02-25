@@ -18,6 +18,7 @@ export default [
       globals: {
         ...globals.browser,
         global: "readonly",
+        Buffer: "readonly",
       },
       parser: tseslint.parser,
       parserOptions: {

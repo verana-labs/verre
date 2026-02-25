@@ -4,9 +4,10 @@
 import { askar, KdfMethod } from '@openwallet-foundation/askar-nodejs'
 
 import { AskarModule, AskarModuleConfigStoreOptions } from '@credo-ts/askar'
-import { Agent, DidsModule, LogLevel, utils, WebDidResolver } from '@credo-ts/core'
+import { Agent, AgentContext, DidsApi, DidsModule, LogLevel, utils, WebDidResolver } from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { WebVhDidResolver } from '@credo-ts/webvh'
+import { Resolver } from 'did-resolver'
 
 import { TestLogger } from './logger'
 
@@ -65,4 +66,19 @@ export function getAskarStoreConfig(name: string): AskarModuleConfigStoreOptions
     key: 'DZ9hPqFWTPxemcGea72C1X1nusqk5wFNLq6QPjwXGqAa',
     keyDerivationMethod: KdfMethod.Raw,
   }
+}
+
+export function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
+  const didResolverApi = agentContext.dependencyManager.resolve(DidsApi)
+  return new Resolver(
+    new Proxy(
+      {},
+      {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        get: (_target, _method: string) => {
+          return async (did: string) => didResolverApi.resolve(did)
+        },
+      },
+    ),
+  )
 }

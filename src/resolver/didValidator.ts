@@ -1,14 +1,13 @@
-import {
-  type W3cVerifiableCredential,
-  type W3cPresentation,
-  type W3cJsonLdVerifiablePresentation,
-  type AgentContext,
+import type {
+  W3cVerifiableCredential,
+  W3cPresentation,
+  W3cJsonLdVerifiablePresentation,
   W3cCredentialSubject,
-  DidsApi,
 } from '@credo-ts/core'
-import { DIDDocument, Resolver, Service } from 'did-resolver'
-import * as didWeb from 'web-did-resolver'
 
+import { DIDDocument, Resolver, Service } from 'did-resolver'
+
+import { resolverInstance } from '../libraries'
 import {
   ECS,
   ResolverConfig,
@@ -41,9 +40,6 @@ import {
   VerreLogger,
 } from '../utils'
 
-// Generic resolver for DID Web only
-const resolverInstance = new Resolver(didWeb.getResolver())
-
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
  *
@@ -55,7 +51,6 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
- * @param options.agentContext - The agent context containing the global operational state of the agent, including registered services, modules, dids, wallets, storage, and configuration from Credo-TS.
  * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
  * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  * @param options.logger - *(Optional)* Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
@@ -66,43 +61,15 @@ const resolverInstance = new Resolver(didWeb.getResolver())
  * DID document metadata, and trust validation outcome.
  */
 export async function resolveDID(did: string, options: ResolverConfig): Promise<TrustResolution> {
-  if (!options.didResolver) {
-    options.didResolver = getCredoTsDidResolver(options.agentContext)
+  const internalOptions: InternalResolverConfig = {
+    ...options,
+    didResolver: options.didResolver ?? resolverInstance,
   }
-
-  return await _resolve(did, options)
+  return await _resolve(did, internalOptions)
 }
 
 /**
- * Creates a DID Resolver instance that uses the Credo-TS internal `DidResolverService`
- * to resolve Decentralized Identifiers (DIDs).
- *
- * This resolver delegates all resolution requests to the `DidResolverService` registered
- * within the provided `AgentContext`.
- *
- * @param agentContext - The agent context containing the global operational state
- * of the agent, including registered services, modules, DIDs, wallets, storage, and configuration
- * from Credo-TS.
- *
- * @returns A `did-resolver` `Resolver` instance configured to use Credo-TS for DID resolution.
- */
-function getCredoTsDidResolver(agentContext: AgentContext): Resolver {
-  const didResolverApi = agentContext.dependencyManager.resolve(DidsApi)
-  return new Resolver(
-    new Proxy(
-      {},
-      {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        get: (_target, _method: string) => {
-          return async (did: string) => didResolverApi.resolve(did)
-        },
-      },
-    ),
-  )
-}
-
-/**
- * Verifies whether a given did has permission to perform a specific action
+ * Verifies whether a given issuer has permission to issue a specific credential
  * according to the trust registries and schema definitions.
  *
  * @param options - Configuration object containing all required data.
@@ -274,7 +241,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, agentContext, attrs, skipDigestSRICheck } = options
+  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -301,8 +268,8 @@ async function processDidDocument(
         const { credential, outcome: vpOutcome } = await getVerifiedCredential(
           vp,
           verifiablePublicRegistries ?? [],
-          agentContext,
           logger,
+          didResolver,
           skipDigestSRICheck,
           options.cached,
         )
@@ -318,7 +285,6 @@ async function processDidDocument(
             verifiablePublicRegistries,
             didResolver,
             attrs: credential,
-            agentContext,
             skipDigestSRICheck,
           })
           service = resolution.service
@@ -388,15 +354,14 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
  * Extracts a valid verifiable credential from a Verifiable Presentation.
  * @param vp - The Verifiable Presentation to parse.
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
- * @param agentContext - The Agent Context for signature verification.
  * @returns A valid Verifiable Credential.
  * @throws Error if no valid credential is found.
  */
 async function getVerifiedCredential(
   vp: W3cPresentation,
   verifiablePublicRegistries: VerifiablePublicRegistry[],
-  agentContext: AgentContext,
   logger: IVerreLogger,
+  didResolver: Resolver,
   skipDigestSRICheck?: boolean,
   cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
@@ -407,7 +372,7 @@ async function getVerifiedCredential(
   if (cached) {
     logger.debug('Using cached credential verification')
     isVerified = { result: true }
-  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, agentContext, logger)
+  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,
@@ -499,18 +464,6 @@ async function processCredential(
     const { digestSRI: schemaDigestSRI } = schema as Record<string, any>
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
-      // Fetch and verify the credential schema integrity
-      logger.debug('Fetching credential schema', { schemaId: schema.id })
-      const schemaRawText = await fetchText(schema.id)
-      const schemaData = JSON.parse(schemaRawText)
-
-      if (!skipDigestSRICheck) {
-        verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
-      }
-
-      // Validate the credential against the schema
-      validateSchemaContent(schemaData, w3cCredential)
-
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
       const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
@@ -519,15 +472,21 @@ async function processCredential(
       )
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
 
-      // If a reference URL exists, fetch the referenced schema
-      logger.debug('Fetching subject schema')
-      const subjectSchemaRawText = await fetchText(schemaUrl)
+      logger.debug('Fetching credential and subject schemas in parallel')
+      const [schemaRawText, subjectSchemaRawText] = await Promise.all([
+        fetchText(schema.id),
+        fetchText(schemaUrl),
+      ])
+
+      const schemaData = JSON.parse(schemaRawText)
       const subjectSchema = JSON.parse(subjectSchemaRawText)
 
-      // Verify the integrity of the referenced subject schema using its SRI digest
       if (!skipDigestSRICheck) {
+        verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
         verifyDigestSRI(subjectSchemaRawText, subjectDigestSRI, logger)
       }
+
+      validateSchemaContent(schemaData, w3cCredential)
 
       // Verify the issuer permission over the schema
       if (!issuer || !issuanceDate)
