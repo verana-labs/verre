@@ -464,18 +464,6 @@ async function processCredential(
     const { digestSRI: schemaDigestSRI } = schema as Record<string, any>
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
-      // Fetch and verify the credential schema integrity
-      logger.debug('Fetching credential schema', { schemaId: schema.id })
-      const schemaRawText = await fetchText(schema.id)
-      const schemaData = JSON.parse(schemaRawText)
-
-      if (!skipDigestSRICheck) {
-        verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
-      }
-
-      // Validate the credential against the schema
-      validateSchemaContent(schemaData, w3cCredential)
-
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
       const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
@@ -484,15 +472,21 @@ async function processCredential(
       )
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
 
-      // If a reference URL exists, fetch the referenced schema
-      logger.debug('Fetching subject schema')
-      const subjectSchemaRawText = await fetchText(schemaUrl)
+      logger.debug('Fetching credential and subject schemas in parallel')
+      const [schemaRawText, subjectSchemaRawText] = await Promise.all([
+        fetchText(schema.id),
+        fetchText(schemaUrl),
+      ])
+
+      const schemaData = JSON.parse(schemaRawText)
       const subjectSchema = JSON.parse(subjectSchemaRawText)
 
-      // Verify the integrity of the referenced subject schema using its SRI digest
       if (!skipDigestSRICheck) {
+        verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
         verifyDigestSRI(subjectSchemaRawText, subjectDigestSRI, logger)
       }
+
+      validateSchemaContent(schemaData, w3cCredential)
 
       // Verify the issuer permission over the schema
       if (!issuer || !issuanceDate)
