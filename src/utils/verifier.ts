@@ -17,8 +17,12 @@ const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
 
 const createMessageDigest = () => ({
   _data: '' as string,
-  update(msg: string) { this._data += msg },
-  digest() { return bytesToHex(hash('SHA256', this._data)) },
+  update(msg: string) {
+    this._data += msg
+  },
+  digest() {
+    return bytesToHex(hash('SHA256', this._data))
+  },
 })
 
 /**
@@ -174,7 +178,11 @@ async function verifyJsonLdCredential(
 
     const [header, , signaturePart] = jws.split('.')
     signatureBytes = base64url.decode(signaturePart)
-    verifyData = concatBytes(new TextEncoder().encode(`${header}.`), proofHash as Uint8Array, docHash as Uint8Array)
+    verifyData = concatBytes(
+      new TextEncoder().encode(`${header}.`),
+      proofHash as Uint8Array,
+      docHash as Uint8Array,
+    )
   } else {
     return { isValid: false, error: `Unsupported proof type: ${proofType}` }
   }

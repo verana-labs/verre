@@ -1,6 +1,6 @@
+import { ed25519 } from '@noble/curves/ed25519.js'
 import { DIDResolutionOptions, DIDResolutionResult, DIDResolver, Resolver } from 'did-resolver'
 import { resolveDID as resolveWebVh } from 'didwebvh-ts'
-import { ed25519 } from '@noble/curves/ed25519.js'
 import * as didWeb from 'web-did-resolver'
 
 const ed25519Verifier = {
