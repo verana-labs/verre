@@ -1,4 +1,9 @@
-import { Agent, DidDocument, DidResolverService, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
+import {
+  Agent,
+  DidDocument,
+  DidResolverService,
+  W3cJsonLdVerifiablePresentation,
+} from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
@@ -12,6 +17,7 @@ import {
 } from '../../src'
 import {
   fetchMocker,
+  getCredoTsDidResolver,
   integrationDidDoc,
   jsonSchemaCredentialOrg,
   jsonSchemaCredentialService,
@@ -43,11 +49,13 @@ import {
 
 // --- Globals for test lifecycle ---
 let agent: Agent
+let didResolver: Resolver
 
 describe('Integration with Verana Blockchain', () => {
   beforeAll(async () => {
     // Configure an in-memory wallet for the test agent
     agent = await setupAndInitializeAgent({ name: 'InMemoryTestAgent' })
+    didResolver = getCredoTsDidResolver(agent.context)
 
     // Mock global fetch
     fetchMocker.enable()
@@ -70,6 +78,7 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
+      didResolver,
     })
 
     // Validate result
