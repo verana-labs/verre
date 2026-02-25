@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/verana-labs/verre/compare/v0.1.0...v0.1.1) (2026-02-24)
+
+
+### Bug Fixes
+
+* use effectiveFrom and effective_until to verifyPermission ([#70](https://github.com/verana-labs/verre/issues/70)) ([3108c41](https://github.com/verana-labs/verre/commit/3108c4175871d699d31599c7105ecc1dd34827a3))
+
 ## [0.1.0](https://github.com/verana-labs/verre/compare/v0.0.16...v0.1.0) (2026-02-20)
 
 
