@@ -1,4 +1,4 @@
-import { DIDResolutionResult, DIDResolver, Resolver } from 'did-resolver'
+import { DIDResolutionOptions, DIDResolutionResult, DIDResolver, Resolver } from 'did-resolver'
 import { resolveDID as resolveWebVh } from 'didwebvh-ts'
 import { createPublicKey, verify } from 'node:crypto'
 import * as didWeb from 'web-did-resolver'
@@ -44,7 +44,31 @@ const webVhDidResolver: DIDResolver = async (did: string): Promise<DIDResolution
   }
 }
 
-export const resolverInstance = new Resolver({
+export const baseResolver = new Resolver({
   ...didWeb.getResolver(),
   webvh: webVhDidResolver,
 })
+
+export const resolverInstance = createCachedResolver(baseResolver)
+
+export function createCachedResolver(innerResolver: Resolver): Resolver {
+  const cache = new Map<string, Promise<DIDResolutionResult>>()
+
+  return {
+    ...innerResolver,
+    resolve: async (didUrl: string, options?: DIDResolutionOptions): Promise<DIDResolutionResult> => {
+      const baseDid = didUrl.split(/[#?]/)[0]
+
+      if (!cache.has(baseDid)) {
+        const promise = innerResolver.resolve(baseDid, options).catch(err => {
+          cache.delete(baseDid)
+          throw err
+        })
+
+        cache.set(baseDid, promise)
+      }
+
+      return cache.get(baseDid)!
+    },
+  } as Resolver
+}

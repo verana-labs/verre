@@ -1,9 +1,4 @@
-import {
-  Agent,
-  DidDocument,
-  DidResolverService,
-  W3cJsonLdVerifiablePresentation,
-} from '@credo-ts/core'
+import { Agent, DidDocument, DidResolverService, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
@@ -78,12 +73,11 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
-      didResolver,
     })
 
     // Validate result
-    expect(resolveSpy).toHaveBeenCalledTimes(6)
-    expect(resolveSpy).toHaveBeenCalledWith(did)
+    expect(resolveSpy).toHaveBeenCalledTimes(3)
+    expect(resolveSpy).toHaveBeenCalledWith(did, undefined)
     expect(result.verified).toBe(true)
     expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
   }, 50000)
@@ -147,6 +141,7 @@ describe('Integration with Verana Blockchain', () => {
 
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
+      didResolver,
     })
 
     // Validate result
