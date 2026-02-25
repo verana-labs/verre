@@ -6,6 +6,7 @@ import { base58, base64url } from '@scure/base'
 import { Buffer } from 'buffer'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
+import { createDocumentLoader } from '../libraries'
 import { TrustErrorCode, IVerreLogger } from '../types'
 
 import { hash } from './crypto'
@@ -132,16 +133,19 @@ async function verifyJsonLdCredential(
   const document: Record<string, unknown> = { ...vc }
   delete document.proof
 
+  const documentLoader = createDocumentLoader(didResolver)
   const [proofNQuads, docNQuads] = await Promise.all([
     jsonld.canonize(proofOptions, {
       algorithm: 'URDNA2015',
       format: 'application/n-quads',
       safe: false,
+      documentLoader,
     }),
     jsonld.canonize(document, {
       algorithm: 'URDNA2015',
       format: 'application/n-quads',
       safe: false,
+      documentLoader,
     }),
   ])
 

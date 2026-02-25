@@ -3,12 +3,16 @@ declare module '@digitalcredentials/jsonld' {
     algorithm?: string
     format?: string
     safe?: boolean
-    documentLoader?: (url: string) => Promise<{
-      contextUrl: string | null
-      documentUrl: string
-      document: Record<string, unknown>
-    }>
+    documentLoader?: (url: string) => Promise<DocumentLoaderResult>
   }
+
+  interface DocumentLoaderResult {
+    contextUrl: string | null
+    documentUrl: string
+    document: Record<string, unknown>
+  }
+
+  export type DocumentLoader = (url: string) => Promise<DocumentLoaderResult>
 
   const jsonld: {
     canonize(input: unknown, options?: CanonizeOptions): Promise<string>
