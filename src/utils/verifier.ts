@@ -2,8 +2,8 @@ import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } f
 
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
-import { base58, base64url } from '@scure/base'
-import { Buffer } from 'buffer'
+import { bytesToHex, concatBytes } from '@noble/hashes/utils'
+import { base58, base64, base64url } from '@scure/base'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
 import { createDocumentLoader } from '../libraries'
@@ -14,6 +14,12 @@ import { TrustError } from './trustError'
 
 // Ed25519 multicodec prefix: 0xed01
 const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
+
+const createMessageDigest = () => ({
+  _data: '' as string,
+  update(msg: string) { this._data += msg },
+  digest() { return bytesToHex(hash('SHA256', this._data)) },
+})
 
 /**
  * Recursively verifies the digital proof of a W3C Verifiable Presentation (VP) or Verifiable Credential (VC).
@@ -134,34 +140,31 @@ async function verifyJsonLdCredential(
   delete document.proof
 
   const documentLoader = createDocumentLoader(didResolver)
+  const canonizeOpts = {
+    algorithm: 'URDNA2015' as const,
+    format: 'application/n-quads' as const,
+    safe: false,
+    documentLoader,
+    createMessageDigest,
+  }
   const [proofNQuads, docNQuads] = await Promise.all([
-    jsonld.canonize(proofOptions, {
-      algorithm: 'URDNA2015',
-      format: 'application/n-quads',
-      safe: false,
-      documentLoader,
-    }),
-    jsonld.canonize(document, {
-      algorithm: 'URDNA2015',
-      format: 'application/n-quads',
-      safe: false,
-      documentLoader,
-    }),
+    jsonld.canonize(proofOptions, canonizeOpts),
+    jsonld.canonize(document, canonizeOpts),
   ])
 
   const proofHash = hash('SHA256', proofNQuads as string)
   const docHash = hash('SHA256', docNQuads as string)
 
-  let signatureBytes: Buffer
-  let verifyData: Buffer
+  let signatureBytes: Uint8Array
+  let verifyData: Uint8Array
 
   if (proofType === 'Ed25519Signature2020') {
     const proofValue = proof.proofValue as string | undefined
     if (!proofValue || typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
       return { isValid: false, error: 'Missing or invalid proofValue (expected multibase base58)' }
     }
-    signatureBytes = Buffer.from(base58.decode(proofValue.slice(1)))
-    verifyData = Buffer.concat([proofHash, docHash])
+    signatureBytes = base58.decode(proofValue.slice(1))
+    verifyData = concatBytes(proofHash, docHash)
   } else if (proofType === 'Ed25519Signature2018') {
     const { jws } = proof
 
@@ -170,8 +173,8 @@ async function verifyJsonLdCredential(
     }
 
     const [header, , signaturePart] = jws.split('.')
-    signatureBytes = Buffer.from(base64url.decode(signaturePart))
-    verifyData = Buffer.concat([Buffer.from(`${header}.`, 'utf8'), proofHash as Buffer, docHash as Buffer])
+    signatureBytes = base64url.decode(signaturePart)
+    verifyData = concatBytes(new TextEncoder().encode(`${header}.`), proofHash as Uint8Array, docHash as Uint8Array)
   } else {
     return { isValid: false, error: `Unsupported proof type: ${proofType}` }
   }
@@ -252,7 +255,7 @@ async function resolvePublicKey(
   if (vm.publicKeyJwk && typeof vm.publicKeyJwk === 'object') {
     const jwk = vm.publicKeyJwk as Record<string, unknown>
     if (jwk.x && typeof jwk.x === 'string') {
-      return Buffer.from(jwk.x as string, 'base64url')
+      return base64url.decode(jwk.x as string)
     }
   }
 
@@ -289,7 +292,7 @@ export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string, l
 
   logger.debug('Verifying digest SRI', { expectedDigestSRI: `${expectedDigestSRI}` })
 
-  const computedHash = Buffer.from(hash(algorithm, rawContent)).toString('base64')
+  const computedHash = base64.encode(hash(algorithm, rawContent))
   logger.debug('Computing hash', { computedHash: `${algorithm}-${computedHash}` })
 
   if (computedHash !== expectedHash) {
