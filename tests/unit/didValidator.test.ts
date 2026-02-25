@@ -2,6 +2,7 @@ import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { ECS, resolveDID, TrustResolutionOutcome } from '../../src'
+import { resolverInstance } from '../../src/libraries'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   didExtIssuer,
@@ -26,7 +27,6 @@ import {
   verifiablePublicRegistries,
   mockPermission,
 } from '../__mocks__'
-import { resolverInstance } from '../../src/libraries'
 
 const mockResolversByDid: Record<string, any> = {
   [didExtIssuer]: { ...mockResolverExtIssuer },
