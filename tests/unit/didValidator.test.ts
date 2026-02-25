@@ -26,6 +26,7 @@ import {
   verifiablePublicRegistries,
   mockPermission,
 } from '../__mocks__'
+import { resolverInstance } from '../../src/libraries'
 
 const mockResolversByDid: Record<string, any> = {
   [didExtIssuer]: { ...mockResolverExtIssuer },
@@ -46,6 +47,7 @@ describe('DidValidator', () => {
       fetchMocker.reset()
       fetchMocker.disable()
       vi.clearAllMocks()
+      resolverInstance.clear()
     })
 
     it('should work correctly when the issuer is equal to "did" over testing network.', async () => {

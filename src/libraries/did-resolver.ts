@@ -51,16 +51,18 @@ export const baseResolver = new Resolver({
 
 export const resolverInstance = createCachedResolver(baseResolver)
 
-export function createCachedResolver(innerResolver: Resolver): Resolver {
+export type CachedResolver = Resolver & { clear: () => void }
+export function createCachedResolver(innerResolver: Resolver): CachedResolver {
   const cache = new Map<string, Promise<DIDResolutionResult>>()
 
-  return {
+  const cachedResolver = {
     ...innerResolver,
     resolve: async (didUrl: string, options?: DIDResolutionOptions): Promise<DIDResolutionResult> => {
       const baseDid = didUrl.split(/[#?]/)[0]
 
       if (!cache.has(baseDid)) {
-        const promise = innerResolver.resolve(baseDid, options).catch(err => {
+        const args: [string, DIDResolutionOptions?] = options ? [baseDid, options] : [baseDid]
+        const promise = innerResolver.resolve(...args).catch(err => {
           cache.delete(baseDid)
           throw err
         })
@@ -70,5 +72,9 @@ export function createCachedResolver(innerResolver: Resolver): Resolver {
 
       return cache.get(baseDid)!
     },
-  } as Resolver
+    clear: () => {
+      cache.clear()
+    },
+  }
+  return cachedResolver as any as CachedResolver
 }

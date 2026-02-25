@@ -77,7 +77,7 @@ describe('Integration with Verana Blockchain', () => {
 
     // Validate result
     expect(resolveSpy).toHaveBeenCalledTimes(3)
-    expect(resolveSpy).toHaveBeenCalledWith(did, undefined)
+    expect(resolveSpy).toHaveBeenCalledWith(did)
     expect(result.verified).toBe(true)
     expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
   }, 50000)
