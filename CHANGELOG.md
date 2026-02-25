@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0](https://github.com/verana-labs/verre/compare/v0.1.1...v0.2.0) (2026-02-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* replace Credo Suite with singleton cached resolver for improved performance ([#72](https://github.com/verana-labs/verre/issues/72))
+
+### Features
+
+* replace Credo Suite with singleton cached resolver for improved performance ([#72](https://github.com/verana-labs/verre/issues/72)) ([aa6bebf](https://github.com/verana-labs/verre/commit/aa6bebf3398b51dea9b840661657972709cbc6b9))
+
 ## [0.1.1](https://github.com/verana-labs/verre/compare/v0.1.0...v0.1.1) (2026-02-24)
 
 
