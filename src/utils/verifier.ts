@@ -76,9 +76,12 @@ export async function verifySignature(
       logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
       const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, didResolver, logger)))
 
-      const allCredentialsVerified = results.every(verified => verified)
-      if (!allCredentialsVerified) {
-        throw new Error('One or more verifiable credentials failed signature verification.')
+      const failedResult = results.find(r => !r.result)
+      if (failedResult) {
+        throw new TrustError(
+          TrustErrorCode.VERIFICATION_FAILED,
+          'One or more verifiable credentials failed signature verification.',
+        )
       }
       logger.debug('All embedded credentials verified successfully')
     }
