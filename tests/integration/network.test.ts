@@ -125,13 +125,13 @@ describe('Integration with Verana Blockchain', () => {
         status: 200,
         data: jsonSchemaCredentialOrg,
       },
-      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=13':
+      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=133':
         {
           ok: true,
           status: 200,
           data: mockPermission,
         },
-      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=14':
+      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=132':
         {
           ok: true,
           status: 200,
