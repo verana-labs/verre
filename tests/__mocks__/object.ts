@@ -1,6 +1,8 @@
 // __mocks__/didMocks.ts
 
-import { ECS, loadSchema, VerifiablePublicRegistry } from '../../src'
+import { ECS, VerifiablePublicRegistry } from '../../src'
+
+import { essentialSchemas } from './data'
 
 export const didExtIssuer = 'did:web:issuer.trusted.example.com'
 export const didSelfIssued = 'did:web:service.self-issued.example.com'
@@ -314,9 +316,9 @@ export const mockHolderPermission = {
   ],
 }
 
-export const mockCredentialSchemaOrg = loadSchema(ECS.ORG)
+export const mockCredentialSchemaOrg = essentialSchemas[ECS.ORG]
 
-export const mockCredentialSchemaSer = loadSchema(ECS.SERVICE)
+export const mockCredentialSchemaSer = essentialSchemas[ECS.SERVICE]
 
 export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
   {
