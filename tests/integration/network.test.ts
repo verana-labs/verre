@@ -7,6 +7,7 @@ import {
   PermissionType,
   resolveCredential,
   resolveDID,
+  TrustErrorCode,
   TrustResolutionOutcome,
   verifyPermissions,
 } from '../../src'
@@ -18,6 +19,7 @@ import {
   jsonSchemaCredentialService,
   linkedVpOrg,
   linkedVpService,
+  linkedVpServiceWithInvalidJws,
   mockPermission,
   setupAgent as setupAndInitializeAgent,
   verifiablePublicRegistries,
@@ -171,6 +173,50 @@ describe('Integration with Verana Blockchain', () => {
     })
     expect(cachedResult.verified).toBe(true)
   }, 10000)
+
+  it('should fail integration when a verifiable credential validation fails', async () => {
+    const did = 'did:web:bcccdd780017.ngrok-free.app'
+
+    vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => {
+      return {
+        didResolutionMetadata: {},
+        didDocumentMetadata: {},
+        didDocument: integrationDidDoc,
+      }
+    })
+
+    vi.spyOn(DidResolverService.prototype, 'resolve').mockImplementation(async () => {
+      return {
+        didResolutionMetadata: {},
+        didDocumentMetadata: {},
+        didDocument: new DidDocument({ ...integrationDidDoc, context: integrationDidDoc['@context'] }),
+      }
+    })
+
+    fetchMocker.setMockResponses({
+      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-service-c-vp.json': {
+        ok: true,
+        status: 200,
+        data: linkedVpServiceWithInvalidJws,
+      },
+      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-org-c-vp.json': {
+        ok: true,
+        status: 200,
+        data: linkedVpOrg,
+      },
+    })
+
+    const result = await resolveDID(did, {
+      verifiablePublicRegistries,
+      didResolver,
+    })
+
+    expect(result.verified).toBe(false)
+    expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
+    expect(result.metadata).toMatchObject({
+      errorCode: TrustErrorCode.INVALID,
+    })
+  })
 
   it('should resolve and validate a real self-signed credential end-to-end', async () => {
     const presentation = await fetchJson<W3cJsonLdVerifiablePresentation>(
