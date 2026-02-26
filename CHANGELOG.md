@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/verana-labs/verre/compare/v0.2.0...v0.2.1) (2026-02-26)
+
+
+### Bug Fixes
+
+* signature validation ([#77](https://github.com/verana-labs/verre/issues/77)) ([6c97c7a](https://github.com/verana-labs/verre/commit/6c97c7a5648681427079faec24d0a9f46b5e6297))
+
 ## [0.2.0](https://github.com/verana-labs/verre/compare/v0.1.1...v0.2.0) (2026-02-25)
 
 
