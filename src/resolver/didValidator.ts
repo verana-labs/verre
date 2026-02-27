@@ -498,7 +498,12 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
-      const credential = { schemaType: identifySchema(attrs), id, issuer, ...attrs } as ICredential
+      const credential = {
+        schemaType: identifySchema(subjectSchema),
+        id,
+        issuer,
+        ...attrs,
+      } as ICredential
       return { credential, outcome }
     } catch (error) {
       logger.error('Failed to process credential', error)

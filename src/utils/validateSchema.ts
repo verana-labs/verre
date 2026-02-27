@@ -1,45 +1,50 @@
+import { base64 } from '@scure/base'
 import Ajv, { JSONSchemaType } from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
+import canonicalize from 'canonicalize'
 
 import { ECS, TrustErrorCode } from '../types'
 
-import { essentialSchemas } from './data'
+import { hash } from './crypto'
 import { TrustError } from './trustError'
 
 /**
- * Loads a predefined essential schema by name.
- *
- * @param schemaName - The key of the schema to load.
- * @returns The corresponding schema from `essentialSchemas`.
+ * Reference SHA-384 SRI digests for each Essential Credential Schema.
+ * The $id property is excluded before hashing (it varies per deployment).
  */
-export const loadSchema = (schemaName: keyof typeof essentialSchemas) => {
-  return essentialSchemas[schemaName]
+const ECS_SCHEMA_DIGESTS: Record<string, string> = {
+  [ECS.SERVICE]: 'sha384-PVseqJJjEGMVRcht77rE2yLqRnCiLBRLOklSuAshSEXK3eyITmUpDBhpQryJ/XIx',
+  [ECS.ORG]: 'sha384-XF10SsOaav+i+hBaXP29coZWZeaCZocFvfP9ZeHh9B7++q7YGA2QLTbFZqtYs/zA',
+  [ECS.PERSONA]: 'sha384-4vkQl6Ro6fudr+g5LL2NQJWVxaSTaYkyf0yVPVUmzA2leNNn0sJIsM07NlOAG/2I',
+  [ECS.USER_AGENT]: 'sha384-yLRK2mCokVjRlGX0nVzdEYQ1o6YWpQqgdg6+HlSxCePP+D7wvs0+70TJACLZfbF/',
 }
 
 /**
- * Preloads essential schemas into a structured object.
+ * Computes the SRI-style SHA-384 digest of a JSON schema object,
  */
-const schemas = {
-  [ECS.ORG]: loadSchema(ECS.ORG),
-  [ECS.PERSONA]: loadSchema(ECS.PERSONA),
-  [ECS.SERVICE]: loadSchema(ECS.SERVICE),
-  [ECS.USER_AGENT]: loadSchema(ECS.USER_AGENT),
+function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
+  const { $id, ...schemaWithoutId } = schemaObj
+
+  const canonical = canonicalize(schemaWithoutId)
+  if (!canonical) throw new TrustError(TrustErrorCode.SCHEMA_MISMATCH, 'Failed to canonicalize schema')
+
+  const digest = base64.encode(hash('sha384', canonical))
+  return `sha384-${digest}`
 }
 
 /**
  * Identifies the appropriate schema for a given verifiable presentation (VP).
  *
- * Uses Ajv to validate the `credentialSubject` against predefined schemas.
+ * Uses digest to validate the schemaObj against ECS schemas
  *
- * @param vp - The verifiable presentation to check.
+ * @param schemaObj - The schema to check.
  * @returns The matching schema name or `null` if no match is found.
  */
-export const identifySchema = (vp: any): ECS | null => {
-  const ajv = new Ajv({ strict: false })
-  addFormats(ajv)
-  for (const schemaName of Object.keys(schemas) as ECS[]) {
-    const validate = ajv.compile(schemas[schemaName].properties.credentialSubject)
-    if (validate(vp)) {
+export const identifySchema = (schemaObj: Record<string, unknown>): ECS | null => {
+  const actualDigest = computeSchemaDigest(schemaObj)
+
+  for (const [schemaName, refDigest] of Object.entries(ECS_SCHEMA_DIGESTS) as [ECS, string][]) {
+    if (refDigest === actualDigest) {
       return schemaName
     }
   }
