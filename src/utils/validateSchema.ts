@@ -35,7 +35,7 @@ function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
 /**
  * Identifies the appropriate schema for a given verifiable presentation (VP).
  *
- * Uses digist to validate the schemaObj against ecs schemas
+ * Uses digest to validate the schemaObj against ECS schemas
  *
  * @param schemaObj - The schema to check.
  * @returns The matching schema name or `null` if no match is found.
