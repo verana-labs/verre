@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/verana-labs/verre/compare/v0.2.1...v0.2.2) (2026-02-27)
+
+
+### Features
+
+* ECS verification with digest ([#76](https://github.com/verana-labs/verre/issues/76)) ([44ef544](https://github.com/verana-labs/verre/commit/44ef5447770d82ad9bd2bb611866405c0b449ade))
+
 ## [0.2.1](https://github.com/verana-labs/verre/compare/v0.2.0...v0.2.1) (2026-02-26)
 
 
