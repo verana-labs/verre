@@ -1,6 +1,6 @@
 import { Logger, ILogObj } from 'tslog'
 
-import { type IVerreLogger, LogLevel } from '../types'
+import { type IVerreLogger, LogLevel } from '../types.js'
 
 export class VerreLogger implements IVerreLogger {
   private logger: Logger<ILogObj>

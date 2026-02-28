@@ -1,9 +1,9 @@
 import jsonld from '@digitalcredentials/jsonld'
 import { Resolver } from 'did-resolver'
 
-import { DEFAULT_CONTEXTS } from './defaultContexts'
-import { resolverInstance } from './did-resolver'
-import { getNativeDocumentLoader } from './nativeDocumentLoader'
+import { DEFAULT_CONTEXTS } from './defaultContexts.js'
+import { resolverInstance } from './did-resolver.js'
+import { getNativeDocumentLoader } from './nativeDocumentLoader.js'
 
 export function createDocumentLoader(customResolver?: Resolver) {
   const didResolver = customResolver || resolverInstance
