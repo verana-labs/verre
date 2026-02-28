@@ -1,12 +1,18 @@
 import { base64 } from '@scure/base'
-import Ajv, { JSONSchemaType } from 'ajv/dist/2020'
-import addFormats from 'ajv-formats'
-import canonicalize from 'canonicalize'
+import { Ajv2020 as Ajv, type JSONSchemaType } from 'ajv/dist/2020.js'
+import _addFormats from 'ajv-formats'
+import _canonicalize from 'canonicalize'
 
-import { ECS, TrustErrorCode } from '../types'
+// Node16 CJS interop: default import may be the namespace or the value itself
+const addFormats = ((_addFormats as any).default ?? _addFormats) as (ajv: InstanceType<typeof Ajv>) => void
+const canonicalize = ((_canonicalize as any).default ?? _canonicalize) as (
+  input: unknown,
+) => string | undefined
 
-import { hash } from './crypto'
-import { TrustError } from './trustError'
+import { ECS, TrustErrorCode } from '../types.js'
+
+import { hash } from './crypto.js'
+import { TrustError } from './trustError.js'
 
 /**
  * Reference SHA-384 SRI digests for each Essential Credential Schema.

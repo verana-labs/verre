@@ -6,11 +6,11 @@ import { bytesToHex, concatBytes } from '@noble/hashes/utils'
 import { base58, base64, base64url } from '@scure/base'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
-import { createDocumentLoader } from '../libraries'
-import { TrustErrorCode, IVerreLogger } from '../types'
+import { createDocumentLoader } from '../libraries/index.js'
+import { TrustErrorCode, IVerreLogger } from '../types.js'
 
-import { hash } from './crypto'
-import { TrustError } from './trustError'
+import { hash } from './crypto.js'
+import { TrustError } from './trustError.js'
 
 // Ed25519 multicodec prefix: 0xed01
 const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])

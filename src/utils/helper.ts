@@ -1,6 +1,6 @@
-import { TrustResolutionMetadata, TrustErrorCode } from '../types'
+import { TrustResolutionMetadata, TrustErrorCode } from '../types.js'
 
-import { TrustError } from './trustError'
+import { TrustError } from './trustError.js'
 
 /**
  * Builds metadata for a trust resolution process.

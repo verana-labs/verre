@@ -1,3 +1,3 @@
-export * from './did-resolver'
-export * from './documentLoader'
-export * from './defaultContexts'
+export * from './did-resolver.js'
+export * from './documentLoader.js'
+export * from './defaultContexts.js'
