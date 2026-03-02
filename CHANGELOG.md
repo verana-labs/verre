@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.2](https://github.com/verana-labs/verre/compare/v0.2.1...v0.2.2) (2026-03-02)
+
+
+### Features
+
+* ECS verification with digest ([#76](https://github.com/verana-labs/verre/issues/76)) ([44ef544](https://github.com/verana-labs/verre/commit/44ef5447770d82ad9bd2bb611866405c0b449ade))
+
+
+### Bug Fixes
+
+* use node16 for compatibility with esm/cjs ([#81](https://github.com/verana-labs/verre/issues/81)) ([3e54a0a](https://github.com/verana-labs/verre/commit/3e54a0af88111e296c00672427e35b84db229db9))
+
 ## [0.2.1](https://github.com/verana-labs/verre/compare/v0.2.0...v0.2.1) (2026-02-26)
 
 
