@@ -36,7 +36,6 @@
     "test:coverage": "vitest --coverage --dir tests/unit",
     "lint": "eslint \"{src,tests}/**/*.ts\" --fix",
     "validate": "pnpm run check-types && pnpm run check-format",
-    "version": "pnpm version --allow-same-version",
     "prepare": "corepack enable"
   },
   "devDependencies": {
