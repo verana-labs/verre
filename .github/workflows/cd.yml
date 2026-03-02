@@ -19,10 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RELEASE_VERSION: ${{ needs.resolve-version.outputs.release-version }}
+      RELEASE_TYPE: ${{ needs.resolve-version.outputs.release-type }}
     steps:
 
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4      
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -37,6 +38,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm version "$RELEASE_VERSION"
 
-      - run: pnpm publish --no-git-checks --access public
+      - name: Publish to npm
+        run: |
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            pnpm publish --no-git-checks --access public
+          else
+            pnpm publish --no-git-checks --access public --tag dev
+          fi
 
 
