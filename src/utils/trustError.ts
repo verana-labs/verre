@@ -1,8 +1,8 @@
 import { DIDDocument } from 'did-resolver'
 
-import { TrustResolutionMetadata, TrustErrorCode, TrustResolutionOutcome } from '../types'
+import { TrustResolutionMetadata, TrustErrorCode, TrustResolutionOutcome } from '../types.js'
 
-import { buildMetadata } from './helper'
+import { buildMetadata } from './helper.js'
 
 /**
  * Custom error class for handling trust-related errors.

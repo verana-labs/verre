@@ -7,7 +7,7 @@ import type {
 
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 
-import { resolverInstance } from '../libraries'
+import { resolverInstance } from '../libraries/index.js'
 import {
   ECS,
   ResolverConfig,
@@ -26,7 +26,7 @@ import {
   PermissionType,
   LogLevel,
   IVerreLogger,
-} from '../types'
+} from '../types.js'
 import {
   buildMetadata,
   fetchJson,
@@ -38,7 +38,7 @@ import {
   verifyDigestSRI,
   verifySignature,
   VerreLogger,
-} from '../utils'
+} from '../utils/index.js'
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
