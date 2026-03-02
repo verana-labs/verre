@@ -472,10 +472,18 @@ async function processCredential(
       )
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
 
-      logger.debug('Fetching credential and subject schemas in parallel')
+      if (!issuer || !issuanceDate)
+        throw new TrustError(
+          TrustErrorCode.INVALID_PERMISSIONS,
+          `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
+        )
+
+      // Schema fetches and permission check share no dependencies — run in parallel
+      logger.debug('Fetching schemas and verifying permission in parallel')
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
         fetchText(schemaUrl),
+        verifyPermission(trustRegistry, schemaId, issuanceDate, issuer, PermissionType.ISSUER, logger),
       ])
 
       const schemaData = JSON.parse(schemaRawText)
@@ -487,14 +495,6 @@ async function processCredential(
       }
 
       validateSchemaContent(schemaData, w3cCredential)
-
-      // Verify the issuer permission over the schema
-      if (!issuer || !issuanceDate)
-        throw new TrustError(
-          TrustErrorCode.INVALID_PERMISSIONS,
-          `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
-        )
-      await verifyPermission(trustRegistry, schemaId, issuanceDate, issuer, PermissionType.ISSUER, logger)
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
