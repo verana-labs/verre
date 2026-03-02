@@ -30,6 +30,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Corepack pnpm
         # OIDC publishing requires a very up to date npm version
@@ -38,7 +39,7 @@ jobs:
           corepack enable
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm version "$RELEASE_VERSION"
+      - run: pnpm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
 
       - name: Publish to npm
         run: |
