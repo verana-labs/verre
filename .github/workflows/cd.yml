@@ -12,6 +12,8 @@ permissions:
 jobs:
   resolve-version:
     uses: 2060-io/organization/.github/workflows/resolve-version-call.yml@main
+    with:
+      bump-minor-pre-major: false
 
   release:
     needs: [resolve-version]
