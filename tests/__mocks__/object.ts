@@ -386,3 +386,31 @@ export const ecsService = {
   schema:
     '{"$id":"https://d6a1950112a2.ngrok-free.app/vt/cs/v1/js/ecs-service","$schema":"https://json-schema.org/draft/2020-12/schema","title":"ServiceCredential","description":"ServiceCredential using JsonSchema","type":"object","properties":{"credentialSubject":{"type":"object","properties":{"id":{"type":"string","format":"uri"},"name":{"type":"string","minLength":1,"maxLength":512},"type":{"type":"string","minLength":1,"maxLength":128},"description":{"type":"string","minLength":0,"maxLength":4096},"logo":{"type":"string","contentEncoding":"base64","contentMediaType":"image/png"},"minimumAgeRequired":{"type":"number","minimum":0,"exclusiveMaximum":150},"termsAndConditions":{"type":"string","format":"uri","maxLength":2048},"termsAndConditionsHash":{"type":"string"},"privacyPolicy":{"type":"string","format":"uri","maxLength":2048},"privacyPolicyHash":{"type":"string"}},"required":["id","name","type","description","logo","minimumAgeRequired","termsAndConditions","privacyPolicy"]}}}',
 }
+
+// Shared fetch mock responses for did:web:bcccdd780017.ngrok-free.app integration tests
+export const integrationMockResponses = {
+  'https://bcccdd780017.ngrok-free.app/self-tr/ecs-service-c-vp.json': {
+    ok: true,
+    status: 200,
+    data: linkedVpService,
+  },
+  'https://bcccdd780017.ngrok-free.app/self-tr/ecs-org-c-vp.json': {
+    ok: true,
+    status: 200,
+    data: linkedVpOrg,
+  },
+  'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-service.json': {
+    ok: true,
+    status: 200,
+    data: jsonSchemaCredentialService,
+  },
+  'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-org.json': {
+    ok: true,
+    status: 200,
+    data: jsonSchemaCredentialOrg,
+  },
+  'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=133':
+    { ok: true, status: 200, data: mockPermission },
+  'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=132':
+    { ok: true, status: 200, data: mockPermission },
+}

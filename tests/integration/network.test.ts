@@ -4,6 +4,7 @@ import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import {
   fetchJson,
+  InMemoryCacheStore,
   PermissionType,
   resolveCredential,
   resolveDID,
@@ -15,8 +16,7 @@ import {
   fetchMocker,
   getCredoTsDidResolver,
   integrationDidDoc,
-  jsonSchemaCredentialOrg,
-  jsonSchemaCredentialService,
+  integrationMockResponses,
   linkedVpOrg,
   linkedVpService,
   linkedVpServiceWithInvalidJws,
@@ -66,7 +66,7 @@ describe('Integration with Verana Blockchain', () => {
     vi.clearAllMocks()
   })
 
-  it('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
+  it.only('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
     // Use this DID to validate real-world service resolution scenarios
     const did =
       'did:webvh:QmUGoLH1vu3APBWo3PXC7pTJ4C1tPqxPxBnZ68s8eKBz1V:dm.gov-id-verifier.demos.dev.2060.io'
@@ -106,44 +106,12 @@ describe('Integration with Verana Blockchain', () => {
     })
 
     // Mock HTTP responses for schema and verifiable presentation endpoints to avoid real network calls
-    fetchMocker.setMockResponses({
-      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-service-c-vp.json': {
-        ok: true,
-        status: 200,
-        data: linkedVpService,
-      },
-      'https://bcccdd780017.ngrok-free.app/self-tr/ecs-org-c-vp.json': {
-        ok: true,
-        status: 200,
-        data: linkedVpOrg,
-      },
-      'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-service.json': {
-        ok: true,
-        status: 200,
-        data: jsonSchemaCredentialService,
-      },
-      'https://bcccdd780017.ngrok-free.app/self-tr/schemas-example-org.json': {
-        ok: true,
-        status: 200,
-        data: jsonSchemaCredentialOrg,
-      },
-      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=133':
-        {
-          ok: true,
-          status: 200,
-          data: mockPermission,
-        },
-      'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=132':
-        {
-          ok: true,
-          status: 200,
-          data: mockPermission,
-        },
-    })
-
+    fetchMocker.setMockResponses(integrationMockResponses)
+    const cacheStore = new InMemoryCacheStore()
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
       didResolver,
+      cacheStore,
     })
 
     // Validate result
@@ -166,12 +134,14 @@ describe('Integration with Verana Blockchain', () => {
       }),
     )
 
-    // Cached testing
+    // Second call should be served entirely from cache — no new fetch calls
+    const fetchCountBefore = (global.fetch as any).mock.calls.length
     const cachedResult = await resolveDID(did, {
       verifiablePublicRegistries,
-      cached: true,
+      cacheStore,
     })
     expect(cachedResult.verified).toBe(true)
+    expect((global.fetch as any).mock.calls.length).toBe(fetchCountBefore)
   }, 10000)
 
   it('should fail integration when a verifiable credential validation fails', async () => {
