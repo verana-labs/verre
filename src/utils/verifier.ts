@@ -53,6 +53,17 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
+    let vcPromises: Promise<{ result: boolean; error?: string }>[] = []
+    if (isPresentation && isVerifiablePresentation(document)) {
+      logger.debug('Verifying embedded credentials in presentation')
+      const credentials = Array.isArray(document.verifiableCredential)
+        ? document.verifiableCredential
+        : [document.verifiableCredential]
+      const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
+      logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
+      vcPromises = jsonLdCredentials.map(vc => verifySignature(vc, didResolver, logger))
+    }
+
     const result = await verifyJsonLdCredential(
       document as unknown as Record<string, unknown>,
       didResolver,
@@ -66,17 +77,9 @@ export async function verifySignature(
 
     logger.debug('Document signature verified successfully')
 
-    if (isPresentation && isVerifiablePresentation(document)) {
-      logger.debug('Verifying embedded credentials in presentation')
-      const credentials = Array.isArray(document.verifiableCredential)
-        ? document.verifiableCredential
-        : [document.verifiableCredential]
-
-      const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
-      logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
-      const results = await Promise.all(jsonLdCredentials.map(vc => verifySignature(vc, didResolver, logger)))
-
-      const allCredentialsVerified = results.every(r => r.result === true)
+    if (vcPromises.length > 0) {
+      const vcResults = await Promise.all(vcPromises)
+      const allCredentialsVerified = vcResults.every(r => r.result === true)
       if (!allCredentialsVerified) {
         throw new TrustError(
           TrustErrorCode.VERIFICATION_FAILED,
