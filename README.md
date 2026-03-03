@@ -59,7 +59,7 @@ async function verifyPermissions(options: VerifyPermissionsOptions): Promise<{ v
 
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registry definitions for validation.
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
-* **cache** (*TrustResolutionCache\<string, Promise\<unknown\>\>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
+* **cache** (*TrustResolutionCache<string, Promise<TrustResolution>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
 * **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
