@@ -66,7 +66,7 @@ describe('Integration with Verana Blockchain', () => {
     vi.clearAllMocks()
   })
 
-  it.only('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
+  it('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
     // Use this DID to validate real-world service resolution scenarios
     const did =
       'did:webvh:QmUGoLH1vu3APBWo3PXC7pTJ4C1tPqxPxBnZ68s8eKBz1V:dm.gov-id-verifier.demos.dev.2060.io'
