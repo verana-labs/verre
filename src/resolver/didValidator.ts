@@ -28,7 +28,6 @@ import {
   IVerreLogger,
 } from '../types.js'
 import {
-  buildMetadata,
   fetchJson,
   fetchText,
   handleTrustError,
@@ -51,7 +50,7 @@ import {
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
- * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param options.cache (optional): Cache for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
  * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  * @param options.logger - *(Optional)* Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
  * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
@@ -173,19 +172,16 @@ function resolveTrustRegistry(
  * @internal
  */
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
-  if (!did) {
-    return {
-      verified: false,
-      outcome: TrustResolutionOutcome.INVALID,
-      metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL'),
-    }
-  }
+  const cached = options.cache?.get(did)
+  if (cached) return cached as Promise<TrustResolution>
 
   try {
     const didDocument = await retrieveDidDocument(did, options.didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, options)
+      const result = await processDidDocument(did, didDocument, options)
+      options.cache?.set(did, Promise.resolve(result))
+      return result
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -213,7 +209,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
- * @param {boolean} cached - Optional indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param {TrustResolutionCache} cache - Optional provides cache instance for trust resolution results.
  * @param {boolean} skipDigestSRICheck - Optional When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  *
  * @returns {Promise<TrustResolution>} An object containing:
@@ -271,7 +267,6 @@ async function processDidDocument(
           logger,
           didResolver,
           skipDigestSRICheck,
-          options.cached,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -286,6 +281,7 @@ async function processDidDocument(
             didResolver,
             attrs: credential,
             skipDigestSRICheck,
+            cache: options.cache,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
@@ -363,16 +359,11 @@ async function getVerifiedCredential(
   logger: IVerreLogger,
   didResolver: Resolver,
   skipDigestSRICheck?: boolean,
-  cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
-  logger.debug('Verifying credential', { cached })
+  logger.debug('Verifying credential', { vp })
 
   const w3cCredential = getCredential(vp)
-  let isVerified: { result: boolean; error?: string }
-  if (cached) {
-    logger.debug('Using cached credential verification')
-    isVerified = { result: true }
-  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
+  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,
