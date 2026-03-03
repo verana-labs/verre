@@ -28,7 +28,6 @@ import {
   IVerreLogger,
 } from '../types.js'
 import {
-  buildMetadata,
   fetchJson,
   fetchText,
   handleTrustError,
@@ -173,19 +172,16 @@ function resolveTrustRegistry(
  * @internal
  */
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
-  if (!did) {
-    return {
-      verified: false,
-      outcome: TrustResolutionOutcome.INVALID,
-      metadata: buildMetadata(TrustErrorCode.INVALID, 'Invalid DID URL'),
-    }
-  }
+  const cached = options.cacheStore?.get(did)
+  if (cached) return cached as Promise<TrustResolution>
 
   try {
     const didDocument = await retrieveDidDocument(did, options.didResolver)
 
     try {
-      return await processDidDocument(did, didDocument, options)
+      const result = await processDidDocument(did, didDocument, options)
+      options.cacheStore?.set(did, Promise.resolve(result))
+      return result
     } catch (error) {
       return handleTrustError(error, didDocument)
     }
@@ -241,7 +237,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, attrs, cacheStore, skipDigestSRICheck } = options
+  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -250,12 +246,6 @@ async function processDidDocument(
   const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
-  const cached = cacheStore?.get(did)
-  if (cached) {
-    logger.debug('Returning cached DID resolution', { did })
-    return cached as Promise<TrustResolution>
-  }
-
   await Promise.all(
     didDocument.service.map(async didService => {
       const { type, id } = didService
@@ -306,10 +296,13 @@ async function processDidDocument(
 
   // If proof of trust exists, return the result with the service (issuer equals did)
   if (serviceProvider && service) {
-    const result: TrustResolution = { didDocument, outcome, verified: true, service, serviceProvider }
-    cacheStore?.set(did, Promise.resolve(result))
-    logger.debug('Cached DID resolution result', { did })
-    return result
+    return {
+      didDocument,
+      outcome,
+      verified: true,
+      service,
+      serviceProvider,
+    }
   }
   throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
 }
