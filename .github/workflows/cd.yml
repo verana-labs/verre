@@ -1,8 +1,7 @@
 name: Continuous Deployment
 on:
   push:
-    branches:
-      - main
+    branches: [main, 'release/**']
 
 permissions:
   id-token: write
@@ -11,40 +10,43 @@ permissions:
   pull-requests: write
 
 jobs:
+  resolve-version:
+    uses: 2060-io/organization/.github/workflows/resolve-version-call.yml@main
+    with:
+      bump-minor-pre-major: false
+
   release:
+    needs: [resolve-version]
+    if: needs.resolve-version.outputs.new-release-published == 'true'
     runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ needs.resolve-version.outputs.release-version }}
+      RELEASE_TYPE: ${{ needs.resolve-version.outputs.release-type }}
     steps:
-      - name: Release Verre
-        id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Print release outputs for debugging
-        continue-on-error: true
-        run: echo ${{ toJson(steps.release.outputs) }}
 
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4      
-        if: ${{ steps.release.outputs.release_created }}
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-        if: ${{ steps.release.outputs.release_created }}
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Corepack pnpm
         # OIDC publishing requires a very up to date npm version
         run: |
           npm install -g npm@latest
           corepack enable
-        if: ${{ steps.release.outputs.release_created }}
 
       - run: pnpm install --frozen-lockfile
-        if: ${{ steps.release.outputs.release_created }}
+      - run: pnpm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
 
-      - run: pnpm publish
-        if: ${{ steps.release.outputs.release_created }}
+      - name: Publish to npm
+        run: |
+          if [ "$RELEASE_TYPE" = "stable" ]; then
+            pnpm publish --no-git-checks --access public
+          else
+            pnpm publish --no-git-checks --access public --tag dev
+          fi
 
 
