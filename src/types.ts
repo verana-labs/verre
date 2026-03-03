@@ -19,7 +19,7 @@ export type CredentialResolution = {
 export type ResolverConfig = {
   verifiablePublicRegistries?: VerifiablePublicRegistry[]
   didResolver?: Resolver
-  cached?: boolean
+  cacheStore?: CacheStore<string, Promise<unknown>>
   skipDigestSRICheck?: boolean
   logger?: IVerreLogger
 }
@@ -216,4 +216,11 @@ export interface IVerreLogger {
   info(message: string, meta?: Record<string, unknown>): void
   warn(message: string, meta?: Record<string, unknown>): void
   error(message: string, error?: Error | unknown): void
+}
+
+export interface CacheStore<K, V> {
+  get(key: K): V | undefined
+  set(key: K, value: V): void
+  delete(key: K): void
+  clear(): void
 }

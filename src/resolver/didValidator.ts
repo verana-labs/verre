@@ -51,7 +51,7 @@ import {
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
- * @param options.cached - *(Optional)* Indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param options.cacheStore (optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `CacheStore` interface is accepted, the library provides `InMemoryCacheStore` as a built-in implementation.
  * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  * @param options.logger - *(Optional)* Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
  * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
@@ -213,7 +213,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
- * @param {boolean} cached - Optional indicates whether credential verification should be performed or if a previously validated result can be reused.
+ * @param {CacheStore} cacheStore - Optional provides cache instance for trust resolution results.
  * @param {boolean} skipDigestSRICheck - Optional When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  *
  * @returns {Promise<TrustResolution>} An object containing:
@@ -241,7 +241,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
+  const { verifiablePublicRegistries, didResolver, attrs, cacheStore, skipDigestSRICheck } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -250,6 +250,12 @@ async function processDidDocument(
   const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
+  const cached = cacheStore?.get(did)
+  if (cached) {
+    logger.debug('Returning cached DID resolution', { did })
+    return cached as Promise<TrustResolution>
+  }
+
   await Promise.all(
     didDocument.service.map(async didService => {
       const { type, id } = didService
@@ -271,7 +277,6 @@ async function processDidDocument(
           logger,
           didResolver,
           skipDigestSRICheck,
-          options.cached,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -286,6 +291,7 @@ async function processDidDocument(
             didResolver,
             attrs: credential,
             skipDigestSRICheck,
+            cacheStore: options.cacheStore,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
@@ -300,13 +306,10 @@ async function processDidDocument(
 
   // If proof of trust exists, return the result with the service (issuer equals did)
   if (serviceProvider && service) {
-    return {
-      didDocument,
-      outcome,
-      verified: true,
-      service,
-      serviceProvider,
-    }
+    const result: TrustResolution = { didDocument, outcome, verified: true, service, serviceProvider }
+    cacheStore?.set(did, Promise.resolve(result))
+    logger.debug('Cached DID resolution result', { did })
+    return result
   }
   throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
 }
@@ -363,16 +366,11 @@ async function getVerifiedCredential(
   logger: IVerreLogger,
   didResolver: Resolver,
   skipDigestSRICheck?: boolean,
-  cached = false,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
-  logger.debug('Verifying credential', { cached })
+  logger.debug('Verifying credential', { vp })
 
   const w3cCredential = getCredential(vp)
-  let isVerified: { result: boolean; error?: string }
-  if (cached) {
-    logger.debug('Using cached credential verification')
-    isVerified = { result: true }
-  } else isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
+  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
   if (!isVerified.result) {
     throw new TrustError(
       TrustErrorCode.INVALID,
