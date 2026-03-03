@@ -1,4 +1,4 @@
-import { TrustResolutionMetadata, TrustErrorCode, CacheStore } from '../types.js'
+import { TrustResolutionMetadata, TrustErrorCode, TrustResolutionCache, TrustResolution } from '../types.js'
 
 import { TrustError } from './trustError.js'
 
@@ -67,17 +67,17 @@ export async function fetchText(url: string): Promise<string> {
 }
 
 /**
- * In-memory implementation of `CacheStore` backed by a `Map`.
+ * In-memory implementation of `TrustResolutionCache` backed by a `Map`.
  *
  * Useful for avoiding redundant resolutions within the same process lifetime.
- * For persistent or distributed caching, provide your own `CacheStore` implementation (e.g. Redis).
+ * For persistent or distributed caching, provide your own `TrustResolutionCache` implementation (e.g. Redis).
  */
-export class InMemoryCacheStore implements CacheStore<string, Promise<unknown>> {
-  private map = new Map<string, Promise<unknown>>()
+export class InMemoryCache implements TrustResolutionCache<string, Promise<TrustResolution>> {
+  private map = new Map<string, Promise<TrustResolution>>()
   get(key: string) {
     return this.map.get(key)
   }
-  set(key: string, value: Promise<unknown>) {
+  set(key: string, value: Promise<TrustResolution>) {
     this.map.set(key, value)
   }
   delete(key: string) {

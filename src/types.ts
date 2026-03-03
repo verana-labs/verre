@@ -19,7 +19,7 @@ export type CredentialResolution = {
 export type ResolverConfig = {
   verifiablePublicRegistries?: VerifiablePublicRegistry[]
   didResolver?: Resolver
-  cacheStore?: CacheStore<string, Promise<unknown>>
+  cache?: TrustResolutionCache<string, Promise<TrustResolution>>
   skipDigestSRICheck?: boolean
   logger?: IVerreLogger
 }
@@ -218,7 +218,7 @@ export interface IVerreLogger {
   error(message: string, error?: Error | unknown): void
 }
 
-export interface CacheStore<K, V> {
+export interface TrustResolutionCache<K, V> {
   get(key: K): V | undefined
   set(key: K, value: V): void
   delete(key: K): void

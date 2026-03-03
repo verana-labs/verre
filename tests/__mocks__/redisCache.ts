@@ -1,17 +1,17 @@
 import Redis from 'ioredis'
 
-import { CacheStore } from '../../src'
+import { TrustResolution, TrustResolutionCache } from '../../src'
 
-export class RedisCacheStore implements CacheStore<string, Promise<unknown>> {
-  private local = new Map<string, Promise<unknown>>()
+export class TrustResolutionRedisCache implements TrustResolutionCache<string, Promise<TrustResolution>> {
+  private local = new Map<string, Promise<TrustResolution>>()
 
   constructor(private readonly redis: Redis) {}
 
-  get(key: string): Promise<unknown> | undefined {
+  get(key: string): Promise<TrustResolution> | undefined {
     return this.local.get(key)
   }
 
-  set(key: string, value: Promise<unknown>): void {
+  set(key: string, value: Promise<TrustResolution>): void {
     this.local.set(key, value)
     value.then(resolved => this.redis.set(key, JSON.stringify(resolved), 'EX', 300)).catch(() => {})
   }

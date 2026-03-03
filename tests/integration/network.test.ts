@@ -4,7 +4,7 @@ import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import {
   fetchJson,
-  InMemoryCacheStore,
+  InMemoryCache,
   PermissionType,
   resolveCredential,
   resolveDID,
@@ -107,11 +107,11 @@ describe('Integration with Verana Blockchain', () => {
 
     // Mock HTTP responses for schema and verifiable presentation endpoints to avoid real network calls
     fetchMocker.setMockResponses(integrationMockResponses)
-    const cacheStore = new InMemoryCacheStore()
+    const cache = new InMemoryCache()
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
       didResolver,
-      cacheStore,
+      cache,
     })
 
     // Validate result
@@ -138,7 +138,7 @@ describe('Integration with Verana Blockchain', () => {
     const fetchCountBefore = (global.fetch as any).mock.calls.length
     const cachedResult = await resolveDID(did, {
       verifiablePublicRegistries,
-      cacheStore,
+      cache,
     })
     expect(cachedResult.verified).toBe(true)
     expect((global.fetch as any).mock.calls.length).toBe(fetchCountBefore)

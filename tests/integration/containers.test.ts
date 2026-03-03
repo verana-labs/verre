@@ -10,14 +10,14 @@ import {
   getCredoTsDidResolver,
   integrationDidDoc,
   integrationMockResponses,
-  RedisCacheStore,
+  TrustResolutionRedisCache,
   setupAgent as setupAndInitializeAgent,
   verifiablePublicRegistries,
 } from '../__mocks__'
 
 const did = 'did:web:bcccdd780017.ngrok-free.app'
 
-describe('CacheStore with Redis (testcontainers)', () => {
+describe('TrustResolutionRedisCache with Redis (testcontainers)', () => {
   let container: StartedTestContainer
   let redis: Redis
   let didResolver: ReturnType<typeof getCredoTsDidResolver>
@@ -60,12 +60,12 @@ describe('CacheStore with Redis (testcontainers)', () => {
     fetchMocker.setMockResponses(integrationMockResponses)
 
     // First call: full resolution
-    const store = new RedisCacheStore(redis)
+    const store = new TrustResolutionRedisCache(redis)
 
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
       didResolver,
-      cacheStore: store,
+      cache: store,
     })
 
     expect(result.verified).toBe(true)
@@ -78,7 +78,7 @@ describe('CacheStore with Redis (testcontainers)', () => {
     const persisted = JSON.parse(redisRaw!)
     expect(persisted.verified).toBe(true)
 
-    const store2 = new RedisCacheStore(redis)
+    const store2 = new TrustResolutionRedisCache(redis)
     await store2.preload(did)
 
     fetchMocker.reset()
@@ -89,7 +89,7 @@ describe('CacheStore with Redis (testcontainers)', () => {
     // Second call: cached resolution
     const cachedResult = await resolveDID(did, {
       verifiablePublicRegistries,
-      cacheStore: store2,
+      cache: store2,
     })
 
     expect(cachedResult.verified).toBe(true)

@@ -50,7 +50,7 @@ import {
  * @param options - Configuration options for the resolver.
  * @param options.verifiablePublicRegistries - *(Optional)* The registry public registries URIs used to validate the DID and its services.
  * @param options.didResolver - *(Optional)* A custom DID resolver instance to override the default resolver behavior.
- * @param options.cacheStore (optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `CacheStore` interface is accepted, the library provides `InMemoryCacheStore` as a built-in implementation.
+ * @param options.cache (optional): Cache for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
  * @param options.skipDigestSRICheck - *(Optional)* When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  * @param options.logger - *(Optional)* Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
  * This flag applies **only to credential verification** and its value is determined by the calling service, which is responsible
@@ -172,7 +172,7 @@ function resolveTrustRegistry(
  * @internal
  */
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
-  const cached = options.cacheStore?.get(did)
+  const cached = options.cache?.get(did)
   if (cached) return cached as Promise<TrustResolution>
 
   try {
@@ -180,7 +180,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
 
     try {
       const result = await processDidDocument(did, didDocument, options)
-      options.cacheStore?.set(did, Promise.resolve(result))
+      options.cache?.set(did, Promise.resolve(result))
       return result
     } catch (error) {
       return handleTrustError(error, didDocument)
@@ -209,7 +209,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
  * @param {Resolver} [didResolver] - Optional DID resolver instance for nested resolution.
  * @param {IService} [attrs] - Optional pre-identified verifiable service to use.
  * @param {VerifiablePublicRegistry[]} verifiablePublicRegistries - The registry public registries URIs used for validation and lookup.
- * @param {CacheStore} cacheStore - Optional provides cache instance for trust resolution results.
+ * @param {TrustResolutionCache} cache - Optional provides cache instance for trust resolution results.
  * @param {boolean} skipDigestSRICheck - Optional When true, skips verification of the credential integrity (digestSRI). Defaults to false.
  *
  * @returns {Promise<TrustResolution>} An object containing:
@@ -281,7 +281,7 @@ async function processDidDocument(
             didResolver,
             attrs: credential,
             skipDigestSRICheck,
-            cacheStore: options.cacheStore,
+            cache: options.cache,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
