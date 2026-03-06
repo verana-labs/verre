@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.3](https://github.com/verana-labs/verre/compare/v0.2.2...v0.2.3) (2026-03-03)
+
+
+### Features
+
+* replace boolean cache by instance ([#86](https://github.com/verana-labs/verre/issues/86)) ([9dc3551](https://github.com/verana-labs/verre/commit/9dc3551438c5a72ee26b8a58a44c7949f939e9ae))
+
+
+### Bug Fixes
+
+* problem dev tag deployment [BUG] ([#85](https://github.com/verana-labs/verre/issues/85)) ([d6fbfae](https://github.com/verana-labs/verre/commit/d6fbfae0828e7965d52f30c19db1e5a58c6c81d3))
+* update cd with dev version ([#82](https://github.com/verana-labs/verre/issues/82)) ([30d90f0](https://github.com/verana-labs/verre/commit/30d90f09752aecff86ea37b2289f8a9443011a09))
+
+
+### Performance Improvements
+
+* improvement parallel signature validation ([#83](https://github.com/verana-labs/verre/issues/83)) ([c3cb7e2](https://github.com/verana-labs/verre/commit/c3cb7e29cc921dd6b67d0fbbd248952a2e1f89bf))
+
 ## [0.2.2](https://github.com/verana-labs/verre/compare/v0.2.1...v0.2.2) (2026-03-02)
 
 
