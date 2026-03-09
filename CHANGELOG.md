@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/verana-labs/verre/compare/v0.2.3...v0.2.4) (2026-03-09)
+
+
+### Bug Fixes
+
+* add new context ([#87](https://github.com/verana-labs/verre/issues/87)) ([82fb597](https://github.com/verana-labs/verre/commit/82fb5970fe8d3ebf7176b13ce430e40802edccee))
+
 ## [0.2.3](https://github.com/verana-labs/verre/compare/v0.2.2...v0.2.3) (2026-03-03)
 
 
