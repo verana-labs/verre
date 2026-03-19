@@ -343,7 +343,7 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
 }
 
 /**
- * Fetches the organization, persona, or service credential linked in a DID's VP services
+ * Fetches the organization credential linked in a DID's VP services
  * without verifying signatures. Used to retrieve entity metadata for issuer, grantor,
  * and trust registry participants.
  */
