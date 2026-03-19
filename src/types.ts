@@ -8,6 +8,9 @@ export type TrustResolution = {
   metadata?: TrustResolutionMetadata
   service?: IService
   serviceProvider?: ICredential
+  issuerCredential?: IOrg
+  grantorCredential?: IOrg
+  trustRegistryCredential?: IOrg
 }
 
 export type CredentialResolution = {
@@ -105,7 +108,7 @@ export enum PermissionType {
   VERIFIER = 'VERIFIER',
   ISSUER_GRANTOR = 'ISSUER_GRANTOR',
   VERIFIER_GRANTOR = 'VERIFIER_GRANTOR',
-  TRUST_REGISTRY = 'TRUST_REGISTRY',
+  TRUST_REGISTRY = 'ECOSYSTEM',
   HOLDER = 'HOLDER',
 }
 
