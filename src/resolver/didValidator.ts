@@ -313,9 +313,17 @@ async function processDidDocument(
         resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
         resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
       ])
+
+      // Reuse the issuer result if the DID matches to avoid a redundant fetch
+      const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
+        if (!did) return Promise.resolve(undefined)
+        if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
+        return fetchLinkedOrgCredential(did, didResolver, registries, logger)
+      }
+
       const [grantorResult, trustRegistryResult] = await Promise.all([
-        fetchLinkedOrgCredential(grantorDid, didResolver, registries, logger),
-        fetchLinkedOrgCredential(ecosystemDid, didResolver, registries, logger),
+        fetchOrReuse(grantorDid),
+        fetchOrReuse(ecosystemDid),
       ])
       grantorCredential = grantorResult?.credential
       trustRegistryCredential = trustRegistryResult?.credential
