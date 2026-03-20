@@ -308,25 +308,29 @@ async function processDidDocument(
     let grantorCredential: IOrg | undefined
     let trustRegistryCredential: IOrg | undefined
     if (issuerResult) {
-      const { trustRegistry, schemaId } = issuerResult
-      const [grantorDid, ecosystemDid] = await Promise.all([
-        resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
-        resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
-      ])
+      try {
+        const { trustRegistry, schemaId } = issuerResult
+        const [grantorDid, ecosystemDid] = await Promise.all([
+          resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
+          resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
+        ])
 
-      // Reuse the issuer result if the DID matches to avoid a redundant fetch
-      const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
-        if (!did) return Promise.resolve(undefined)
-        if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
-        return fetchLinkedOrgCredential(did, didResolver, registries, logger)
+        // Reuse the issuer result if the DID matches to avoid a redundant fetch
+        const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
+          if (!did) return Promise.resolve(undefined)
+          if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
+          return fetchLinkedOrgCredential(did, didResolver, registries, logger)
+        }
+
+        const [grantorResult, trustRegistryResult] = await Promise.all([
+          fetchOrReuse(grantorDid),
+          fetchOrReuse(ecosystemDid),
+        ])
+        grantorCredential = grantorResult?.credential
+        trustRegistryCredential = trustRegistryResult?.credential
+      } catch (error) {
+        logger.debug('Could not resolve grantor/ecosystem credentials', { error })
       }
-
-      const [grantorResult, trustRegistryResult] = await Promise.all([
-        fetchOrReuse(grantorDid),
-        fetchOrReuse(ecosystemDid),
-      ])
-      grantorCredential = grantorResult?.credential
-      trustRegistryCredential = trustRegistryResult?.credential
     }
 
     return {
@@ -734,7 +738,6 @@ async function resolvePermission(
   logger.debug('Fetching issuer permissions', { permUrl, schemaId })
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
-  logger.debug('PRUEBA: ', { perm })
   return perm?.did
 }
 
