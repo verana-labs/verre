@@ -8,8 +8,6 @@ import type {
 import { DIDDocument, Resolver, Service } from 'did-resolver'
 
 import { resolverInstance } from '../libraries/index.js'
-
-const VP_SERVICE_PATTERNS = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 import {
   ECS,
   ResolverConfig,
@@ -28,6 +26,8 @@ import {
   PermissionType,
   LogLevel,
   IVerreLogger,
+  LinkedOrgResult,
+  VP_SERVICE_PATTERNS,
 } from '../types.js'
 import {
   fetchJson,
@@ -298,7 +298,12 @@ async function processDidDocument(
   // If proof of trust exists, return the result with the service (issuer equals did)
   if (serviceProvider && service) {
     const registries = verifiablePublicRegistries ?? []
-    const issuerResult = await fetchLinkedOrgCredential(serviceProvider.issuer, didResolver, registries, logger)
+    const issuerResult = await fetchLinkedOrgCredential(
+      serviceProvider.issuer,
+      didResolver,
+      registries,
+      logger,
+    )
 
     let grantorCredential: IOrg | undefined
     let trustRegistryCredential: IOrg | undefined
@@ -347,8 +352,6 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
  * without verifying signatures. Used to retrieve entity metadata for issuer, grantor,
  * and trust registry participants.
  */
-type LinkedOrgResult = { credential: IOrg; trustRegistry: string; schemaId: string }
-
 async function fetchLinkedOrgCredential(
   did: string | undefined,
   didResolver: Resolver,
@@ -357,15 +360,12 @@ async function fetchLinkedOrgCredential(
 ): Promise<LinkedOrgResult | undefined> {
   if (!did) return undefined
   try {
-    const t0 = Date.now()
     const didDocument = await retrieveDidDocument(did, didResolver)
-    logger.debug('fetchLinkedOrgCredential DID resolve', { did, ms: Date.now() - t0 })
     if (!didDocument?.service) return undefined
 
     const matchingServices = didDocument.service.filter(
       ({ type, id }) =>
-        type === 'LinkedVerifiablePresentation' &&
-        VP_SERVICE_PATTERNS.some(p => p.test(id.split('#')[1])),
+        type === 'LinkedVerifiablePresentation' && VP_SERVICE_PATTERNS.some(p => p.test(id.split('#')[1])),
     )
     logger.debug('fetchLinkedOrgCredential matching services', { did, count: matchingServices.length })
 

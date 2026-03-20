@@ -95,6 +95,8 @@ export type Permission = {
   vp_term_requested?: number | null
 }
 
+export type LinkedOrgResult = { credential: IOrg; trustRegistry: string; schemaId: string }
+
 // Enums
 export enum ECS {
   ORG = 'ecs-org',
@@ -227,3 +229,5 @@ export interface TrustResolutionCache<K, V> {
   delete(key: K): void
   clear(): void
 }
+
+export const VP_SERVICE_PATTERNS = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
