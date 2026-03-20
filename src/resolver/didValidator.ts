@@ -283,6 +283,7 @@ async function processDidDocument(
             attrs: credential,
             skipDigestSRICheck,
             cache: options.cache,
+            logger: options.logger,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
