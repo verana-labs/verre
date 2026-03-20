@@ -577,7 +577,7 @@ async function processCredential(
           `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
         )
 
-      // Schema fetches and permission verification share no dependencies — run in parallel
+      // Schema fetches and permission check share no dependencies — run in parallel
       logger.debug('Fetching schemas and verifying permission in parallel')
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
@@ -594,6 +594,8 @@ async function processCredential(
       }
 
       validateSchemaContent(schemaData, w3cCredential)
+
+      // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
       const credential = {
         schemaType: identifySchema(subjectSchema),
