@@ -319,7 +319,12 @@ async function processDidDocument(
         issuerPermMode = await fetchIssuerPermManagementMode(trustRegistry, schemaId)
 
         const cached = { ...issuerResult, did: serviceProvider!.issuer }
-        const ecosystemDidPromise = resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger)
+        const ecosystemDidPromise = resolvePermission(
+          trustRegistry,
+          schemaId,
+          PermissionType.TRUST_REGISTRY,
+          logger,
+        )
 
         if (issuerPermMode === PermissionManagementMode.GRANTOR_VALIDATION) {
           const [grantorDid, ecosystemDid] = await Promise.all([
@@ -333,7 +338,9 @@ async function processDidDocument(
           grantorCredential = grantorResult?.credential
           trustRegistryCredential = ecosystemResult?.credential
         } else {
-          trustRegistryCredential = (await fetchLinkedOrgCredential(await ecosystemDidPromise, didResolver, registries, logger, cached))?.credential
+          trustRegistryCredential = (
+            await fetchLinkedOrgCredential(await ecosystemDidPromise, didResolver, registries, logger, cached)
+          )?.credential
         }
       } catch (error) {
         logger.debug('Could not resolve grantor/ecosystem credentials', { error })
@@ -406,7 +413,10 @@ async function fetchLinkedOrgCredential(
           const innerSubject = extractSchema(innerCredential.credentialSubject)
           if (!innerSubject) return undefined
 
-          const { schemaUrl, trustRegistry, schemaId } = resolveTrustRegistry(innerSubject, verifiablePublicRegistries)
+          const { schemaUrl, trustRegistry, schemaId } = resolveTrustRegistry(
+            innerSubject,
+            verifiablePublicRegistries,
+          )
           const subjectSchemaText = await fetchText(schemaUrl)
 
           const schemaType = identifySchema(JSON.parse(subjectSchemaText))
@@ -574,7 +584,10 @@ async function processCredential(
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
-      const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(subject, verifiablePublicRegistries)
+      const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
+        subject,
+        verifiablePublicRegistries,
+      )
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
 
       if (!issuer || !issuanceDate)
@@ -684,7 +697,6 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
 function isLinkedVPService({ type, id }: { type: string; id: string }): boolean {
   return type === 'LinkedVerifiablePresentation' && VP_SERVICE_PATTERNS.some(p => p.test(id.split('#')[1]))
 }
-
 
 async function fetchPermission(
   trustRegistry: string,
