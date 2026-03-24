@@ -316,7 +316,6 @@ async function processDidDocument(
           resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
         ])
 
-        // Reuse the issuer result if the DID matches to avoid a redundant fetch
         const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
           if (!did) return Promise.resolve(undefined)
           if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
