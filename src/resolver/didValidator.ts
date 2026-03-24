@@ -311,39 +311,38 @@ async function processDidDocument(
     let grantorCredential: IOrg | undefined
     let trustRegistryCredential: IOrg | undefined
     let issuerPermMode: PermissionManagementMode | undefined
+    logger.debug('issuerPermMode', { issuerPermMode })
     if (issuerResult) {
       try {
         const { trustRegistry, schemaId } = issuerResult
         issuerPermMode = await fetchIssuerPermManagementMode(trustRegistry, schemaId)
 
-        if (issuerPermMode !== PermissionManagementMode.OPEN) {
-          const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
-            if (!did) return Promise.resolve(undefined)
-            if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
-            return fetchLinkedOrgCredential(did, didResolver, registries, logger)
-          }
+        const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
+          if (!did) return Promise.resolve(undefined)
+          if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
+          return fetchLinkedOrgCredential(did, didResolver, registries, logger)
+        }
 
-          if (issuerPermMode === PermissionManagementMode.GRANTOR_VALIDATION) {
-            const [grantorDid, ecosystemDid] = await Promise.all([
-              resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
-              resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
-            ])
-            const [grantorResult, trustRegistryResult] = await Promise.all([
-              fetchOrReuse(grantorDid),
-              fetchOrReuse(ecosystemDid),
-            ])
-            grantorCredential = grantorResult?.credential
-            trustRegistryCredential = trustRegistryResult?.credential
-          } else {
-            const ecosystemDid = await resolvePermission(
-              trustRegistry,
-              schemaId,
-              PermissionType.TRUST_REGISTRY,
-              logger,
-            )
-            const ecosystemResult = await fetchOrReuse(ecosystemDid)
-            trustRegistryCredential = ecosystemResult?.credential
-          }
+        const ecosystemDidPromise = resolvePermission(
+          trustRegistry,
+          schemaId,
+          PermissionType.TRUST_REGISTRY,
+          logger,
+        )
+
+        if (issuerPermMode === PermissionManagementMode.GRANTOR_VALIDATION) {
+          const [grantorDid, ecosystemDid] = await Promise.all([
+            resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
+            ecosystemDidPromise,
+          ])
+          const [grantorResult, ecosystemResult] = await Promise.all([
+            fetchOrReuse(grantorDid),
+            fetchOrReuse(ecosystemDid),
+          ])
+          grantorCredential = grantorResult?.credential
+          trustRegistryCredential = ecosystemResult?.credential
+        } else {
+          trustRegistryCredential = (await fetchOrReuse(await ecosystemDidPromise))?.credential
         }
       } catch (error) {
         logger.debug('Could not resolve grantor/ecosystem credentials', { error })
@@ -357,6 +356,7 @@ async function processDidDocument(
       service,
       serviceProvider,
       ...(issuerResult &&
+        issuerPermMode !== undefined &&
         issuerPermMode !== PermissionManagementMode.OPEN && {
           issuerCredential: issuerResult.credential,
         }),
