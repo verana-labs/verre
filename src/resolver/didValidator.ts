@@ -312,25 +312,20 @@ async function processDidDocument(
     let grantorCredential: IOrg | undefined
     let trustRegistryCredential: IOrg | undefined
     let issuerPermMode: PermissionManagementMode | undefined
-    logger.debug('issuerPermMode', { issuerPermMode })
+
     if (issuerResult) {
       try {
         const { trustRegistry, schemaId } = issuerResult
-        issuerPermMode = await fetchIssuerPermManagementMode(trustRegistry, schemaId)
-
         const cached = { ...issuerResult, did: serviceProvider!.issuer }
-        const ecosystemDidPromise = resolvePermission(
-          trustRegistry,
-          schemaId,
-          PermissionType.TRUST_REGISTRY,
-          logger,
-        )
+
+        const [resolvedPermMode, grantorDid, ecosystemDid] = await Promise.all([
+          fetchIssuerPermManagementMode(trustRegistry, schemaId),
+          resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
+          resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
+        ])
+        issuerPermMode = resolvedPermMode
 
         if (issuerPermMode === PermissionManagementMode.GRANTOR_VALIDATION) {
-          const [grantorDid, ecosystemDid] = await Promise.all([
-            resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
-            ecosystemDidPromise,
-          ])
           const [grantorResult, ecosystemResult] = await Promise.all([
             fetchLinkedOrgCredential(grantorDid, didResolver, registries, logger, cached),
             fetchLinkedOrgCredential(ecosystemDid, didResolver, registries, logger, cached),
@@ -339,7 +334,7 @@ async function processDidDocument(
           trustRegistryCredential = ecosystemResult?.credential
         } else {
           trustRegistryCredential = (
-            await fetchLinkedOrgCredential(await ecosystemDidPromise, didResolver, registries, logger, cached)
+            await fetchLinkedOrgCredential(ecosystemDid, didResolver, registries, logger, cached)
           )?.credential
         }
       } catch (error) {
