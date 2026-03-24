@@ -24,6 +24,8 @@ import {
   CredentialResolution,
   VerifyPermissionsOptions,
   PermissionType,
+  PermissionManagementMode,
+  CredentialSchemaResponse,
   LogLevel,
   IVerreLogger,
   LinkedOrgResult,
@@ -155,7 +157,7 @@ function resolveTrustRegistry(
       : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
-    trustRegistry: `${urlObj.origin}/${segments[0]}`,
+    trustRegistry: toIndexerUrl(`${urlObj.origin}/${segments[0]}`),
     schemaId: segments.at(-1)!,
     outcome,
     schemaUrl,
@@ -308,26 +310,41 @@ async function processDidDocument(
 
     let grantorCredential: IOrg | undefined
     let trustRegistryCredential: IOrg | undefined
+    let issuerPermMode: PermissionManagementMode | undefined
     if (issuerResult) {
       try {
         const { trustRegistry, schemaId } = issuerResult
-        const [grantorDid, ecosystemDid] = await Promise.all([
-          resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
-          resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
-        ])
+        issuerPermMode = await fetchIssuerPermManagementMode(trustRegistry, schemaId)
 
-        const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
-          if (!did) return Promise.resolve(undefined)
-          if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
-          return fetchLinkedOrgCredential(did, didResolver, registries, logger)
+        if (issuerPermMode !== PermissionManagementMode.OPEN) {
+          const fetchOrReuse = (did: string | undefined): Promise<LinkedOrgResult | undefined> => {
+            if (!did) return Promise.resolve(undefined)
+            if (did === serviceProvider!.issuer) return Promise.resolve(issuerResult)
+            return fetchLinkedOrgCredential(did, didResolver, registries, logger)
+          }
+
+          if (issuerPermMode === PermissionManagementMode.GRANTOR_VALIDATION) {
+            const [grantorDid, ecosystemDid] = await Promise.all([
+              resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
+              resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
+            ])
+            const [grantorResult, trustRegistryResult] = await Promise.all([
+              fetchOrReuse(grantorDid),
+              fetchOrReuse(ecosystemDid),
+            ])
+            grantorCredential = grantorResult?.credential
+            trustRegistryCredential = trustRegistryResult?.credential
+          } else {
+            const ecosystemDid = await resolvePermission(
+              trustRegistry,
+              schemaId,
+              PermissionType.TRUST_REGISTRY,
+              logger,
+            )
+            const ecosystemResult = await fetchOrReuse(ecosystemDid)
+            trustRegistryCredential = ecosystemResult?.credential
+          }
         }
-
-        const [grantorResult, trustRegistryResult] = await Promise.all([
-          fetchOrReuse(grantorDid),
-          fetchOrReuse(ecosystemDid),
-        ])
-        grantorCredential = grantorResult?.credential
-        trustRegistryCredential = trustRegistryResult?.credential
       } catch (error) {
         logger.debug('Could not resolve grantor/ecosystem credentials', { error })
       }
@@ -339,7 +356,10 @@ async function processDidDocument(
       verified: true,
       service,
       serviceProvider,
-      ...(issuerResult && { issuerCredential: issuerResult.credential }),
+      ...(issuerResult &&
+        issuerPermMode !== PermissionManagementMode.OPEN && {
+          issuerCredential: issuerResult.credential,
+        }),
       ...(grantorCredential && { grantorCredential }),
       ...(trustRegistryCredential && { trustRegistryCredential }),
     }
@@ -692,7 +712,7 @@ async function verifyPermission(
   logger: IVerreLogger,
 ) {
   logger.debug('Verifying permission', { schemaId, did })
-  const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
+  const permUrl = `${trustRegistry}/perm/v1/list?did=${encodeURIComponent(
     did,
   )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
 
@@ -733,12 +753,33 @@ async function resolvePermission(
   logger: IVerreLogger,
 ) {
   logger.debug('Verifying permission', { schemaId })
-  const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
+  const permUrl = `${trustRegistry}/perm/v1/list?type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
 
   logger.debug('Fetching issuer permissions', { permUrl, schemaId })
   const permResponse = await fetchJson<PermissionResponse>(permUrl)
   const perm = permResponse.permissions?.[0]
   return perm?.did
+}
+
+/**
+ * Fetches the `issuer_perm_management_mode` for a given credential schema from the trust registry.
+ *
+ * The mode controls how issuer permission validation is performed:
+ * - `OPEN`: no permission validation required
+ * - `ECOSYSTEM`: only ecosystem (trust registry) permission is validated
+ * - `GRANTOR_VALIDATION`: both grantor and ecosystem permissions are validated
+ *
+ * @param trustRegistry - The base trust registry URL.
+ * @param schemaId - The credential schema ID.
+ * @returns The issuer permission management mode for the schema.
+ */
+async function fetchIssuerPermManagementMode(
+  trustRegistry: string,
+  schemaId: string,
+): Promise<PermissionManagementMode> {
+  const url = `${trustRegistry}/cs/v1/get/${schemaId}`
+  const response = await fetchJson<CredentialSchemaResponse>(url)
+  return response.schema.issuer_perm_management_mode
 }
 
 /**

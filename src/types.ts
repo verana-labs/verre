@@ -116,8 +116,20 @@ export enum PermissionType {
 
 export enum PermissionManagementMode {
   OPEN = 'OPEN',
+  ECOSYSTEM = 'ECOSYSTEM',
   GRANTOR_VALIDATION = 'GRANTOR_VALIDATION',
   TRUST_REGISTRY_VALIDATION = 'TRUST_REGISTRY_VALIDATION',
+}
+
+export type CredentialSchema = {
+  id: number
+  tr_id: number
+  issuer_perm_management_mode: PermissionManagementMode
+  verifier_perm_management_mode: PermissionManagementMode
+}
+
+export type CredentialSchemaResponse = {
+  schema: CredentialSchema
 }
 
 export enum VerifiablePresentationState {
