@@ -73,12 +73,25 @@ export async function fetchText(url: string): Promise<string> {
  * For persistent or distributed caching, provide your own `TrustResolutionCache` implementation (e.g. Redis).
  */
 export class InMemoryCache implements TrustResolutionCache<string, Promise<TrustResolution>> {
-  private map = new Map<string, Promise<TrustResolution>>()
-  get(key: string) {
-    return this.map.get(key)
+  private map = new Map<string, { value: Promise<TrustResolution>; expiresAt: number }>()
+  private ttlMs: number
+
+  constructor(ttlMs: number = 5 * 60 * 1000) {
+    this.ttlMs = ttlMs
   }
+
+  get(key: string): Promise<TrustResolution> | undefined {
+    const entry = this.map.get(key)
+    if (!entry) return undefined
+    if (Date.now() > entry.expiresAt) {
+      this.map.delete(key)
+      return undefined
+    }
+    return entry.value
+  }
+
   set(key: string, value: Promise<TrustResolution>) {
-    this.map.set(key, value)
+    this.map.set(key, { value, expiresAt: Date.now() + this.ttlMs })
   }
   delete(key: string) {
     this.map.delete(key)
