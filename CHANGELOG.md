@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/verana-labs/verre/compare/v0.2.4...v0.2.5) (2026-03-27)
+
+
+### Bug Fixes
+
+* include ttl to cache did validation ([#95](https://github.com/verana-labs/verre/issues/95)) ([235fd37](https://github.com/verana-labs/verre/commit/235fd37ae254468c30b61af028c279de9d7fb645))
+
 ## [0.2.4](https://github.com/verana-labs/verre/compare/v0.2.3...v0.2.4) (2026-03-09)
 
 
