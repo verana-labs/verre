@@ -24,8 +24,13 @@ import {
   CredentialResolution,
   VerifyPermissionsOptions,
   PermissionType,
+  PermissionManagementMode,
+  CredentialSchemaResponse,
   LogLevel,
   IVerreLogger,
+  LinkedOrgResult,
+  VP_SERVICE_PATTERNS,
+  Permission,
 } from '../types.js'
 import {
   fetchJson,
@@ -86,7 +91,7 @@ export async function verifyPermissions(options: VerifyPermissionsOptions) {
     logger.debug('Verifying permissions', { permissionType })
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential, logger)
-    const { trustRegistry, schemaId } = resolveTrustRegistry(getRefUrl(subject), verifiablePublicRegistries)
+    const { trustRegistry, schemaId } = resolveTrustRegistry(subject, verifiablePublicRegistries)
     await verifyPermission(trustRegistry, schemaId, issuanceDate, did, permissionType, logger)
     logger.debug('Issuer permissions verified successfully')
     return { verified: true }
@@ -138,9 +143,10 @@ export async function resolveCredential(
  * @returns The resolved trust registry base URL, schema ID, trust outcome, and normalized schema URL.
  */
 function resolveTrustRegistry(
-  refUrl: string,
+  subject: W3cCredentialSubject,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
 ): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome; schemaUrl: string } {
+  const refUrl = getRefUrl(subject)
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
   const schemaUrl =
     registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl
@@ -153,7 +159,7 @@ function resolveTrustRegistry(
       : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
-    trustRegistry: `${urlObj.origin}/${segments[0]}`,
+    trustRegistry: toIndexerUrl(`${urlObj.origin}/${segments[0]}`),
     schemaId: segments.at(-1)!,
     outcome,
     schemaUrl,
@@ -243,15 +249,13 @@ async function processDidDocument(
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
-  const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
   await Promise.all(
     didDocument.service.map(async didService => {
       const { type, id } = didService
-      const matchesPattern = patterns.some(pattern => pattern.test(id.split('#')[1]))
-      logger.debug('Evaluating DID service', { id, type, matchesPattern })
-      if (type === 'LinkedVerifiablePresentation' && matchesPattern) {
+      logger.debug('Evaluating DID service', { id, type })
+      if (isLinkedVPService(didService)) {
         logger.debug('Resolving linked VP service', { id })
         const vp = await resolveServiceVP(didService)
         if (!vp)
@@ -282,6 +286,7 @@ async function processDidDocument(
             attrs: credential,
             skipDigestSRICheck,
             cache: options.cache,
+            logger: options.logger,
           })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
@@ -296,12 +301,60 @@ async function processDidDocument(
 
   // If proof of trust exists, return the result with the service (issuer equals did)
   if (serviceProvider && service) {
+    const registries = verifiablePublicRegistries ?? []
+    const issuerResult = await fetchLinkedOrgCredential(
+      serviceProvider.issuer,
+      didResolver,
+      registries,
+      logger,
+    )
+
+    let grantorCredential: IOrg | undefined
+    let trustRegistryCredential: IOrg | undefined
+    let issuerPermMode: PermissionManagementMode | undefined
+
+    if (issuerResult) {
+      try {
+        const { trustRegistry, schemaId } = issuerResult
+        const cached = { ...issuerResult, did: serviceProvider!.issuer }
+
+        const [resolvedPermMode, grantorDid, ecosystemDid] = await Promise.all([
+          fetchIssuerPermManagementMode(trustRegistry, schemaId),
+          resolvePermission(trustRegistry, schemaId, PermissionType.ISSUER_GRANTOR, logger),
+          resolvePermission(trustRegistry, schemaId, PermissionType.TRUST_REGISTRY, logger),
+        ])
+        issuerPermMode = resolvedPermMode
+
+        if (issuerPermMode === PermissionManagementMode.GRANTOR_VALIDATION) {
+          const [grantorResult, ecosystemResult] = await Promise.all([
+            fetchLinkedOrgCredential(grantorDid, didResolver, registries, logger, cached),
+            fetchLinkedOrgCredential(ecosystemDid, didResolver, registries, logger, cached),
+          ])
+          grantorCredential = grantorResult?.credential
+          trustRegistryCredential = ecosystemResult?.credential
+        } else {
+          trustRegistryCredential = (
+            await fetchLinkedOrgCredential(ecosystemDid, didResolver, registries, logger, cached)
+          )?.credential
+        }
+      } catch (error) {
+        logger.debug('Could not resolve grantor/ecosystem credentials', { error })
+      }
+    }
+
     return {
       didDocument,
       outcome,
       verified: true,
       service,
       serviceProvider,
+      ...(issuerResult &&
+        issuerPermMode !== undefined &&
+        issuerPermMode !== PermissionManagementMode.OPEN && {
+          issuerCredential: issuerResult.credential,
+        }),
+      ...(grantorCredential && { grantorCredential }),
+      ...(trustRegistryCredential && { trustRegistryCredential }),
     }
   }
   throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
@@ -317,6 +370,76 @@ async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise
   const didDocument = resolutionResult?.didDocument
   if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
   return didDocument
+}
+
+/**
+ * Fetches the organization credential linked in a DID's VP services
+ * without verifying signatures. Used to retrieve entity metadata for issuer, grantor,
+ * and trust registry participants.
+ */
+async function fetchLinkedOrgCredential(
+  did: string | undefined,
+  didResolver: Resolver,
+  verifiablePublicRegistries: VerifiablePublicRegistry[],
+  logger: IVerreLogger,
+  cached?: LinkedOrgResult & { did: string },
+): Promise<LinkedOrgResult | undefined> {
+  if (!did) return undefined
+  if (cached?.did === did) return cached
+  try {
+    const didDocument = await retrieveDidDocument(did, didResolver)
+    if (!didDocument?.service) return undefined
+
+    const matchingServices = didDocument.service.filter(isLinkedVPService)
+    logger.debug('fetchLinkedOrgCredential matching services', { did, count: matchingServices.length })
+
+    const results = await Promise.all(
+      matchingServices.map(async (didService): Promise<LinkedOrgResult | undefined> => {
+        const { id: serviceId } = didService
+        try {
+          const vp = await resolveServiceVP(didService)
+
+          const w3cCredential = getCredential(vp)
+          const schema = extractSchema(w3cCredential.credentialSchema)
+          const subject = extractSchema(w3cCredential.credentialSubject)
+          if (!schema || schema.type !== 'JsonSchemaCredential') return undefined
+
+          const innerCredential = await fetchJson<W3cVerifiableCredential>((schema as any).id)
+          const innerSubject = extractSchema(innerCredential.credentialSubject)
+          if (!innerSubject) return undefined
+
+          const { schemaUrl, trustRegistry, schemaId } = resolveTrustRegistry(
+            innerSubject,
+            verifiablePublicRegistries,
+          )
+          const subjectSchemaText = await fetchText(schemaUrl)
+
+          const schemaType = identifySchema(JSON.parse(subjectSchemaText))
+          logger.debug('fetchLinkedOrgCredential schema identified', { serviceId, schemaType })
+
+          if (schemaType !== ECS.ORG) return undefined
+
+          const credential = {
+            schemaType,
+            id: w3cCredential.id as string,
+            issuer: w3cCredential.issuer as string,
+            ...(subject as Record<string, any>),
+          } as IOrg
+          return { credential, trustRegistry, schemaId }
+        } catch (error) {
+          logger.debug('fetchLinkedOrgCredential service skipped', { serviceId, error })
+          return undefined
+        }
+      }),
+    )
+
+    const result = results.find((r): r is LinkedOrgResult => r != null)
+    logger.debug('fetchLinkedOrgCredential result', { did, found: !!result })
+    return result
+  } catch (error) {
+    logger.debug('fetchLinkedOrgCredential failed', { did, error })
+    return undefined
+  }
 }
 
 /**
@@ -456,9 +579,8 @@ async function processCredential(
     const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
-      const refUrl = getRefUrl(subject)
       const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
-        refUrl,
+        subject,
         verifiablePublicRegistries,
       )
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
@@ -567,6 +689,24 @@ function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
+function isLinkedVPService({ type, id }: { type: string; id: string }): boolean {
+  return type === 'LinkedVerifiablePresentation' && VP_SERVICE_PATTERNS.some(p => p.test(id.split('#')[1]))
+}
+
+async function fetchPermission(
+  trustRegistry: string,
+  schemaId: string,
+  permissionType: PermissionType,
+  logger: IVerreLogger,
+  did?: string,
+): Promise<Permission | undefined> {
+  const didParam = did ? `did=${encodeURIComponent(did)}&` : ''
+  const permUrl = `${trustRegistry}/perm/v1/list?${didParam}type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
+  logger.debug('Fetching permissions', { permUrl, schemaId })
+  const permResponse = await fetchJson<PermissionResponse>(permUrl)
+  return permResponse.permissions?.[0]
+}
+
 /**
  * Verifies that an entity holds valid permissions for the specified schema
  * and ensures the credential's issuance date is not earlier than the permission creation date.
@@ -580,13 +720,7 @@ async function verifyPermission(
   logger: IVerreLogger,
 ) {
   logger.debug('Verifying permission', { schemaId, did })
-  const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    did,
-  )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
-
-  logger.debug('Fetching issuer permissions', { permUrl, schemaId })
-  const permResponse = await fetchJson<PermissionResponse>(permUrl)
-  const perm = permResponse.permissions?.[0]
+  const perm = await fetchPermission(trustRegistry, schemaId, permissionType, logger, did)
   if (!perm || perm.type !== permissionType)
     throw new TrustError(
       TrustErrorCode.INVALID_PERMISSIONS,
@@ -595,12 +729,7 @@ async function verifyPermission(
 
   const effectiveFrom = perm.effective_from ?? perm.created
   const effectiveUntil = perm.effective_until ?? new Date().toISOString()
-  logger.debug('Permission found, verifying dates', {
-    did,
-    issuanceDate,
-    effectiveFrom,
-    effectiveUntil,
-  })
+  logger.debug('Permission found, verifying dates', { did, issuanceDate, effectiveFrom, effectiveUntil })
   const issuanceTs = Date.parse(issuanceDate)
   const effectiveFromTs = Date.parse(effectiveFrom)
   const effectiveUntilTs = Date.parse(effectiveUntil)
@@ -612,6 +741,38 @@ async function verifyPermission(
   }
 
   logger.debug('Permission verified successfully', { did, schemaId })
+}
+
+async function resolvePermission(
+  trustRegistry: string,
+  schemaId: string,
+  permissionType: PermissionType,
+  logger: IVerreLogger,
+) {
+  logger.debug('Resolving permission', { schemaId })
+  const perm = await fetchPermission(trustRegistry, schemaId, permissionType, logger)
+  return perm?.did
+}
+
+/**
+ * Fetches the `issuer_perm_management_mode` for a given credential schema from the trust registry.
+ *
+ * The mode controls how issuer permission validation is performed:
+ * - `OPEN`: no permission validation required
+ * - `ECOSYSTEM`: only ecosystem (trust registry) permission is validated
+ * - `GRANTOR_VALIDATION`: both grantor and ecosystem permissions are validated
+ *
+ * @param trustRegistry - The base trust registry URL.
+ * @param schemaId - The credential schema ID.
+ * @returns The issuer permission management mode for the schema.
+ */
+async function fetchIssuerPermManagementMode(
+  trustRegistry: string,
+  schemaId: string,
+): Promise<PermissionManagementMode> {
+  const url = `${trustRegistry}/cs/v1/get/${schemaId}`
+  const response = await fetchJson<CredentialSchemaResponse>(url)
+  return response.schema.issuer_perm_management_mode
 }
 
 /**

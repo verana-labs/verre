@@ -8,6 +8,9 @@ export type TrustResolution = {
   metadata?: TrustResolutionMetadata
   service?: IService
   serviceProvider?: ICredential
+  issuerCredential?: IOrg
+  grantorCredential?: IOrg
+  trustRegistryCredential?: IOrg
 }
 
 export type CredentialResolution = {
@@ -92,6 +95,8 @@ export type Permission = {
   vp_term_requested?: number | null
 }
 
+export type LinkedOrgResult = { credential: IOrg; trustRegistry: string; schemaId: string }
+
 // Enums
 export enum ECS {
   ORG = 'ecs-org',
@@ -105,14 +110,26 @@ export enum PermissionType {
   VERIFIER = 'VERIFIER',
   ISSUER_GRANTOR = 'ISSUER_GRANTOR',
   VERIFIER_GRANTOR = 'VERIFIER_GRANTOR',
-  TRUST_REGISTRY = 'TRUST_REGISTRY',
+  TRUST_REGISTRY = 'ECOSYSTEM',
   HOLDER = 'HOLDER',
 }
 
 export enum PermissionManagementMode {
   OPEN = 'OPEN',
+  ECOSYSTEM = 'ECOSYSTEM',
   GRANTOR_VALIDATION = 'GRANTOR_VALIDATION',
   TRUST_REGISTRY_VALIDATION = 'TRUST_REGISTRY_VALIDATION',
+}
+
+export type CredentialSchema = {
+  id: number
+  tr_id: number
+  issuer_perm_management_mode: PermissionManagementMode
+  verifier_perm_management_mode: PermissionManagementMode
+}
+
+export type CredentialSchemaResponse = {
+  schema: CredentialSchema
 }
 
 export enum VerifiablePresentationState {
@@ -224,3 +241,5 @@ export interface TrustResolutionCache<K, V> {
   delete(key: K): void
   clear(): void
 }
+
+export const VP_SERVICE_PATTERNS = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
