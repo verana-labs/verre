@@ -14,6 +14,7 @@ The main entry point for using the resolver is the `resolve` function, which all
 1. [Parameters](#parameters)
 1. [Return Value](#return-value)
 1. [Usage Example](#usage-example)
+1. [Registry Adapter — embedded use](#registry-adapter--embedded-use)
 1. [Notes](#notes)
 
 ---
@@ -232,6 +233,77 @@ const result = await resolveDID('did:web:example.com', {
 })
 console.log('Resolved DID Document:', result)
 ```
+
+## Registry Adapter — embedded use
+
+By default, verre resolves permissions and schemas by making HTTP calls to the registry's
+API and indexer endpoints. This works well when verre is used as an external client.
+
+However, if your service **is itself the registry** (e.g. a trust-registry backend or
+indexer that also needs to validate incoming DIDs or credentials), those HTTP calls would
+loop back into the same process — adding unnecessary network latency and a dependency on
+the network stack.
+
+For this case, each `VerifiablePublicRegistry` entry accepts an optional `adapter` field
+that implements `IRegistryAdapter`. When verre encounters a credential referencing that
+registry, it calls the adapter's methods directly instead of making any HTTP request.
+
+### Interface
+
+```ts
+interface IRegistryAdapter {
+  // Returns the raw JSON text of the subject schema by its resolved URL.
+  fetchSchema(url: string): Promise<string>
+
+  // Returns the permission record for a DID, or undefined if none exists.
+  // verre handles date-range validation (effective_from / effective_until) after this call.
+  fetchPermission(
+    schemaId: string,
+    did: string,
+    permissionType: PermissionType,
+  ): Promise<
+    Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until'> | undefined
+  >
+}
+```
+
+### Example
+
+```ts
+import { resolveDID, IRegistryAdapter, VerifiablePublicRegistry, PermissionType } from '@verana-labs/verre'
+
+class RegistryAdapter implements IRegistryAdapter {
+  constructor(
+    private schemaService: SchemaService,
+    private permissionService: PermissionService,
+  ) {}
+
+  async fetchSchema(url: string): Promise<string> {
+    // Direct in-process lookup — no HTTP
+    return this.schemaService.getJsonByUrl(url)
+  }
+
+  async fetchPermission(schemaId: string, did: string, permissionType: PermissionType) {
+    // Direct in-process lookup — no HTTP
+    return this.permissionService.findFirst({ schemaId, did, type: permissionType })
+  }
+}
+
+const registries: VerifiablePublicRegistry[] = [
+  {
+    id: 'https://registry.example.com/vpr',
+    baseUrls: ['https://registry.example.com/vpr'],
+    production: true,
+    adapter: new RegistryAdapter(schemaService, permissionService),
+  },
+]
+
+const result = await resolveDID(did, { verifiablePublicRegistries: registries })
+```
+
+When `adapter` is omitted, verre falls back to standard HTTP resolution as usual.
+
+---
 
 ## Notes
 - The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USER-AGENT`, and `SERVICE`.
