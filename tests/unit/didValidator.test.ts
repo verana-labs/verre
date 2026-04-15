@@ -1,10 +1,11 @@
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, resolveDID, TrustResolutionOutcome } from '../../src'
+import { ECS, IVerreLogger, PermissionType, resolveDID, TrustResolutionOutcome } from '../../src'
 import { resolverInstance } from '../../src/libraries'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
+  createRegistriesWithAdapter,
   didExtIssuer,
   didSelfIssued,
   fetchMocker,
@@ -297,6 +298,88 @@ describe('DidValidator', () => {
         skipDigestSRICheck: true,
       })
       expect(verifyDigestSRISpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('registry adapter', () => {
+    beforeEach(() => {
+      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({ result: true })
+      fetchMocker.enable()
+    })
+
+    afterEach(() => {
+      fetchMocker.reset()
+      fetchMocker.disable()
+      vi.clearAllMocks()
+      resolverInstance.clear()
+    })
+
+    it('should call adapter methods instead of HTTP for schema and permission', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+
+      const mockLogger: IVerreLogger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      }
+
+      const fetchSchemaSpy = vi.fn(async (url: string) => {
+        if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+        if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+        throw new Error(`Unexpected schema URL in adapter: ${url}`)
+      })
+
+      const fetchPermissionSpy = vi.fn(async () => ({
+        type: PermissionType.ISSUER,
+        created: '2000-11-18T15:26:01.487Z',
+      }))
+
+      const registriesWithAdapter = createRegistriesWithAdapter({
+        fetchSchema: fetchSchemaSpy,
+        fetchPermission: fetchPermissionSpy,
+      })
+
+      fetchMocker.setMockResponses({
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
+        'https://ecs-trust-registry/service-credential-schema-credential.json': {
+          ok: true,
+          status: 200,
+          data: mockServiceSchemaSelfIssued,
+        },
+        'https://ecs-trust-registry/org-credential-schema-credential.json': {
+          ok: true,
+          status: 200,
+          data: mockOrgSchema,
+        },
+        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+          ok: true,
+          status: 200,
+          data: mockW3cJsonSchemaV2,
+        },
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registriesWithAdapter,
+        skipDigestSRICheck: true,
+        logger: mockLogger,
+      })
+
+      expect(result.verified).toBe(true)
+      expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
+
+      // Adapter methods were invoked — no HTTP to the indexer
+      expect(fetchSchemaSpy).toHaveBeenCalled()
+      expect(fetchPermissionSpy).toHaveBeenCalled()
+
+      // Logger confirms the adapter path was taken
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        'Using registry adapter for permission check',
+        expect.objectContaining({ schemaId: expect.any(String), did: didSelfIssued }),
+      )
     })
   })
 

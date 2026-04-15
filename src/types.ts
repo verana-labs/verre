@@ -38,10 +38,31 @@ export type InternalResolverConfig = Omit<ResolverConfig, 'didResolver'> & {
   attrs?: IService
 }
 
+/**
+ * Adapter interface for resolving registry operations locally, without making HTTP calls.
+ * Intended for use when verre runs inside the same process as the registry (e.g., the indexer).
+ */
+export interface IRegistryAdapter {
+  /**
+   * Fetches a schema by URL. Replaces the HTTP fetchText call for the subject schema.
+   */
+  fetchSchema(url: string): Promise<string>
+  /**
+   * Fetches the permission for a given DID and schema. Replaces the HTTP call to /perm/v1/list.
+   * Return undefined if no permission exists (verre will throw INVALID_PERMISSIONS).
+   */
+  fetchPermission(
+    schemaId: string,
+    did: string,
+    permissionType: PermissionType,
+  ): Promise<Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until'> | undefined>
+}
+
 export type VerifiablePublicRegistry = {
   id: string
   baseUrls: string[]
   production: boolean
+  adapter?: IRegistryAdapter
 }
 
 export type DidDocumentResult = {
