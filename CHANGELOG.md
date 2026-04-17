@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.6](https://github.com/verana-labs/verre/compare/v0.2.5...v0.2.6) (2026-04-17)
+
+
+### Features
+
+* include adapter to verifiablepublicregistry ([#97](https://github.com/verana-labs/verre/issues/97)) ([e31c1d0](https://github.com/verana-labs/verre/commit/e31c1d0f95d8c25c21052737c540ef4c2e77d120))
+
+
+### Bug Fixes
+
+* solve problem node 22 ([#99](https://github.com/verana-labs/verre/issues/99)) ([7ab9d22](https://github.com/verana-labs/verre/commit/7ab9d2274104df7cb0da3d973102af39f8acec21))
+
 ## [0.2.5](https://github.com/verana-labs/verre/compare/v0.2.4...v0.2.5) (2026-03-27)
 
 
