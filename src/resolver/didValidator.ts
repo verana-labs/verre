@@ -10,6 +10,7 @@ import { DIDDocument, Resolver, Service } from 'did-resolver'
 import { resolverInstance } from '../libraries/index.js'
 import {
   ECS,
+  IRegistryAdapter,
   ResolverConfig,
   TrustResolution,
   TrustErrorCode,
@@ -86,8 +87,11 @@ export async function verifyPermissions(options: VerifyPermissionsOptions) {
     logger.debug('Verifying permissions', { permissionType })
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential, logger)
-    const { trustRegistry, schemaId } = resolveTrustRegistry(getRefUrl(subject), verifiablePublicRegistries)
-    await verifyPermission(trustRegistry, schemaId, issuanceDate, did, permissionType, logger)
+    const { trustRegistry, schemaId, adapter } = resolveTrustRegistry(
+      getRefUrl(subject),
+      verifiablePublicRegistries,
+    )
+    await verifyPermission(trustRegistry, schemaId, issuanceDate, did, permissionType, logger, adapter)
     logger.debug('Issuer permissions verified successfully')
     return { verified: true }
   } catch (error) {
@@ -140,7 +144,13 @@ export async function resolveCredential(
 function resolveTrustRegistry(
   refUrl: string,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
-): { trustRegistry: string; schemaId: string; outcome: TrustResolutionOutcome; schemaUrl: string } {
+): {
+  trustRegistry: string
+  schemaId: string
+  outcome: TrustResolutionOutcome
+  schemaUrl: string
+  adapter?: IRegistryAdapter
+} {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
   const schemaUrl =
     registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl
@@ -157,6 +167,7 @@ function resolveTrustRegistry(
     schemaId: segments.at(-1)!,
     outcome,
     schemaUrl,
+    adapter: registry?.adapter,
   }
 }
 
@@ -457,11 +468,11 @@ async function processCredential(
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome, schemaUrl } = resolveTrustRegistry(
+      const { trustRegistry, schemaId, outcome, schemaUrl, adapter } = resolveTrustRegistry(
         refUrl,
         verifiablePublicRegistries,
       )
-      logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome })
+      logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome, hasAdapter: !!adapter })
 
       if (!issuer || !issuanceDate)
         throw new TrustError(
@@ -473,8 +484,16 @@ async function processCredential(
       logger.debug('Fetching schemas and verifying permission in parallel')
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
-        fetchText(schemaUrl),
-        verifyPermission(trustRegistry, schemaId, issuanceDate, issuer, PermissionType.ISSUER, logger),
+        adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
+        verifyPermission(
+          trustRegistry,
+          schemaId,
+          issuanceDate,
+          issuer,
+          PermissionType.ISSUER,
+          logger,
+          adapter,
+        ),
       ])
 
       const schemaData = JSON.parse(schemaRawText)
@@ -578,15 +597,26 @@ async function verifyPermission(
   did: string,
   permissionType: PermissionType,
   logger: IVerreLogger,
+  adapter?: IRegistryAdapter,
 ) {
-  logger.debug('Verifying permission', { schemaId, did })
-  const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
-    did,
-  )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
+  logger.debug('Verifying permission', { schemaId, did, hasAdapter: !!adapter })
 
-  logger.debug('Fetching issuer permissions', { permUrl, schemaId })
-  const permResponse = await fetchJson<PermissionResponse>(permUrl)
-  const perm = permResponse.permissions?.[0]
+  let perm:
+    | { type: string; created: string; effective_from?: string | null; effective_until?: string | null }
+    | undefined
+
+  if (adapter) {
+    logger.debug('Using registry adapter for permission check', { schemaId, did })
+    perm = await adapter.fetchPermission(schemaId, did, permissionType)
+  } else {
+    const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
+      did,
+    )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
+    logger.debug('Fetching issuer permissions', { permUrl, schemaId })
+    const permResponse = await fetchJson<PermissionResponse>(permUrl)
+    perm = permResponse.permissions?.[0]
+  }
+
   if (!perm || perm.type !== permissionType)
     throw new TrustError(
       TrustErrorCode.INVALID_PERMISSIONS,

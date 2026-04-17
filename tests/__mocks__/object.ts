@@ -1,6 +1,6 @@
 // __mocks__/didMocks.ts
 
-import { ECS, VerifiablePublicRegistry } from '../../src'
+import { ECS, IRegistryAdapter, VerifiablePublicRegistry } from '../../src'
 
 import { essentialSchemas } from './data'
 
@@ -337,6 +337,17 @@ export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
     production: false,
   },
 ]
+
+export function createRegistriesWithAdapter(adapter: IRegistryAdapter): VerifiablePublicRegistry[] {
+  return [
+    {
+      id: 'https://vpr-hostname/vpr',
+      baseUrls: ['https://testTrust.com'],
+      production: true,
+      adapter,
+    },
+  ]
+}
 
 // Mock integration didDocument
 export const integrationDidDoc = JSON.parse(
