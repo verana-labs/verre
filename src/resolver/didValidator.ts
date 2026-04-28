@@ -27,6 +27,9 @@ import {
   PermissionType,
   LogLevel,
   IVerreLogger,
+  PresentationType,
+  VpOutcome,
+  VpOutcomeWithError,
 } from '../types.js'
 import {
   fetchJson,
@@ -39,6 +42,158 @@ import {
   verifySignature,
   VerreLogger,
 } from '../utils/index.js'
+
+/**
+ * Linked Verifiable Presentation fragment patterns.
+ *
+ * The fragment portion of a `LinkedVerifiablePresentation` service id encodes
+ * both its target schema family (`vpr-schemas` or `vpr-ecs`) and its
+ * presentation type (Verifiable Trust Credential vs. Verifiable Trust JSON
+ * Schema Credential).
+ *
+ * Verre supports both the legacy spec v3 suffixes (`-c-vp`, `-jsc-vp`) and
+ * the spec v4 suffixes (`-vtc-vp`, `-vtjsc-vp`) so that DID Documents
+ * conforming to either version remain resolvable. New deployments should
+ * emit v4 suffixes.
+ */
+const LINKED_VP_FRAGMENT_PATTERNS: { regex: RegExp; type: PresentationType; legacy: boolean }[] = [
+  // Verifiable Trust Credential
+  { regex: /^vpr-(schemas|ecs).*-c-vp$/, type: PresentationType.VTC, legacy: true },
+  { regex: /^vpr-(schemas|ecs).*-vtc-vp$/, type: PresentationType.VTC, legacy: false },
+  // Verifiable Trust JSON Schema Credential
+  { regex: /^vpr-(schemas|ecs).*-jsc-vp$/, type: PresentationType.VTJSC, legacy: true },
+  { regex: /^vpr-(schemas|ecs).*-vtjsc-vp$/, type: PresentationType.VTJSC, legacy: false },
+]
+
+/**
+ * Classify the fragment of a DID service id as a known linked-vp variant.
+ *
+ * @param serviceId - The full service id (`<did>#<fragment>`).
+ * @returns The presentation type when the fragment matches a known pattern,
+ *          otherwise `null`.
+ */
+function classifyVpFragment(serviceId: string): { presentationType: PresentationType } | null {
+  const fragment = serviceId.split('#')[1]
+  if (!fragment) return null
+  for (const { regex, type } of LINKED_VP_FRAGMENT_PATTERNS) {
+    if (regex.test(fragment)) return { presentationType: type }
+  }
+  return null
+}
+
+/**
+ * Heuristic check for service ids that *appear* to be linked-vp entries
+ * but use an unrecognised fragment suffix. Used to decide whether to emit
+ * `FRAGMENT_NOT_CONFORMANT` (recognisably-bad) versus silently skipping
+ * unrelated services (e.g. `did-communication`).
+ */
+function looksLikeLinkedVpFragment(serviceId: string): boolean {
+  const fragment = serviceId.split('#')[1]
+  return Boolean(fragment && /^vpr-(schemas|ecs)/.test(fragment))
+}
+
+/**
+ * Where in the resolution pipeline a coarse `TrustError` was raised.
+ * Used by `mapToFineGrainedCode` to translate legacy codes emitted by
+ * existing throw sites into the new fine-grained codes that populate
+ * `TrustResolution.invalidPresentations`.
+ */
+type ErrorContext =
+  | 'fragment'
+  | 'vp-fetch'
+  | 'vp-format'
+  | 'vp-signature'
+  | 'cred-format'
+  | 'cred-schema-ref'
+  | 'cred-schema-fetch'
+  | 'cred-schema-validate'
+  | 'cred-digest'
+  | 'cred-permission'
+  | 'cred-whitelist'
+  | 'cred-registry'
+  | 'cred-other'
+
+/**
+ * Translate a coarse `TrustErrorCode` thrown from a legacy code path into
+ * the fine-grained code appropriate for the calling context.
+ *
+ * Existing throw sites continue to use the legacy codes so that the public
+ * `metadata.errorCode` and `handleTrustError` behaviour is unchanged.
+ * The fine-grained codes are surfaced only on the new
+ * `invalidPresentations` array, which downstream consumers (such as the
+ * verana-resolver) can opt into.
+ */
+function mapToFineGrainedCode(coarse: TrustErrorCode, context: ErrorContext): TrustErrorCode {
+  // Codes already specific are returned as-is so that explicit throws of
+  // fine-grained codes (e.g. ECS_TRUST_REGISTRY_NOT_WHITELISTED) survive
+  // unchanged.
+  switch (coarse) {
+    case TrustErrorCode.ECS_TRUST_REGISTRY_NOT_WHITELISTED:
+    case TrustErrorCode.REGISTRY_NOT_CONFIGURED:
+    case TrustErrorCode.FRAGMENT_NOT_CONFORMANT:
+    case TrustErrorCode.DEREFERENCE_FAILED:
+    case TrustErrorCode.VP_INVALID_FORMAT:
+    case TrustErrorCode.VP_SIGNATURE_INVALID:
+    case TrustErrorCode.VP_HOLDER_MISMATCH:
+    case TrustErrorCode.VP_NO_CREDENTIALS:
+    case TrustErrorCode.CREDENTIAL_SIGNATURE_INVALID:
+    case TrustErrorCode.CREDENTIAL_INVALID_FORMAT:
+    case TrustErrorCode.SCHEMA_NOT_FOUND:
+    case TrustErrorCode.CREDENTIAL_SCHEMA_MISMATCH:
+    case TrustErrorCode.SCHEMA_DIGEST_MISMATCH:
+    case TrustErrorCode.ISSUER_PERMISSION_MISSING:
+    case TrustErrorCode.ISSUER_PERMISSION_NOT_EFFECTIVE:
+      return coarse
+  }
+
+  switch (context) {
+    case 'fragment':
+      return TrustErrorCode.FRAGMENT_NOT_CONFORMANT
+    case 'vp-fetch':
+      return TrustErrorCode.DEREFERENCE_FAILED
+    case 'vp-format':
+      // NOT_FOUND from `getCredentials` (no creds) vs INVALID (bad VC type)
+      return coarse === TrustErrorCode.NOT_FOUND
+        ? TrustErrorCode.VP_NO_CREDENTIALS
+        : TrustErrorCode.VP_INVALID_FORMAT
+    case 'vp-signature':
+      return TrustErrorCode.VP_SIGNATURE_INVALID
+    case 'cred-format':
+      return TrustErrorCode.CREDENTIAL_INVALID_FORMAT
+    case 'cred-schema-ref':
+      return TrustErrorCode.CREDENTIAL_INVALID_FORMAT
+    case 'cred-schema-fetch':
+      return TrustErrorCode.SCHEMA_NOT_FOUND
+    case 'cred-schema-validate':
+      return TrustErrorCode.CREDENTIAL_SCHEMA_MISMATCH
+    case 'cred-digest':
+      return TrustErrorCode.SCHEMA_DIGEST_MISMATCH
+    case 'cred-permission':
+      // INVALID_PERMISSIONS may carry either MISSING or NOT_EFFECTIVE; use
+      // message heuristics to disambiguate (kept pragmatic since the legacy
+      // throw uses the same code for both subcases).
+      return TrustErrorCode.ISSUER_PERMISSION_MISSING
+    case 'cred-whitelist':
+      return TrustErrorCode.ECS_TRUST_REGISTRY_NOT_WHITELISTED
+    case 'cred-registry':
+      return TrustErrorCode.REGISTRY_NOT_CONFIGURED
+    case 'cred-other':
+    default:
+      return coarse
+  }
+}
+
+/**
+ * Refine a fine-grained code based on the inner error message. Keeps the
+ * mapping conservative: only used when the coarse code is `INVALID_PERMISSIONS`
+ * and we can distinguish "no permission" from "issuance out of range".
+ */
+function refinePermissionCode(message: string | undefined): TrustErrorCode {
+  if (!message) return TrustErrorCode.ISSUER_PERMISSION_MISSING
+  return /effective range|effective_from|effective_until|issuance date/i.test(message)
+    ? TrustErrorCode.ISSUER_PERMISSION_NOT_EFFECTIVE
+    : TrustErrorCode.ISSUER_PERMISSION_MISSING
+}
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -150,6 +305,13 @@ function resolveTrustRegistry(
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
+  /**
+   * The matched registry entry, or `undefined` if `refUrl` does not start with
+   * any configured registry id. Exposed so that callers can apply
+   * registry-scoped policies (e.g. `allowedEcsEcosystems`) without re-running
+   * the prefix match.
+   */
+  registry?: VerifiablePublicRegistry
 } {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
   const schemaUrl =
@@ -168,6 +330,7 @@ function resolveTrustRegistry(
     outcome,
     schemaUrl,
     adapter: registry?.adapter,
+    registry,
   }
 }
 
@@ -251,61 +414,156 @@ async function processDidDocument(
   const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
 
   const credentials: ICredential[] = []
+  const validPresentations: VpOutcome[] = []
+  const invalidPresentations: VpOutcomeWithError[] = []
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
-  const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
-  await Promise.all(
+
+  // Process every linked-vp service entry independently. We use
+  // `Promise.allSettled` so that a failure in any single VP does not
+  // abort processing of its siblings — this is what enables the
+  // per-VP `validPresentations` / `invalidPresentations` accumulator
+  // pattern. Per-VP outcomes (and any per-credential outcomes inside a
+  // VP) are pushed to the appropriate array and an aggregate outcome is
+  // tracked for the legacy `outcome` field (best of all valid VPs).
+  await Promise.allSettled(
     didDocument.service.map(async didService => {
       const { type, id } = didService
-      const matchesPattern = patterns.some(pattern => pattern.test(id.split('#')[1]))
-      logger.debug('Evaluating DID service', { id, type, matchesPattern })
-      if (type === 'LinkedVerifiablePresentation' && matchesPattern) {
-        logger.debug('Resolving linked VP service', { id })
-        const vp = await resolveServiceVP(didService)
-        if (!vp)
-          throw new TrustError(
-            TrustErrorCode.NOT_SUPPORTED,
-            `Invalid Linked Verifiable Presentation for service id: '${id}'`,
-          )
+      // Only LinkedVerifiablePresentation entries are in scope.
+      if (type !== 'LinkedVerifiablePresentation') {
+        logger.debug('Skipping non-linked-vp service', { id, type })
+        return
+      }
 
-        logger.debug('Getting verified credential from VP', { id })
-        const { credential, outcome: vpOutcome } = await getVerifiedCredential(
-          vp,
-          verifiablePublicRegistries ?? [],
-          logger,
-          didResolver,
-          skipDigestSRICheck,
-        )
-        credentials.push(credential)
-        outcome = vpOutcome
-
-        const isServiceCred = credential.schemaType === ECS.SERVICE
-        const isExternalIssuer = credential.issuer !== did
-
-        if (isServiceCred && isExternalIssuer) {
-          logger.debug('Processing external issuer service credential', { issuer: credential.issuer })
-          const resolution = await _resolve(credential.issuer, {
-            verifiablePublicRegistries,
-            didResolver,
-            attrs: credential,
-            skipDigestSRICheck,
-            cache: options.cache,
+      const classification = classifyVpFragment(id)
+      if (!classification) {
+        // Emit FRAGMENT_NOT_CONFORMANT only when the fragment looks like a
+        // linked-vp entry (starts with `vpr-schemas` or `vpr-ecs`); silently
+        // skip unrelated linked-vp services that happen to point elsewhere.
+        if (looksLikeLinkedVpFragment(id)) {
+          invalidPresentations.push({
+            serviceId: id,
+            vpUrl: id,
+            credentialIds: [],
+            errorCode: TrustErrorCode.FRAGMENT_NOT_CONFORMANT,
+            errorMessage: `Linked-vp fragment '${id.split('#')[1]}' does not match any known suffix (-c-vp / -vtc-vp / -jsc-vp / -vtjsc-vp)`,
           })
-          service = resolution.service
-          serviceProvider = resolution.serviceProvider
         }
+        return
+      }
+
+      const presentationType = classification.presentationType
+      logger.debug('Evaluating DID service', { id, type, presentationType })
+
+      const ctx = {
+        did,
+        serviceId: id,
+        presentationType,
+        verifiablePublicRegistries: verifiablePublicRegistries ?? [],
+        didResolver,
+        skipDigestSRICheck,
+        logger,
+        cache: options.cache,
+      }
+
+      const vpResult = await processLinkedVp(didService, ctx)
+
+      // Per-VP outcome bookkeeping.
+      if (vpResult.kind === 'vp-failed') {
+        invalidPresentations.push({
+          serviceId: id,
+          vpUrl: vpResult.vpUrl ?? id,
+          presentationType,
+          credentialIds: [],
+          errorCode: vpResult.errorCode,
+          errorMessage: vpResult.errorMessage,
+        })
+        return
+      }
+
+      // Per-credential outcome bookkeeping. A multi-credential VP may
+      // appear in BOTH arrays — its passing credentials in
+      // `validPresentations`, its failing credentials in
+      // `invalidPresentations` (grouped by error code).
+      if (vpResult.validCredentials.length > 0) {
+        validPresentations.push({
+          serviceId: id,
+          vpUrl: vpResult.vpUrl,
+          presentationType,
+          credentialIds: vpResult.validCredentials.map(c => c.credentialId),
+        })
+
+        for (const valid of vpResult.validCredentials) {
+          credentials.push(valid.credential)
+          if (valid.outcome > outcome) outcome = valid.outcome // upgrade best outcome
+        }
+      }
+
+      // Group failing credentials by error code so consumers can see
+      // exactly which credentials broke each rule.
+      const failuresByCode = new Map<TrustErrorCode, { ids: string[]; message: string }>()
+      for (const failed of vpResult.invalidCredentials) {
+        const slot = failuresByCode.get(failed.errorCode)
+        if (slot) {
+          slot.ids.push(failed.credentialId)
+        } else {
+          failuresByCode.set(failed.errorCode, {
+            ids: [failed.credentialId],
+            message: failed.errorMessage,
+          })
+        }
+      }
+      for (const [code, { ids, message }] of failuresByCode.entries()) {
+        invalidPresentations.push({
+          serviceId: id,
+          vpUrl: vpResult.vpUrl,
+          presentationType,
+          credentialIds: ids,
+          errorCode: code,
+          errorMessage: message,
+        })
+      }
+
+      // Indirect resolution: when the SERVICE credential is issued by a
+      // DID different from the one being resolved, recurse into the
+      // issuer's DID Document so that its `serviceProvider` (org/persona)
+      // attaches to the current trust resolution. Same semantics as the
+      // legacy implementation, only invoked once per VP from the first
+      // valid SERVICE credential found.
+      const externalServiceCred = vpResult.validCredentials.find(
+        (c): c is { credentialId: string; credential: IService; outcome: TrustResolutionOutcome } =>
+          c.credential.schemaType === ECS.SERVICE && c.credential.issuer !== did,
+      )?.credential
+      if (externalServiceCred) {
+        logger.debug('Processing external issuer service credential', {
+          issuer: externalServiceCred.issuer,
+        })
+        const resolution = await _resolve(externalServiceCred.issuer, {
+          verifiablePublicRegistries,
+          didResolver,
+          attrs: externalServiceCred,
+          skipDigestSRICheck,
+          cache: options.cache,
+        })
+        service = resolution.service
+        serviceProvider = resolution.serviceProvider
       }
     }),
   )
+
   service ??= credentials.find((cred): cred is IService => cred.schemaType === ECS.SERVICE)
   serviceProvider ??= credentials.find(
     (cred): cred is IOrg | IPersona => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSONA,
   )
 
-  // If proof of trust exists, return the result with the service (issuer equals did)
+  // If proof of trust exists, return the verified result. The legacy
+  // top-level fields (`service`, `serviceProvider`, `outcome`,
+  // `verified`) are preserved unchanged so existing consumers continue
+  // to work; the new `validPresentations` / `invalidPresentations`
+  // arrays are exposed alongside.
   if (serviceProvider && service) {
     return {
       didDocument,
@@ -313,9 +571,235 @@ async function processDidDocument(
       verified: true,
       service,
       serviceProvider,
+      validPresentations,
+      invalidPresentations,
     }
   }
-  throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
+  // No verified service/serviceProvider was assembled. Attach the
+  // partial-progress arrays to the thrown TrustError so that
+  // `handleTrustError` can forward them onto the final TrustResolution.
+  const err = new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
+  err.validPresentations = validPresentations
+  err.invalidPresentations = invalidPresentations
+  throw err
+}
+
+/** Result of processing a single linked-vp service entry. */
+type LinkedVpResult =
+  | {
+      kind: 'vp-failed'
+      vpUrl?: string
+      errorCode: TrustErrorCode
+      errorMessage: string
+    }
+  | {
+      kind: 'vp-processed'
+      vpUrl: string
+      validCredentials: { credentialId: string; credential: ICredential; outcome: TrustResolutionOutcome }[]
+      invalidCredentials: { credentialId: string; errorCode: TrustErrorCode; errorMessage: string }[]
+    }
+
+/** Aggregated context for processing a single linked-vp entry. */
+type LinkedVpContext = {
+  did: string
+  serviceId: string
+  presentationType: PresentationType
+  verifiablePublicRegistries: VerifiablePublicRegistry[]
+  didResolver: Resolver
+  skipDigestSRICheck?: boolean
+  logger: IVerreLogger
+  cache?: InternalResolverConfig['cache']
+}
+
+/**
+ * Process a single `LinkedVerifiablePresentation` service entry end-to-end:
+ * dereference the VP, verify its signature, then validate every credential
+ * it contains against the appropriate flow (VTC or VTJSC).
+ *
+ * Returns a structured result so the caller can update the per-VP /
+ * per-credential outcome arrays without losing partial progress.
+ */
+async function processLinkedVp(didService: Service, ctx: LinkedVpContext): Promise<LinkedVpResult> {
+  const { logger, presentationType, verifiablePublicRegistries, didResolver, skipDigestSRICheck } = ctx
+
+  // 1) Dereference the VP.
+  let vp: W3cPresentation
+  let vpUrl: string
+  try {
+    vp = await resolveServiceVP(didService)
+    const endpoints = Array.isArray(didService.serviceEndpoint)
+      ? didService.serviceEndpoint
+      : [didService.serviceEndpoint]
+    vpUrl = (endpoints[0] as string) ?? ctx.serviceId
+  } catch (error) {
+    const code = error instanceof TrustError ? error.metadata.errorCode! : TrustErrorCode.INVALID_REQUEST
+    return {
+      kind: 'vp-failed',
+      errorCode: mapToFineGrainedCode(code, 'vp-fetch'),
+      errorMessage: error instanceof Error ? error.message : String(error),
+    }
+  }
+
+  // 2) Verify VP signature (this also recursively verifies each embedded
+  // credential's own signature; one bad signature poisons the whole VP).
+  const sig = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
+  if (!sig.result) {
+    return {
+      kind: 'vp-failed',
+      vpUrl,
+      errorCode: TrustErrorCode.VP_SIGNATURE_INVALID,
+      errorMessage: `Verifiable presentation signature invalid: ${sig.error ?? 'unknown'}`,
+    }
+  }
+
+  // 3) Extract all credentials from the VP.
+  let vcs: W3cVerifiableCredential[]
+  try {
+    vcs = getCredentials(vp)
+  } catch (error) {
+    const code = error instanceof TrustError ? error.metadata.errorCode! : TrustErrorCode.INVALID
+    return {
+      kind: 'vp-failed',
+      vpUrl,
+      errorCode: mapToFineGrainedCode(code, 'vp-format'),
+      errorMessage: error instanceof Error ? error.message : String(error),
+    }
+  }
+
+  // 4) Validate each credential independently.
+  const validCredentials: {
+    credentialId: string
+    credential: ICredential
+    outcome: TrustResolutionOutcome
+  }[] = []
+  const invalidCredentials: { credentialId: string; errorCode: TrustErrorCode; errorMessage: string }[] = []
+
+  for (const vc of vcs) {
+    const credentialId = (vc.id as string) ?? '<no-id>'
+    try {
+      const { credential, outcome } =
+        presentationType === PresentationType.VTJSC
+          ? await processVtjscCredential(vc, verifiablePublicRegistries, skipDigestSRICheck, logger)
+          : await processCredential(vc, verifiablePublicRegistries, skipDigestSRICheck, logger)
+      validCredentials.push({ credentialId, credential, outcome })
+    } catch (error) {
+      const innerMessage = error instanceof Error ? error.message : String(error)
+      let coarse = error instanceof TrustError ? error.metadata.errorCode! : TrustErrorCode.INVALID
+      // Refine INVALID_PERMISSIONS into MISSING vs NOT_EFFECTIVE based on
+      // the message. This is the only legacy code with an internal split.
+      if (coarse === TrustErrorCode.INVALID_PERMISSIONS) {
+        coarse = refinePermissionCode(innerMessage)
+      }
+      const fineGrained = mapToFineGrainedCode(coarse, 'cred-other')
+      invalidCredentials.push({
+        credentialId,
+        errorCode: fineGrained,
+        errorMessage: innerMessage,
+      })
+      logger.debug('Credential validation failed', {
+        credentialId,
+        coarse,
+        fineGrained,
+        message: innerMessage,
+      })
+    }
+  }
+
+  return { kind: 'vp-processed', vpUrl, validCredentials, invalidCredentials }
+}
+
+/**
+ * Validate a Verifiable Trust JSON Schema Credential (VTJSC) presented
+ * directly via a `-jsc-vp` / `-vtjsc-vp` linked-vp service.
+ *
+ * VTJSCs differ from VTCs in two ways:
+ *
+ * 1. They are themselves credentials of type `JsonSchemaCredential` whose
+ *    inner `credentialSchema.type` is `JsonSchema`. There is no outer
+ *    "user-data" credential.
+ * 2. The relevant trust assertion is **not** an ISSUER permission for a
+ *    schema, but rather "the Ecosystem DID controls this schema". The
+ *    cryptographic proof comes from the credential signature; the
+ *    Ecosystem-vs-registry binding is enforced via the optional
+ *    `allowedEcsEcosystems` whitelist on the matched registry.
+ *
+ * The returned `ICredential` has `id` and `issuer` (the Ecosystem DID)
+ * populated and `schemaType` set to the identified ECS variant when
+ * applicable, or `'unknown'` for non-ECS schemas.
+ */
+async function processVtjscCredential(
+  w3cCredential: W3cVerifiableCredential,
+  verifiablePublicRegistries: VerifiablePublicRegistry[],
+  skipDigestSRICheck: boolean = false,
+  logger: IVerreLogger,
+): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
+  logger.debug('Processing VTJSC credential', { id: w3cCredential.id })
+
+  const { schema, subject } = resolveSchemaAndSubject(w3cCredential, logger)
+
+  // A VTJSC's own schema MUST be `JsonSchema` (i.e. the credential IS the
+  // JSC). VTC-like indirection (`JsonSchemaCredential`) is rejected here.
+  if (schema.type !== 'JsonSchema') {
+    throw new TrustError(
+      TrustErrorCode.CREDENTIAL_INVALID_FORMAT,
+      `VTJSC must declare credentialSchema.type === 'JsonSchema'; got '${schema.type}'`,
+    )
+  }
+
+  const refUrl = getRefUrl(subject)
+  const { schemaUrl, outcome, adapter, registry } = resolveTrustRegistry(refUrl, verifiablePublicRegistries)
+
+  const { digestSRI: schemaDigestSRI } = schema as Record<string, any>
+  const { digestSRI: subjectDigestSRI } = subject as Record<string, any>
+
+  const [schemaRawText, subjectSchemaRawText] = await Promise.all([
+    fetchText(schema.id),
+    adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
+  ])
+
+  if (!skipDigestSRICheck) {
+    verifyDigestSRI(schemaRawText, schemaDigestSRI, logger)
+    verifyDigestSRI(subjectSchemaRawText, subjectDigestSRI, logger)
+  }
+
+  const schemaData = JSON.parse(schemaRawText)
+  const subjectSchema = JSON.parse(subjectSchemaRawText)
+
+  // The VTJSC must validate against its own meta-schema (typically the
+  // W3C JsonSchemaCredential schema). No `attrs` validation step here:
+  // there is no outer credential carrying user data.
+  validateSchemaContent(schemaData, w3cCredential)
+
+  const ecsType = identifySchema(subjectSchema)
+
+  // ECS whitelist enforcement: identical to the VTC path, except that
+  // for VTJSCs the JSC issuer is simply `w3cCredential.issuer` (no
+  // recursion).
+  if (ecsType !== null && registry?.allowedEcsEcosystems && registry.allowedEcsEcosystems.length > 0) {
+    const jscIssuer =
+      typeof w3cCredential.issuer === 'string'
+        ? w3cCredential.issuer
+        : (w3cCredential.issuer as { id?: string } | undefined)?.id
+    if (!jscIssuer || !registry.allowedEcsEcosystems.includes(jscIssuer)) {
+      throw new TrustError(
+        TrustErrorCode.ECS_TRUST_REGISTRY_NOT_WHITELISTED,
+        `Ecosystem DID ${jscIssuer ?? '<unknown>'} is not whitelisted to issue ${ecsType} schemas in registry ${registry.id}`,
+      )
+    }
+    logger.debug('VTJSC ecosystem whitelist passed', { jscIssuer, ecsType, registryId: registry.id })
+  }
+
+  const issuer =
+    typeof w3cCredential.issuer === 'string'
+      ? w3cCredential.issuer
+      : ((w3cCredential.issuer as { id?: string } | undefined)?.id ?? '')
+
+  const credential: ICredential = {
+    schemaType: ecsType ?? 'unknown',
+    id: (w3cCredential.id as string) ?? '',
+    issuer,
+  } as ICredential
+  return { credential, outcome }
 }
 
 /**
@@ -358,41 +842,21 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
 }
 
 /**
- * Extracts a valid verifiable credential from a Verifiable Presentation.
- * @param vp - The Verifiable Presentation to parse.
- * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
- * @returns A valid Verifiable Credential.
- * @throws Error if no valid credential is found.
+ * Returns all Verifiable Credentials inside a Verifiable Presentation.
+ *
+ * Unlike the original `getCredential` (single-result, fail-fast), this
+ * iterator returns *every* credential whose `type` array includes
+ * `VerifiableCredential`. This enables per-credential validation downstream
+ * so a multi-credential VP that is partially valid can be reported
+ * accurately (some credentials in `validPresentations`, others in
+ * `invalidPresentations`).
+ *
+ * @param vp - The Verifiable Presentation to inspect.
+ * @returns Non-empty array of credentials. Throws if the VP holds none.
+ * @throws {TrustError} `NOT_FOUND` when the VP has no credentials at all,
+ *                     `INVALID` when none are typed as `VerifiableCredential`.
  */
-async function getVerifiedCredential(
-  vp: W3cPresentation,
-  verifiablePublicRegistries: VerifiablePublicRegistry[],
-  logger: IVerreLogger,
-  didResolver: Resolver,
-  skipDigestSRICheck?: boolean,
-): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
-  logger.debug('Verifying credential', { vp })
-
-  const w3cCredential = getCredential(vp)
-  const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
-  if (!isVerified.result) {
-    throw new TrustError(
-      TrustErrorCode.INVALID,
-      'The verifiable credential proof is not valid with: ' + isVerified.error,
-    )
-  }
-
-  logger.debug('Credential verified successfully')
-  return await processCredential(w3cCredential, verifiablePublicRegistries, skipDigestSRICheck, logger)
-}
-
-/**
- * Finds a valid Verifiable Credential inside a Verifiable Presentation.
- * @param vp - The Verifiable Presentation to search.
- * @returns The first valid Verifiable Credential.
- * @throws Error if no valid credential is found.
- */
-function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
+function getCredentials(vp: W3cPresentation): W3cVerifiableCredential[] {
   if (
     !vp.verifiableCredential ||
     !Array.isArray(vp.verifiableCredential) ||
@@ -401,15 +865,15 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'No verifiable credential found in the response')
   }
 
-  const validCredential = vp.verifiableCredential.find(vc => vc.type.includes('VerifiableCredential')) as
-    | W3cVerifiableCredential
-    | undefined
+  const validCredentials = vp.verifiableCredential.filter(vc =>
+    vc.type.includes('VerifiableCredential'),
+  ) as W3cVerifiableCredential[]
 
-  if (!validCredential) {
+  if (validCredentials.length === 0) {
     throw new TrustError(TrustErrorCode.INVALID, 'No valid verifiable credential found in the response')
   }
 
-  return validCredential
+  return validCredentials
 }
 
 /**
@@ -468,7 +932,7 @@ async function processCredential(
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome, schemaUrl, adapter } = resolveTrustRegistry(
+      const { trustRegistry, schemaId, outcome, schemaUrl, adapter, registry } = resolveTrustRegistry(
         refUrl,
         verifiablePublicRegistries,
       )
@@ -508,8 +972,36 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
+
+      const ecsType = identifySchema(subjectSchema)
+
+      // ECS Trust Registry whitelist enforcement.
+      //
+      // When the credential's underlying JSON Schema is one of the four
+      // Essential Credential Schemas (Service / Organization / Persona /
+      // UserAgent) AND the matched registry declares a non-empty
+      // `allowedEcsEcosystems` whitelist, the JSC issuer (i.e. the
+      // Ecosystem DID that owns the schema; available as
+      // `w3cCredential.issuer` in this recursive call) MUST appear in
+      // the whitelist. When the registry declares no whitelist (or an
+      // empty one), any Ecosystem DID is accepted — preserving the
+      // pre-feature behaviour for backward compatibility.
+      if (ecsType !== null && registry?.allowedEcsEcosystems && registry.allowedEcsEcosystems.length > 0) {
+        const jscIssuer =
+          typeof w3cCredential.issuer === 'string'
+            ? w3cCredential.issuer
+            : (w3cCredential.issuer as { id?: string } | undefined)?.id
+        if (!jscIssuer || !registry.allowedEcsEcosystems.includes(jscIssuer)) {
+          throw new TrustError(
+            TrustErrorCode.ECS_TRUST_REGISTRY_NOT_WHITELISTED,
+            `Ecosystem DID ${jscIssuer ?? '<unknown>'} is not whitelisted to issue ${ecsType} schemas in registry ${registry.id}`,
+          )
+        }
+        logger.debug('ECS ecosystem whitelist passed', { jscIssuer, ecsType, registryId: registry.id })
+      }
+
       const credential = {
-        schemaType: identifySchema(subjectSchema),
+        schemaType: ecsType,
         id,
         issuer,
         ...attrs,
@@ -517,6 +1009,10 @@ async function processCredential(
       return { credential, outcome }
     } catch (error) {
       logger.error('Failed to process credential', error)
+      // Preserve specific TrustError codes (e.g. ECS_TRUST_REGISTRY_NOT_WHITELISTED)
+      // raised explicitly above. Otherwise wrap with the legacy coarse code so
+      // existing consumers keep their behaviour.
+      if (error instanceof TrustError) throw error
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
     }
   }
