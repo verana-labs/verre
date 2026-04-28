@@ -85,6 +85,19 @@ Resolves to a `TrustResolution` containing:
 * **metadata** (*TrustResolutionMetadata*, optional): Error or diagnostic information.
 * **service** (*IService*, optional): Verified DID service.
 * **serviceProvider** (*ICredential*, optional): Credential representing the trust provider.
+* **validPresentations** (*VpOutcome[]*, optional): Per-VP outcome accumulator. One entry per `LinkedVerifiablePresentation` service whose underlying VP yielded at least one valid credential. Each entry lists the credential ids that passed validation.
+* **invalidPresentations** (*VpOutcomeWithError[]*, optional): Per-VP / per-credential failure accumulator. May contain entries for VPs that failed at the dereference / signature stage as well as credential-level failures grouped by `errorCode`. A multi-credential VP can appear in BOTH arrays simultaneously when some credentials pass and others fail.
+
+#### Spec v4 fragment-suffix support
+
+`resolveDID` accepts the spec v4 fragment suffixes alongside the legacy v3
+suffix to ease migration:
+
+* **VTC presentations** — `-vtc-vp` (v4) **or** `-c-vp` (v3 legacy).
+* **VTJSC presentations** — `-vtjsc-vp` (v4 long form) **or** `-jsc-vp` (v4 short form).
+* **Both `vpr-schemas-*` and `vpr-ecs-*` namespaces** are recognised (the v4 spec renames trust registries to "ECS Trust Registry").
+
+Service entries whose fragment starts with `vpr-schemas`/`vpr-ecs` but matches no known suffix are surfaced under `invalidPresentations` with the `FRAGMENT_NOT_CONFORMANT` error code; unrelated `LinkedVerifiablePresentation` services are silently ignored.
 
 ---
 
