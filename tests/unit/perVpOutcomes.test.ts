@@ -291,6 +291,78 @@ describe('per-VP outcome accumulator', () => {
       )
     })
 
+    /**
+     * Regression test for the coarse `metadata.errorCode` on the
+     * partial-failure path:
+     *
+     *   * If at least one VP was attempted and rejected (e.g. signature
+     *     verification failed), the legacy contract is `INVALID`.
+     *   * Throwing `NOT_FOUND` here (as the original `feat/per-vp-outcomes`
+     *     refactor accidentally did) is a regression because consumers
+     *     route on the coarse code: `INVALID` means "we tried to verify a
+     *     credential and rejected it" while `NOT_FOUND` means "nothing to
+     *     verify in the first place".
+     *
+     * The fine-grained per-VP details remain on `invalidPresentations`
+     * regardless; this test only pins the top-level coarse code.
+     */
+    it('returns metadata.errorCode = INVALID when some VPs failed validation', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
+        async (did: string) => mockResolversByDid[did],
+      )
+      // Same scenario as the VP_SIGNATURE_INVALID test above: org VP is
+      // rejected, service VP succeeds, so no service+serviceProvider pair
+      // can be assembled. Without the fix this surfaces as NOT_FOUND.
+      vi.spyOn(signatureVerifier, 'verifySignature').mockImplementation(async (doc: any) => {
+        if (
+          doc.id?.includes('verifiable-presentation') &&
+          doc.holder === didSelfIssued &&
+          doc.verifiableCredential[0]?.credentialSubject?.name === 'Example Corp'
+        ) {
+          return { result: false, error: 'fake signature failure' }
+        }
+        return { result: true }
+      })
+      fetchMocker.setMockResponses(baselineFetchResponses)
+
+      const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+      expect(result.verified).toBe(false)
+      expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
+      expect(result.metadata?.errorCode).toBe(TrustErrorCode.INVALID)
+      // Sanity-check that the fine-grained array still carries the per-VP
+      // failure so callers that opt in keep full diagnostics.
+      expect(result.invalidPresentations?.length).toBeGreaterThan(0)
+    })
+
+    /**
+     * Counterpart to the regression test above: when nothing was even
+     * tried (all linked-vp services were silently skipped because none
+     * carry a recognisable `vpr-*` fragment), the coarse code stays
+     * `NOT_FOUND` — there really is nothing to evaluate.
+     */
+    it('returns metadata.errorCode = NOT_FOUND when no VPs were attempted', async () => {
+      const docWithUnrelatedLvpOnly = {
+        ...mockDidDocumentSelfIssued,
+        didDocument: {
+          ...mockDidDocumentSelfIssued.didDocument,
+          service: [
+            {
+              id: `${didSelfIssued}#linked-domains-vp`,
+              type: 'LinkedVerifiablePresentation',
+              serviceEndpoint: ['https://example.com/some-other-vp'],
+            },
+          ],
+        },
+      }
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => docWithUnrelatedLvpOnly as any)
+      fetchMocker.setMockResponses(baselineFetchResponses)
+
+      const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+      expect(result.verified).toBe(false)
+      expect(result.metadata?.errorCode).toBe(TrustErrorCode.NOT_FOUND)
+      expect(result.invalidPresentations).toEqual([])
+    })
+
     it('reports ISSUER_PERMISSION_MISSING when the perm endpoint returns no permissions', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
         async (did: string) => mockResolversByDid[did],
