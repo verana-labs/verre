@@ -575,10 +575,29 @@ async function processDidDocument(
       invalidPresentations,
     }
   }
-  // No verified service/serviceProvider was assembled. Attach the
-  // partial-progress arrays to the thrown TrustError so that
-  // `handleTrustError` can forward them onto the final TrustResolution.
-  const err = new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
+  // No verified service/serviceProvider was assembled. Distinguish two
+  // shapes of failure for the coarse top-level code consumers see on
+  // `metadata.errorCode`:
+  //
+  //   * `INVALID`   — at least one VP was attempted and failed validation
+  //                   (signature, schema, permission, etc.). Legacy
+  //                   behaviour: a credential we tried to verify was
+  //                   rejected, so the overall outcome is "invalid". This
+  //                   matches the integration test which mocks a VP with
+  //                   a broken JWS and expects `INVALID` at the top level.
+  //   * `NOT_FOUND` — nothing valid AND nothing was even tried (e.g. all
+  //                   linked-vp fragments were classified as unrelated /
+  //                   skipped, or there were no recognisable VPs at all).
+  //
+  // The fine-grained per-VP details remain on `invalidPresentations`
+  // regardless, so callers that opt into them keep full diagnostics.
+  const triedSomething = invalidPresentations.length > 0
+  const err = new TrustError(
+    triedSomething ? TrustErrorCode.INVALID : TrustErrorCode.NOT_FOUND,
+    triedSomething
+      ? 'No valid service + serviceProvider pair could be assembled; see invalidPresentations for per-VP failures.'
+      : 'Valid serviceProvider and service were not found',
+  )
   err.validPresentations = validPresentations
   err.invalidPresentations = invalidPresentations
   throw err
