@@ -36,7 +36,7 @@
     "test:coverage": "vitest --coverage --dir tests/unit",
     "lint": "eslint \"{src,tests}/**/*.ts\" --fix",
     "validate": "pnpm run check-types && pnpm run check-format",
-    "prepare": "corepack enable"
+    "prepare": "[ -d build ] || (tsc -p tsconfig.json && tsc -p tsconfig.cjs.json)"
   },
   "devDependencies": {
     "@credo-ts/askar": "^0.6.1",
