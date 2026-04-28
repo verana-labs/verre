@@ -11,13 +11,19 @@ permissions:
 
 jobs:
   resolve-version:
+    # Gate the npm release pipeline to the canonical upstream repo. Forks
+    # publish their own artifacts (e.g. via a git URL or a separate
+    # workflow); without this guard the inherited release-please job runs
+    # on every fork push and fails noisily (and depends on secrets /
+    # repo settings the fork doesn't have).
+    if: github.repository == 'verana-labs/verre'
     uses: 2060-io/organization/.github/workflows/resolve-version-call.yml@main
     with:
       bump-minor-pre-major: false
 
   release:
     needs: [resolve-version]
-    if: needs.resolve-version.outputs.new-release-published == 'true'
+    if: github.repository == 'verana-labs/verre' && needs.resolve-version.outputs.new-release-published == 'true'
     runs-on: ubuntu-latest
     env:
       RELEASE_VERSION: ${{ needs.resolve-version.outputs.release-version }}
