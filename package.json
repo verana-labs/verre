@@ -77,7 +77,7 @@
     "ajv-formats": "^3.0.1",
     "canonicalize": "^2.1.0",
     "did-resolver": "^4.1.0",
-    "didwebvh-ts": "^2.7.1",
+    "didwebvh-ts": "2.7.2",
     "jsonld": "^8.3.3",
     "tslog": "^4.10.2",
     "web-did-resolver": "^2.0.29"

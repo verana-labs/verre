@@ -33,8 +33,8 @@ importers:
         specifier: ^4.1.0
         version: 4.1.0
       didwebvh-ts:
-        specifier: ^2.7.1
-        version: 2.7.1
+        specifier: 2.7.2
+        version: 2.7.2
       jsonld:
         specifier: ^8.3.3
         version: 8.3.3(web-streams-polyfill@3.3.3)
@@ -1617,8 +1617,8 @@ packages:
   did-resolver@4.1.0:
     resolution: {integrity: sha512-S6fWHvCXkZg2IhS4RcVHxwuyVejPR7c+a4Go0xbQ9ps5kILa8viiYQgrM4gfTyeTjJ0ekgJH9gk/BawTpmkbZA==}
 
-  didwebvh-ts@2.7.1:
-    resolution: {integrity: sha512-wsii4M8cQdPuIgc8wV1kg4fqWZD52pwp6asXqpUhAbYTjxE78jOUzKtmV2Xpc4NXyqyfZyGR6xDoUhj3BKmFaA==}
+  didwebvh-ts@2.7.2:
+    resolution: {integrity: sha512-aCv+VhsXvczn5qZ235Q6nvnEzwDxrPYTYC1pTioYM7LAit/RcQp6rtpI7H/MOAGwwTM/udxen2NYzgOVEd3rWg==}
     hasBin: true
 
   diff@4.0.2:
@@ -3706,7 +3706,7 @@ snapshots:
       '@credo-ts/core': 0.6.1(typescript@5.8.2)
       class-transformer: 0.5.1
       class-validator: 0.14.1
-      didwebvh-ts: 2.7.1
+      didwebvh-ts: 2.7.2
       json-canonicalize: 2.0.0
       tsyringe: 4.10.0
     transitivePeerDependencies:
@@ -5189,7 +5189,7 @@ snapshots:
 
   did-resolver@4.1.0: {}
 
-  didwebvh-ts@2.7.1:
+  didwebvh-ts@2.7.2:
     dependencies:
       '@noble/hashes': 1.8.0
       cookie: 1.1.1
