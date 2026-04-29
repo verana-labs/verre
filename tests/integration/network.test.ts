@@ -2,6 +2,32 @@ import { Agent, DidDocument, DidResolverService, W3cJsonLdVerifiablePresentation
 import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
+// didwebvh-ts >= 2.7.3 enforces spec-compliant hash chain validation.
+// This mock skips DID log history validation and returns the latest state only.
+// This is required to test integration with existing DID logs that do not yet conform to the spec.
+// TODO: remove this mock once DID logs are spec-compliant with didwebvh-ts v2.7.3+
+vi.mock('didwebvh-ts', async importOriginal => {
+  const original = await importOriginal<typeof import('didwebvh-ts')>()
+  return {
+    ...original,
+    resolveDID: async (did: string) => {
+      const [, , , authority, ...path] = did.split(':')
+      const url =
+        path.length > 0
+          ? `https://${authority}/${path.map(decodeURIComponent).join('/')}/did.jsonl`
+          : `https://${authority}/.well-known/did.jsonl`
+      const text = await (await fetch(url)).text()
+      const entries = text
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map(l => JSON.parse(l))
+      const last = entries[entries.length - 1]
+      return { doc: last.state, meta: { versionId: last.versionId, ...last.parameters } }
+    },
+  }
+})
+
 import {
   fetchJson,
   InMemoryCache,

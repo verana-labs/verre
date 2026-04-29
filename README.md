@@ -6,6 +6,18 @@ The main entry point for using the resolver is the `resolve` function, which all
 
 ---
 
+## Compatibility Note
+
+`didwebvh-ts@2.7.2` is only supported up to **verre v0.2.6**.
+From `2.7.3`, the library enforces spec-compliant validation, which may break resolution for older (non-compliant) DID logs.
+
+If you are using newer versions of verre with legacy DIDs, you may encounter issues or need a temporary patch until your DIDs are re-issued.
+
+This change is due to versions prior to `2.7.3` not fully complying with the spec.
+See: [https://github.com/verana-labs/verre/issues/103](https://github.com/verana-labs/verre/issues/103)
+
+---
+
 ## **Table of Contents**
 1. [Getting Started](#getting-started)
 1. [Overview](#overview)
