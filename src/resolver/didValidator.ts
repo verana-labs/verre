@@ -829,7 +829,31 @@ async function processVtjscCredential(
 async function retrieveDidDocument(did: string, didResolver?: Resolver): Promise<DIDDocument> {
   const resolutionResult = await (didResolver?.resolve(did) ?? resolverInstance.resolve(did))
   const didDocument = resolutionResult?.didDocument
-  if (!didDocument) throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}`)
+
+  // Inspect the resolution metadata before defaulting to `NOT_FOUND`. The
+  // webvh resolver in `libraries/did-resolver.ts` surfaces W3C error codes
+  // (`invalidDid` / `notFound` / `internalError`) and carries the underlying
+  // `problemDetails.detail` (e.g. "Hash chain broken at '2-Qm…'") on
+  // `didDocumentMetadata`. Mapping that faithfully here preserves the
+  // distinction between "DID log missing" (truly not found) and "DID log
+  // present but failed validation" (invalid) — information the legacy
+  // implementation erased by always throwing `NOT_FOUND`.
+  const metaError = resolutionResult?.didResolutionMetadata?.error
+  const metaMessage =
+    (resolutionResult?.didResolutionMetadata as { message?: string } | undefined)?.message ?? undefined
+  const problemDetail =
+    (resolutionResult?.didDocumentMetadata as { problemDetails?: { detail?: string } } | undefined)?.problemDetails
+      ?.detail ?? undefined
+
+  if (metaError === 'invalidDid') {
+    const suffix = problemDetail ?? metaMessage ?? 'validation failed'
+    throw new TrustError(TrustErrorCode.INVALID, `DID resolution invalid for ${did}: ${suffix}`)
+  }
+
+  if (!didDocument) {
+    const suffix = problemDetail ?? metaMessage ?? metaError ?? 'no didDocument returned'
+    throw new TrustError(TrustErrorCode.NOT_FOUND, `DID resolution failed for ${did}: ${suffix}`)
+  }
   return didDocument
 }
 
