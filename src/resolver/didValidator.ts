@@ -292,11 +292,17 @@ export async function resolveCredential(
  * the matching registry, deriving the normalized schema URL, and determining
  * the trust outcome.
  *
+ * @internal Exported only for unit tests. Not part of the package's public API
+ *           surface — there is no re-export from `resolver/index.ts` or
+ *           `src/index.ts`.
+ *
  * @param refUrl The schema reference URL to resolve.
  * @param verifiablePublicRegistries Optional list of registries used for matching and trust evaluation.
  * @returns The resolved trust registry base URL, schema ID, trust outcome, and normalized schema URL.
+ * @throws TrustError(REGISTRY_NOT_CONFIGURED) when `refUrl` uses the `vpr:`
+ *         scheme but no entry in `verifiablePublicRegistries` matches its id.
  */
-function resolveTrustRegistry(
+export function resolveTrustRegistry(
   refUrl: string,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
 ): {
@@ -314,6 +320,25 @@ function resolveTrustRegistry(
   registry?: VerifiablePublicRegistry
 } {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
+
+  // Guard against the silent-misconfig footgun: a credential's `$ref` that
+  // uses the `vpr:` scheme (e.g. `vpr:verana:vna-testnet-1/cs/js/170`) MUST
+  // match a configured registry so that `refUrl` can be rewritten to its
+  // HTTPS counterpart. Without a match, the legacy code fell through to
+  // `new URL('vpr:…')`, whose `origin` is the literal string `"null"`,
+  // producing downstream URLs like `null/verana:vna-testnet-1/perm/v1/list?…`
+  // and a confusing "Failed to parse URL" error several layers away.
+  //
+  // We surface the misconfiguration explicitly here so operators see exactly
+  // which registry id is missing from `verifiablePublicRegistries`.
+  if (!registry && refUrl.startsWith('vpr:')) {
+    const id = refUrl.split(/[/?#]/, 1)[0]
+    throw new TrustError(
+      TrustErrorCode.REGISTRY_NOT_CONFIGURED,
+      `No entry in verifiablePublicRegistries matches '${id}' for refUrl '${refUrl}'.`,
+    )
+  }
+
   const schemaUrl =
     registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl
   const urlObj = new URL(schemaUrl)
