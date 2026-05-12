@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/verana-labs/verre/compare/v0.2.6...v0.3.0) (2026-05-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* enforce didwebvh-ts >=2.7.3 and bypass legacy DID log validation in tests ([#105](https://github.com/verana-labs/verre/issues/105))
+
+### Bug Fixes
+
+* enforce didwebvh-ts &gt;=2.7.3 and bypass legacy DID log validation in tests ([#105](https://github.com/verana-labs/verre/issues/105)) ([0de8e10](https://github.com/verana-labs/verre/commit/0de8e1042bb13dc5f685189eba631b54f65ed17a))
+
 ## [0.2.6](https://github.com/verana-labs/verre/compare/v0.2.5...v0.2.6) (2026-04-17)
 
 
