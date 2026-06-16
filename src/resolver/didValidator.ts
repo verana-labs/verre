@@ -602,7 +602,13 @@ async function verifyPermission(
   logger.debug('Verifying permission', { schemaId, did, hasAdapter: !!adapter })
 
   let perm:
-    | { type: string; created: string; effective_from?: string | null; effective_until?: string | null }
+    | {
+        type: string
+        created: string
+        effective_from?: string | null
+        effective_until?: string | null
+        revoked?: number | string | null
+      }
     | undefined
 
   if (adapter) {
@@ -621,6 +627,12 @@ async function verifyPermission(
     throw new TrustError(
       TrustErrorCode.INVALID_PERMISSIONS,
       `No valid ${permissionType} permissions were found for the specified DID: ${did} for schema ${schemaId}`,
+    )
+
+  if (perm.revoked != null)
+    throw new TrustError(
+      TrustErrorCode.INVALID_PERMISSIONS,
+      `Permission for the specified DID: ${did} for schema ${schemaId} was revoked at ${perm.revoked}`,
     )
 
   const effectiveFrom = perm.effective_from ?? perm.created
