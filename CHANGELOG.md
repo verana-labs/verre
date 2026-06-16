@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/verana-labs/verre/compare/v0.3.0...v0.3.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* reject revoked permissions during trust resolution ([#109](https://github.com/verana-labs/verre/issues/109)) ([b8cba01](https://github.com/verana-labs/verre/commit/b8cba01f61007a3eb97187191feb139d06718b86))
+
 ## [0.3.0](https://github.com/verana-labs/verre/compare/v0.2.6...v0.3.0) (2026-05-12)
 
 
