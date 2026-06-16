@@ -55,7 +55,9 @@ export interface IRegistryAdapter {
     schemaId: string,
     did: string,
     permissionType: PermissionType,
-  ): Promise<Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until'> | undefined>
+  ): Promise<
+    Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
+  >
 }
 
 export type VerifiablePublicRegistry = {
