@@ -5,8 +5,16 @@
   "main": "./build/cjs/index.js",
   "module": "./build/index.js",
   "exports": {
-    "require": "./build/cjs/index.js",
-    "import": "./build/index.js"
+    ".": {
+      "import": {
+        "types": "./build/index.d.ts",
+        "default": "./build/index.js"
+      },
+      "require": {
+        "types": "./build/cjs/index.d.ts",
+        "default": "./build/cjs/index.js"
+      }
+    }
   },
   "types": "./build/index.d.ts",
   "files": [
@@ -25,7 +33,7 @@
     "clean": "rimraf -rf ./build",
     "compile": "pnpm run compile:esm && pnpm run compile:cjs",
     "compile:esm": "tsc -p tsconfig.json",
-    "compile:cjs": "tsc -p tsconfig.cjs.json",
+    "compile:cjs": "tsc -p tsconfig.cjs.json && node scripts/fixup-cjs.mjs",
     "prepublishOnly": "pnpm run build",
     "check-types": "eslint \"{src,tests}/**/*.ts\"",
     "format": "prettier \"src/**/*.ts\" --write",
