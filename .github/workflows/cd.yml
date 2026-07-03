@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   resolve-version:
-    uses: 2060-io/organization/.github/workflows/resolve-version-call.yml@5f813454d8962db006c4e4466f3af1cf4af8dfa4 # main
+    uses: 2060-io/organization/.github/workflows/resolve-version-call.yml@625c6d0b6ba22b9c429d42bdeb57d506853456dc # main
     with:
       bump-minor-pre-major: false
 
@@ -24,11 +24,11 @@ jobs:
       RELEASE_TYPE: ${{ needs.resolve-version.outputs.release-type }}
     steps:
 
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
       - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
-          node-version: '22.14.0'
+          node-version: '24'
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
 
