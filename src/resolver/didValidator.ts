@@ -184,7 +184,8 @@ function resolveTrustRegistry(
  */
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
   const cached = options.cache?.get(did)
-  if (cached && (await cached).verified === true) return cached as Promise<TrustResolution>
+  const cachedValue = cached ? await cached : undefined
+  if (cachedValue?.verified === true) return cached as Promise<TrustResolution>
 
   try {
     const didDocument = await retrieveDidDocument(did, options.didResolver)
