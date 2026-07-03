@@ -47,12 +47,12 @@
     "prepare": "corepack enable"
   },
   "devDependencies": {
-    "@credo-ts/askar": "^0.6.1",
-    "@credo-ts/core": "^0.6.1",
-    "@credo-ts/node": "^0.6.1",
-    "@credo-ts/webvh": "^0.6.1",
+    "@credo-ts/askar": "^0.7.0",
+    "@credo-ts/core": "^0.7.0",
+    "@credo-ts/node": "^0.7.0",
+    "@credo-ts/webvh": "^0.7.0",
     "@eslint/js": "^9.22.0",
-    "@openwallet-foundation/askar-nodejs": "0.4.3",
+    "@openwallet-foundation/askar-nodejs": "^0.6.0",
     "@types/eslint": "^8.56.2",
     "@types/jsonld": "^1.5.15",
     "@types/node": "^18.0.0",
@@ -92,5 +92,10 @@
   },
   "engines": {
     "node": ">= 18"
+  },
+  "pnpm": {
+    "overrides": {
+      "@peculiar/asn1-schema": "^2.8.0"
+    }
   }
 }
