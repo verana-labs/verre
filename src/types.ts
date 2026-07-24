@@ -1,3 +1,5 @@
+import type { W3cVerifiableCredential } from '@credo-ts/core'
+
 import { DIDDocument, Resolver } from 'did-resolver'
 
 // types
@@ -8,6 +10,16 @@ export type TrustResolution = {
   metadata?: TrustResolutionMetadata
   service?: IService
   serviceProvider?: ICredential
+  failedCredentials?: FailedCredential[]
+}
+
+export const CREDENTIAL_FORMAT_LDP_VC = 'ldp_vc'
+
+export type FailedCredential = {
+  id?: string
+  format: string
+  error: string
+  errorCode: TrustErrorCode
 }
 
 export type CredentialResolution = {
@@ -182,6 +194,9 @@ export interface BaseCredential {
   schemaType: ECS | 'unknown'
   id: string
   issuer: string
+  validFrom?: string
+  validUntil?: string
+  raw?: W3cVerifiableCredential
 }
 
 export interface IOrg extends BaseCredential {
