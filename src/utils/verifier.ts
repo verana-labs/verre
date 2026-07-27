@@ -3,7 +3,7 @@ import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } f
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { bytesToHex, concatBytes } from '@noble/hashes/utils'
-import { base58, base64, base64url } from '@scure/base'
+import { base58, base64, base64urlnopad } from '@scure/base'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
 import { createDocumentLoader } from '../libraries/index.js'
@@ -11,6 +11,9 @@ import { TrustErrorCode, IVerreLogger, FailedCredential, CREDENTIAL_FORMAT_LDP_V
 
 import { hash } from './crypto.js'
 import { TrustError } from './trustError.js'
+
+// RFC 7515 base64url is unpadded, but legacy signers emit padded values; accept both
+const decodeBase64url = (value: string): Uint8Array => base64urlnopad.decode(value.replace(/=+$/u, ''))
 
 // Ed25519 multicodec prefix: 0xed01
 const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
@@ -205,7 +208,7 @@ async function verifyJsonLdCredential(
     }
 
     const [header, , signaturePart] = jws.split('.')
-    signatureBytes = base64url.decode(signaturePart)
+    signatureBytes = decodeBase64url(signaturePart)
     verifyData = concatBytes(
       new TextEncoder().encode(`${header}.`),
       proofHash as Uint8Array,
@@ -291,7 +294,7 @@ async function resolvePublicKey(
   if (vm.publicKeyJwk && typeof vm.publicKeyJwk === 'object') {
     const jwk = vm.publicKeyJwk as Record<string, unknown>
     if (jwk.x && typeof jwk.x === 'string') {
-      return base64url.decode(jwk.x as string)
+      return decodeBase64url(jwk.x as string)
     }
   }
 
