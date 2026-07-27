@@ -27,6 +27,8 @@ import {
   PermissionType,
   LogLevel,
   IVerreLogger,
+  FailedCredential,
+  CREDENTIAL_FORMAT_LDP_VC,
 } from '../types.js'
 import {
   fetchJson,
@@ -265,7 +267,7 @@ async function processDidDocument(
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
-  await Promise.all(
+  const serviceResults = await Promise.allSettled(
     didDocument.service.map(async didService => {
       const { type, id } = didService
       const matchesPattern = LINKED_VP_FRAGMENT_PATTERNS.some(pattern => pattern.test(id.split('#')[1]))
@@ -308,6 +310,10 @@ async function processDidDocument(
       }
     }),
   )
+
+  const reasons = serviceResults.flatMap(result => (result.status === 'rejected' ? [result.reason] : []))
+  if (reasons.length > 0) throw aggregateCredentialFailures(reasons)
+
   service ??= credentials.find((cred): cred is IService => cred.schemaType === ECS.SERVICE)
   serviceProvider ??= credentials.find(
     (cred): cred is IOrg | IPersona => cred.schemaType === ECS.ORG || cred.schemaType === ECS.PERSONA,
@@ -384,14 +390,27 @@ async function getVerifiedCredential(
   const w3cCredential = getCredential(vp)
   const isVerified = await verifySignature(vp as W3cJsonLdVerifiablePresentation, didResolver, logger)
   if (!isVerified.result) {
+    const message = 'The verifiable credential proof is not valid with: ' + isVerified.error
     throw new TrustError(
       TrustErrorCode.INVALID,
-      'The verifiable credential proof is not valid with: ' + isVerified.error,
+      message,
+      isVerified.failedCredentials ?? [
+        {
+          id: typeof w3cCredential?.id === 'string' ? w3cCredential.id : undefined,
+          format: CREDENTIAL_FORMAT_LDP_VC,
+          error: isVerified.error ?? message,
+          errorCode: TrustErrorCode.INVALID,
+        },
+      ],
     )
   }
 
   logger.debug('Credential verified successfully')
-  return await processCredential(w3cCredential, verifiablePublicRegistries, skipDigestSRICheck, logger)
+  try {
+    return await processCredential(w3cCredential, verifiablePublicRegistries, skipDigestSRICheck, logger)
+  } catch (error) {
+    throw toCredentialFailure(error, w3cCredential)
+  }
 }
 
 /**
@@ -438,6 +457,10 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
  * @param issuer - Optional issuer DID to validate permissions against the trust registry.
  * @param attrs - Optional attributes to validate against the credential subject schema.
+ * @param sourceCredential - Optional credential the validation started from. When a credential
+ * declares a `JsonSchemaCredential`, this function recurses on the *schema* credential, so the
+ * credential originally presented has to be carried down to source the validity window and the
+ * raw credential exposed to consumers.
  * @returns A Promise resolving to the processed and validated credential.
  * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
  */
@@ -449,6 +472,7 @@ async function processCredential(
   issuer?: string,
   issuanceDate?: string,
   attrs?: Record<string, string>,
+  sourceCredential?: W3cVerifiableCredential,
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   logger.debug('Processing credential', { id: w3cCredential.id })
 
@@ -466,6 +490,7 @@ async function processCredential(
       w3cCredential.issuer as string,
       w3cCredential.issuanceDate as string,
       subject as Record<string, string>,
+      sourceCredential ?? w3cCredential,
     )
   }
 
@@ -516,11 +541,14 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
+      const source = sourceCredential ?? w3cCredential
       const credential = {
         schemaType: identifySchema(subjectSchema),
         id,
         issuer,
         ...attrs,
+        ...normalizeValidityWindow(source),
+        raw: source,
       } as ICredential
       return { credential, outcome }
     } catch (error) {
@@ -592,6 +620,90 @@ function getRefUrl(subject: W3cCredentialSubject): string {
 
 function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
+}
+
+/**
+ * Normalises a credential's validity window across credential data model versions.
+ *
+ * VCDM 2.0 uses `validFrom` / `validUntil`; VCDM 1.1 uses `issuanceDate` / `expirationDate`.
+ * Normalising here means consumers never have to branch on the credential version.
+ *
+ * Absent bounds are omitted rather than set to `undefined`, so a credential without an
+ * expiry simply has no `validUntil`.
+ *
+ * @param credential - The credential to read the window from.
+ * @returns The normalised `validFrom` / `validUntil` pair.
+ */
+function normalizeValidityWindow(credential: W3cVerifiableCredential): {
+  validFrom?: string
+  validUntil?: string
+} {
+  const vc = credential as unknown as Record<string, unknown>
+  const validFrom = (vc.validFrom ?? vc.issuanceDate) as string | undefined
+  const validUntil = (vc.validUntil ?? vc.expirationDate) as string | undefined
+
+  return {
+    ...(validFrom ? { validFrom } : {}),
+    ...(validUntil ? { validUntil } : {}),
+  }
+}
+
+/**
+ * Attaches per-credential failure detail to an error raised while validating a specific credential.
+ *
+ * Errors that already carry `failedCredentials` (e.g. signature failures identified per
+ * embedded VC) are passed through untouched, so the more precise attribution wins.
+ *
+ * @param error - The error raised while validating the credential.
+ * @param credential - The credential being validated when the error was raised.
+ * @returns A `TrustError` carrying the failure detail for this credential.
+ */
+function toCredentialFailure(error: unknown, credential: W3cVerifiableCredential): TrustError {
+  if (error instanceof TrustError && error.failedCredentials) return error
+
+  const message = error instanceof Error ? error.message : String(error)
+  const errorCode =
+    error instanceof TrustError
+      ? (error.metadata.errorCode ?? TrustErrorCode.INVALID)
+      : TrustErrorCode.INVALID
+
+  return new TrustError(errorCode, message, [
+    {
+      id: typeof credential?.id === 'string' ? credential.id : undefined,
+      format: CREDENTIAL_FORMAT_LDP_VC,
+      error: message,
+      errorCode,
+    },
+  ])
+}
+
+/**
+ * Combines failures raised across the DID document's services into a single error.
+ *
+ * The first failure supplies the top-level message and code (preserving the message a
+ * caller would previously have seen), while every failure contributes its per-credential
+ * detail so none is lost.
+ *
+ * @param reasons - The rejection reasons collected from the service resolutions.
+ * @returns A `TrustError` carrying the combined per-credential detail.
+ */
+function aggregateCredentialFailures(reasons: unknown[]): TrustError {
+  const failedCredentials = reasons.flatMap<FailedCredential>(reason =>
+    reason instanceof TrustError ? (reason.failedCredentials ?? []) : [],
+  )
+  const [first] = reasons
+  if (first instanceof TrustError) {
+    return new TrustError(
+      first.metadata.errorCode ?? TrustErrorCode.INVALID,
+      first.message,
+      failedCredentials,
+    )
+  }
+  return new TrustError(
+    TrustErrorCode.INVALID,
+    first instanceof Error ? first.message : String(first),
+    failedCredentials,
+  )
 }
 
 /**

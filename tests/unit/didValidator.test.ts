@@ -1,7 +1,15 @@
 import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { ECS, IVerreLogger, PermissionType, resolveDID, TrustResolutionOutcome } from '../../src'
+import {
+  CREDENTIAL_FORMAT_LDP_VC,
+  ECS,
+  IVerreLogger,
+  PermissionType,
+  resolveDID,
+  TrustErrorCode,
+  TrustResolutionOutcome,
+} from '../../src'
 import { resolverInstance } from '../../src/libraries'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
@@ -109,15 +117,57 @@ describe('DidValidator', () => {
             id: didSelfIssued,
             issuer: didSelfIssued,
             ...mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
+            validFrom: mockServiceVcSelfIssued.verifiableCredential[0].issuanceDate,
+            validUntil: mockServiceVcSelfIssued.verifiableCredential[0].expirationDate,
+            raw: mockServiceVcSelfIssued.verifiableCredential[0],
           },
           serviceProvider: {
             schemaType: ECS.ORG,
             id: didSelfIssued,
             issuer: didSelfIssued,
             ...mockOrgVc.verifiableCredential[0].credentialSubject,
+            validFrom: mockOrgVc.verifiableCredential[0].issuanceDate,
+            validUntil: mockOrgVc.verifiableCredential[0].expirationDate,
+            raw: mockOrgVc.verifiableCredential[0],
           },
         }),
       )
+    })
+
+    it('should report which credentials failed validation, not just an overall outcome.', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({
+        result: false,
+        error: 'Ed25519 signature verification failed',
+        failedCredentials: [
+          {
+            id: 'https://example.tr/credentials/OrganizationJsonSchemaCredential',
+            format: CREDENTIAL_FORMAT_LDP_VC,
+            error: 'Ed25519 signature verification failed',
+            errorCode: TrustErrorCode.VERIFICATION_FAILED,
+          },
+        ],
+      })
+      fetchMocker.setMockResponses({
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
+      })
+
+      const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+
+      expect(result.verified).toBe(false)
+      expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
+      expect(result.metadata?.errorMessage).toBeDefined()
+
+      expect(result.failedCredentials).toHaveLength(2)
+      expect(result.failedCredentials?.[0]).toEqual({
+        id: 'https://example.tr/credentials/OrganizationJsonSchemaCredential',
+        format: CREDENTIAL_FORMAT_LDP_VC,
+        error: 'Ed25519 signature verification failed',
+        errorCode: TrustErrorCode.VERIFICATION_FAILED,
+      })
     })
 
     it('should work correctly when the issuer is not "did" without params.', async () => {
@@ -190,12 +240,18 @@ describe('DidValidator', () => {
             id: didSelfIssued,
             issuer: didSelfIssued,
             ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            validFrom: mockServiceExtIssuerVc.verifiableCredential[0].issuanceDate,
+            validUntil: mockServiceExtIssuerVc.verifiableCredential[0].expirationDate,
+            raw: mockServiceExtIssuerVc.verifiableCredential[0],
           },
           serviceProvider: {
             schemaType: ECS.ORG,
             id: didSelfIssued,
             issuer: didSelfIssued,
             ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            validFrom: mockOrgVcWithoutIssuer.verifiableCredential[0].issuanceDate,
+            validUntil: mockOrgVcWithoutIssuer.verifiableCredential[0].expirationDate,
+            raw: mockOrgVcWithoutIssuer.verifiableCredential[0],
           },
         }),
       )
@@ -281,12 +337,18 @@ describe('DidValidator', () => {
             id: didSelfIssued,
             issuer: didSelfIssued,
             ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            validFrom: mockServiceExtIssuerVc.verifiableCredential[0].issuanceDate,
+            validUntil: mockServiceExtIssuerVc.verifiableCredential[0].expirationDate,
+            raw: mockServiceExtIssuerVc.verifiableCredential[0],
           },
           serviceProvider: {
             schemaType: ECS.ORG,
             id: didSelfIssued,
             issuer: didSelfIssued,
             ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            validFrom: mockOrgVcWithoutIssuer.verifiableCredential[0].issuanceDate,
+            validUntil: mockOrgVcWithoutIssuer.verifiableCredential[0].expirationDate,
+            raw: mockOrgVcWithoutIssuer.verifiableCredential[0],
           },
         }),
       )

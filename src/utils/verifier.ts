@@ -7,7 +7,7 @@ import { base58, base64, base64url } from '@scure/base'
 import { Resolver, VerificationMethod } from 'did-resolver'
 
 import { createDocumentLoader } from '../libraries/index.js'
-import { TrustErrorCode, IVerreLogger } from '../types.js'
+import { TrustErrorCode, IVerreLogger, FailedCredential, CREDENTIAL_FORMAT_LDP_VC } from '../types.js'
 
 import { hash } from './crypto.js'
 import { TrustError } from './trustError.js'
@@ -33,15 +33,16 @@ const createMessageDigest = () => ({
  * recursively verifies the embedded credentials.
  *
  * @param document - A W3C Verifiable Presentation or Verifiable Credential in JSON-LD format.
- * @returns A promise that resolves to `true` if the proof is valid (including all nested VCs), or `false` otherwise.
- *
- * @throws Error if the document is not a valid VP or VC, or if any embedded credential fails validation.
+ * @returns A promise resolving to `{ result: true }` if the proof is valid (including all nested VCs).
+ * On failure, `result` is `false` and — when specific embedded credentials were at fault —
+ * `failedCredentials` identifies which ones and why.
  */
 export async function verifySignature(
   document: W3cJsonLdVerifiablePresentation | W3cJsonLdVerifiableCredential,
   didResolver: Resolver,
   logger: IVerreLogger,
-): Promise<{ result: boolean; error?: string }> {
+): Promise<{ result: boolean; error?: string; failedCredentials?: FailedCredential[] }> {
+  let jsonLdCredentials: W3cJsonLdVerifiableCredential[] = []
   try {
     if (
       !document.proof ||
@@ -53,13 +54,17 @@ export async function verifySignature(
     }
     const isPresentation = document.type.includes('VerifiablePresentation')
 
-    let vcPromises: Promise<{ result: boolean; error?: string }>[] = []
+    let vcPromises: Promise<{
+      result: boolean
+      error?: string
+      failedCredentials?: FailedCredential[]
+    }>[] = []
     if (isPresentation && isVerifiablePresentation(document)) {
       logger.debug('Verifying embedded credentials in presentation')
       const credentials = Array.isArray(document.verifiableCredential)
         ? document.verifiableCredential
         : [document.verifiableCredential]
-      const jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
+      jsonLdCredentials = credentials.filter((vc): vc is W3cJsonLdVerifiableCredential => 'proof' in vc)
       logger.debug('Processing embedded credentials', { count: jsonLdCredentials.length })
       vcPromises = jsonLdCredentials.map(vc => verifySignature(vc, didResolver, logger))
     }
@@ -70,7 +75,7 @@ export async function verifySignature(
       logger,
     )
     if (!result.isValid) {
-      const error = JSON.stringify(result?.error)
+      const error = typeof result.error === 'string' ? result.error : JSON.stringify(result?.error)
       logger.error('Signature verification failed', { error })
       return { result: result.isValid, error }
     }
@@ -79,11 +84,24 @@ export async function verifySignature(
 
     if (vcPromises.length > 0) {
       const vcResults = await Promise.all(vcPromises)
-      const allCredentialsVerified = vcResults.every(r => r.result === true)
-      if (!allCredentialsVerified) {
+      const failedCredentials = vcResults.flatMap<FailedCredential>((r, index) => {
+        if (r.result) return []
+        const vc = jsonLdCredentials[index]
+        return [
+          {
+            id: typeof vc?.id === 'string' ? vc.id : undefined,
+            format: CREDENTIAL_FORMAT_LDP_VC,
+            error: r.error ?? 'Signature verification failed',
+            errorCode: TrustErrorCode.VERIFICATION_FAILED,
+          },
+          ...(r.failedCredentials ?? []),
+        ]
+      })
+      if (failedCredentials.length > 0) {
         throw new TrustError(
           TrustErrorCode.VERIFICATION_FAILED,
           'One or more verifiable credentials failed signature verification.',
+          failedCredentials,
         )
       }
       logger.debug('All embedded credentials verified successfully')
@@ -91,7 +109,11 @@ export async function verifySignature(
     return { result: result.isValid }
   } catch (error) {
     logger.error('Signature verification exception', error)
-    return { result: false, error: error.message }
+    return {
+      result: false,
+      error: error.message,
+      failedCredentials: error instanceof TrustError ? error.failedCredentials : undefined,
+    }
   }
 }
 

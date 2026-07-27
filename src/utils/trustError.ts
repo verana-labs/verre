@@ -1,6 +1,11 @@
 import { DIDDocument } from 'did-resolver'
 
-import { TrustResolutionMetadata, TrustErrorCode, TrustResolutionOutcome } from '../types.js'
+import {
+  TrustResolutionMetadata,
+  TrustErrorCode,
+  TrustResolutionOutcome,
+  FailedCredential,
+} from '../types.js'
 
 import { buildMetadata } from './helper.js'
 
@@ -10,10 +15,12 @@ import { buildMetadata } from './helper.js'
  */
 export class TrustError extends Error {
   metadata: TrustResolutionMetadata
+  failedCredentials?: FailedCredential[]
 
-  constructor(code: TrustErrorCode, message: string) {
+  constructor(code: TrustErrorCode, message: string, failedCredentials?: FailedCredential[]) {
     super(message)
     this.metadata = buildMetadata(code, message)
+    if (failedCredentials?.length) this.failedCredentials = failedCredentials
   }
 }
 
@@ -31,6 +38,7 @@ export function handleTrustError(error: unknown, didDocument?: DIDDocument) {
       outcome: TrustResolutionOutcome.INVALID,
       verified: false,
       metadata: error.metadata,
+      ...(error.failedCredentials ? { failedCredentials: error.failedCredentials } : {}),
     }
   }
   return {

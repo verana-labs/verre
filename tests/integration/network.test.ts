@@ -3,6 +3,7 @@ import { Resolver } from 'did-resolver'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import {
+  CREDENTIAL_FORMAT_LDP_VC,
   fetchJson,
   InMemoryCache,
   PermissionType,
@@ -125,11 +126,17 @@ describe('Integration with Verana Blockchain', () => {
           ...linkedVpService?.verifiableCredential?.[0]?.credentialSubject,
           issuer: did,
           schemaType: 'ecs-service',
+          validFrom: linkedVpService?.verifiableCredential?.[0]?.issuanceDate,
+          validUntil: linkedVpService?.verifiableCredential?.[0]?.expirationDate,
+          raw: linkedVpService?.verifiableCredential?.[0],
         },
         serviceProvider: {
           ...linkedVpOrg?.verifiableCredential?.[0]?.credentialSubject,
           issuer: did,
           schemaType: 'ecs-org',
+          validFrom: linkedVpOrg?.verifiableCredential?.[0]?.issuanceDate,
+          validUntil: linkedVpOrg?.verifiableCredential?.[0]?.expirationDate,
+          raw: linkedVpOrg?.verifiableCredential?.[0],
         },
       }),
     )
@@ -186,6 +193,17 @@ describe('Integration with Verana Blockchain', () => {
     expect(result.metadata).toMatchObject({
       errorCode: TrustErrorCode.INVALID,
     })
+
+    expect(result.failedCredentials).toHaveLength(2)
+    expect(result.failedCredentials).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          format: CREDENTIAL_FORMAT_LDP_VC,
+          error: 'Invalid or missing JWS detached signature',
+          errorCode: TrustErrorCode.VERIFICATION_FAILED,
+        }),
+      ]),
+    )
   })
 
   it('should resolve and validate a real self-signed credential end-to-end', async () => {
