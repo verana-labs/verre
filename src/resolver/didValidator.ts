@@ -62,6 +62,14 @@ import {
  * @returns A promise that resolves to a `TrustResolution` object containing the resolution result,
  * DID document metadata, and trust validation outcome.
  */
+// Linked-VP service fragments a trust resolver considers. [VT-CRED-W3C-LINKED-VP] mandates
+// #vpr-schemas-*-vtc-vp; the -c-vp forms are kept for backward compatibility with older agents.
+export const LINKED_VP_FRAGMENT_PATTERNS = [
+  /^vpr-schemas-.*-vtc-vp$/,
+  /^vpr-schemas.*-c-vp$/,
+  /^vpr-ecs.*-c-vp$/,
+]
+
 export async function resolveDID(did: string, options: ResolverConfig): Promise<TrustResolution> {
   const internalOptions: InternalResolverConfig = {
     ...options,
@@ -257,13 +265,12 @@ async function processDidDocument(
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
-  const patterns = [/^vpr-schemas.*-c-vp$/, /^vpr-ecs.*-c-vp$/]
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
   const serviceResults = await Promise.allSettled(
     didDocument.service.map(async didService => {
       const { type, id } = didService
-      const matchesPattern = patterns.some(pattern => pattern.test(id.split('#')[1]))
+      const matchesPattern = LINKED_VP_FRAGMENT_PATTERNS.some(pattern => pattern.test(id.split('#')[1]))
       logger.debug('Evaluating DID service', { id, type, matchesPattern })
       if (type === 'LinkedVerifiablePresentation' && matchesPattern) {
         logger.debug('Resolving linked VP service', { id })
