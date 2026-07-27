@@ -1,188 +1,199 @@
+// Verbatim copies of the published v4 Essential Credential Schemas
+// https://verana-labs.github.io/verifiable-trust-spec/schemas/v4/
 export const essentialSchemas = {
   'ecs-org': {
     $id: 'https://verana-labs.github.io/verifiable-trust-spec/schemas/v4/org.json',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    title: 'OrganizationCredential',
     description: 'Identifies a legal organization that operates one or more Verifiable Services.',
-    type: 'object',
     properties: {
       credentialSubject: {
-        type: 'object',
         properties: {
-          id: {
-            type: 'string',
-            format: 'uri',
-            maxLength: 2048,
-          },
-          name: {
-            type: 'string',
-            minLength: 1,
-            maxLength: 512,
-          },
-          logo: {
-            type: 'string',
-            format: 'uri',
-            maxLength: 1400000,
-            pattern: '^data:image/(png|jpeg|svg\\+xml);base64,',
-          },
-          registryId: {
-            type: 'string',
-            minLength: 1,
-            maxLength: 256,
-          },
-          registryUri: {
-            type: 'string',
-            format: 'uri',
-            maxLength: 4096,
-          },
           address: {
-            type: 'string',
-            minLength: 1,
             maxLength: 1024,
+            minLength: 1,
+            type: 'string',
           },
           countryCode: {
-            type: 'string',
-            minLength: 2,
             maxLength: 2,
+            minLength: 2,
             pattern: '^[A-Z]{2}$',
+            type: 'string',
+          },
+          id: {
+            format: 'uri',
+            maxLength: 2048,
+            type: 'string',
           },
           legalJurisdiction: {
-            type: 'string',
-            minLength: 1,
             maxLength: 64,
+            minLength: 1,
             pattern: '^[A-Z]{2}(-[A-Z0-9]{1,3})?$',
+            type: 'string',
           },
           lei: {
-            type: 'string',
             pattern: '^[A-Z0-9]{20}$',
+            type: 'string',
+          },
+          logoDigestSri: {
+            maxLength: 256,
+            type: 'string',
+          },
+          logoUri: {
+            format: 'uri',
+            maxLength: 4096,
+            type: 'string',
+          },
+          name: {
+            maxLength: 512,
+            minLength: 1,
+            type: 'string',
           },
           organizationKind: {
-            type: 'string',
-            minLength: 1,
             maxLength: 64,
+            minLength: 1,
+            type: 'string',
+          },
+          registryId: {
+            maxLength: 256,
+            minLength: 1,
+            type: 'string',
+          },
+          registryUri: {
+            format: 'uri',
+            maxLength: 4096,
+            type: 'string',
           },
         },
-        required: ['id', 'name', 'logo', 'registryId', 'address', 'countryCode'],
+        required: ['id', 'name', 'logoUri', 'logoDigestSri', 'registryId', 'address', 'countryCode'],
+        type: 'object',
       },
     },
+    title: 'OrganizationCredential',
+    type: 'object',
   },
   'ecs-persona': {
     $id: 'https://verana-labs.github.io/verifiable-trust-spec/schemas/v4/persona.json',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    title: 'PersonaCredential',
     description:
       'Identifies a Persona (human-controlled avatar) that operates one or more Verifiable Services.',
-    type: 'object',
     properties: {
       credentialSubject: {
-        type: 'object',
+        dependentRequired: {
+          avatarUri: ['avatarDigestSri'],
+        },
         properties: {
-          id: {
-            type: 'string',
-            format: 'uri',
-            maxLength: 2048,
-          },
-          name: {
-            type: 'string',
-            minLength: 1,
+          avatarDigestSri: {
             maxLength: 256,
-          },
-          avatar: {
             type: 'string',
+          },
+          avatarUri: {
             format: 'uri',
-            maxLength: 1400000,
-            pattern: '^data:image/(png|jpeg|svg\\+xml);base64,',
+            maxLength: 4096,
+            type: 'string',
           },
           controllerCountryCode: {
-            type: 'string',
-            minLength: 2,
             maxLength: 2,
+            minLength: 2,
             pattern: '^[A-Z]{2}$',
+            type: 'string',
           },
           controllerJurisdiction: {
-            type: 'string',
-            minLength: 1,
             maxLength: 64,
+            minLength: 1,
             pattern: '^[A-Z]{2}(-[A-Z0-9]{1,3})?$',
+            type: 'string',
           },
           description: {
-            type: 'string',
-            minLength: 0,
             maxLength: 16384,
+            minLength: 0,
+            type: 'string',
           },
           descriptionFormat: {
-            type: 'string',
-            enum: ['text/plain', 'text/markdown'],
             default: 'text/plain',
+            enum: ['text/plain', 'text/markdown'],
+            type: 'string',
+          },
+          id: {
+            format: 'uri',
+            maxLength: 2048,
+            type: 'string',
+          },
+          name: {
+            maxLength: 256,
+            minLength: 1,
+            type: 'string',
           },
         },
         required: ['id', 'name', 'controllerCountryCode'],
+        type: 'object',
       },
     },
+    title: 'PersonaCredential',
+    type: 'object',
   },
   'ecs-service': {
     $id: 'https://verana-labs.github.io/verifiable-trust-spec/schemas/v4/service.json',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    title: 'ServiceCredential',
     description:
       'Identifies a Verifiable Service and defines the minimum trust and access requirements required to interact with it.',
-    type: 'object',
     properties: {
       credentialSubject: {
-        type: 'object',
         properties: {
-          id: {
-            type: 'string',
-            format: 'uri',
-            maxLength: 2048,
-          },
-          name: {
-            type: 'string',
-            minLength: 1,
-            maxLength: 512,
-          },
-          type: {
-            type: 'string',
-            minLength: 1,
-            maxLength: 128,
-          },
           description: {
-            type: 'string',
             maxLength: 4096,
+            type: 'string',
           },
           descriptionFormat: {
-            type: 'string',
-            enum: ['text/plain', 'text/markdown'],
             default: 'text/plain',
-          },
-          logo: {
+            enum: ['text/plain', 'text/markdown'],
             type: 'string',
+          },
+          id: {
             format: 'uri',
-            maxLength: 1400000,
-            pattern: '^data:image/(png|jpeg|svg\\+xml);base64,',
+            maxLength: 2048,
+            type: 'string',
+          },
+          logoDigestSri: {
+            maxLength: 256,
+            type: 'string',
+          },
+          logoUri: {
+            format: 'uri',
+            maxLength: 4096,
+            type: 'string',
           },
           minimumAgeRequired: {
-            type: 'integer',
-            minimum: 0,
             maximum: 255,
+            minimum: 0,
+            type: 'integer',
           },
-          termsAndConditions: {
+          name: {
+            maxLength: 512,
+            minLength: 1,
             type: 'string',
-            format: 'uri',
-            maxLength: 4096,
-          },
-          termsAndConditionsDigestSri: {
-            type: 'string',
-            maxLength: 256,
-          },
-          privacyPolicy: {
-            type: 'string',
-            format: 'uri',
-            maxLength: 4096,
           },
           privacyPolicyDigestSri: {
-            type: 'string',
             maxLength: 256,
+            type: 'string',
+          },
+          privacyPolicyUri: {
+            format: 'uri',
+            maxLength: 4096,
+            type: 'string',
+          },
+          termsAndConditionsDigestSri: {
+            maxLength: 256,
+            type: 'string',
+          },
+          termsAndConditionsUri: {
+            format: 'uri',
+            maxLength: 4096,
+            type: 'string',
+          },
+          type: {
+            maxLength: 128,
+            minLength: 1,
+            type: 'string',
           },
         },
         required: [
@@ -190,43 +201,103 @@ export const essentialSchemas = {
           'name',
           'type',
           'description',
-          'logo',
+          'logoUri',
+          'logoDigestSri',
           'minimumAgeRequired',
-          'termsAndConditions',
-          'privacyPolicy',
+          'termsAndConditionsUri',
+          'termsAndConditionsDigestSri',
+          'privacyPolicyUri',
+          'privacyPolicyDigestSri',
         ],
+        type: 'object',
       },
     },
+    title: 'ServiceCredential',
+    type: 'object',
   },
   'ecs-user-agent': {
     $id: 'https://verana-labs.github.io/verifiable-trust-spec/schemas/v4/ua.json',
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    title: 'UserAgentCredential',
     description:
       'Identifies a User Agent instance and the software version it runs. The issuer identifies the software product line.',
-    type: 'object',
     properties: {
       credentialSubject: {
-        type: 'object',
         properties: {
-          id: {
+          build: {
+            maxLength: 128,
+            minLength: 1,
             type: 'string',
-            format: 'uri',
-            maxLength: 2048,
           },
           version: {
-            type: 'string',
-            minLength: 1,
             maxLength: 64,
-          },
-          build: {
-            type: 'string',
             minLength: 1,
-            maxLength: 128,
+            type: 'string',
           },
         },
-        required: ['id', 'version'],
+        required: ['version'],
+        type: 'object',
       },
     },
+    title: 'UserAgentCredential',
+    type: 'object',
+  },
+  'ecs-badge': {
+    $id: 'https://verana-labs.github.io/verifiable-trust-spec/schemas/v4/badge.json',
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    description:
+      'Identifies a human, such as an employee or member of the organization that operates a Verifiable Service. The issuer identifies the organization or persona the holder represents.',
+    properties: {
+      credentialSubject: {
+        dependentRequired: {
+          biometricPattern: ['biometricPatternScheme'],
+        },
+        properties: {
+          badgeNumber: {
+            maxLength: 256,
+            minLength: 1,
+            type: 'string',
+          },
+          biometricPattern: {
+            contentEncoding: 'base64',
+            maxLength: 262144,
+            type: 'string',
+          },
+          biometricPatternScheme: {
+            maxLength: 128,
+            minLength: 1,
+            type: 'string',
+          },
+          birthDate: {
+            maximum: 99991231,
+            minimum: 10000101,
+            type: 'integer',
+          },
+          department: {
+            maxLength: 128,
+            minLength: 1,
+            type: 'string',
+          },
+          name: {
+            maxLength: 256,
+            minLength: 1,
+            type: 'string',
+          },
+          photo: {
+            maxLength: 262144,
+            pattern: '^data:image/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$',
+            type: 'string',
+          },
+          title: {
+            maxLength: 128,
+            minLength: 1,
+            type: 'string',
+          },
+        },
+        required: ['badgeNumber', 'name', 'photo'],
+        type: 'object',
+      },
+    },
+    title: 'BadgeCredential',
+    type: 'object',
   },
 } as const

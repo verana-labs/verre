@@ -129,6 +129,7 @@ export type Permission = {
 
 // Enums
 export enum ECS {
+  BADGE = 'ecs-badge',
   ORG = 'ecs-org',
   PERSONA = 'ecs-persona',
   SERVICE = 'ecs-service',
@@ -202,7 +203,8 @@ export interface BaseCredential {
 export interface IOrg extends BaseCredential {
   schemaType: typeof ECS.ORG
   name: string
-  logo: string
+  logoUri: string
+  logoDigestSri: string
   registryId: string
   registryUri?: string
   address: string
@@ -215,7 +217,8 @@ export interface IOrg extends BaseCredential {
 export interface IPersona extends BaseCredential {
   schemaType: typeof ECS.PERSONA
   name: string
-  avatar?: string
+  avatarUri?: string
+  avatarDigestSri?: string
   controllerCountryCode: string
   controllerJurisdiction?: string
   description?: string
@@ -228,12 +231,13 @@ export interface IService extends BaseCredential {
   type: string
   description: string
   descriptionFormat?: string
-  logo: string
+  logoUri: string
+  logoDigestSri: string
   minimumAgeRequired: number
-  termsAndConditions: string
-  termsAndConditionsDigestSri?: string
-  privacyPolicy: string
-  privacyPolicyDigestSri?: string
+  termsAndConditionsUri: string
+  termsAndConditionsDigestSri: string
+  privacyPolicyUri: string
+  privacyPolicyDigestSri: string
 }
 
 export interface IUserAgent extends BaseCredential {
@@ -242,12 +246,24 @@ export interface IUserAgent extends BaseCredential {
   build?: string
 }
 
+export interface IBadge extends BaseCredential {
+  schemaType: typeof ECS.BADGE
+  badgeNumber: string
+  name: string
+  photo: string
+  title?: string
+  department?: string
+  birthDate?: number
+  biometricPattern?: string
+  biometricPatternScheme?: string
+}
+
 export interface IUnknownCredential extends BaseCredential {
   schemaType: 'unknown'
   [key: string]: any
 }
 
-export type ICredential = IOrg | IPersona | IService | IUserAgent | IUnknownCredential
+export type ICredential = IOrg | IPersona | IService | IUserAgent | IBadge | IUnknownCredential
 
 export interface IVerreLogger {
   debug(message: string, meta?: Record<string, unknown>): void

@@ -8,6 +8,17 @@ The main entry point for using the resolver is the `resolve` function, which all
 
 ## Compatibility Note
 
+### Verifiable Trust spec versions
+
+| Verifiable Trust spec | verre |
+| --------------------- | ----- |
+| v3 (current testnet)  | 0.3.x |
+| v4 onwards            | 0.4.x |
+
+verre 0.4.x identifies Essential Credential Schemas by the v4 reference digests ([ECS-EC](https://verana-labs.github.io/verifiable-trust-spec/versions/v4/#ecs-ec-essential-credential-schemas-ecosystem)), so v3 schemas are reported as unknown. Legacy deployments should stay on 0.3.x.
+
+### didwebvh-ts
+
 `didwebvh-ts@2.7.2` is only supported up to **verre v0.2.6**.
 From `2.7.3`, the library enforces spec-compliant validation, which may break resolution for older (non-compliant) DID logs.
 
@@ -318,7 +329,7 @@ When `adapter` is omitted, verre falls back to standard HTTP resolution as usual
 ---
 
 ## Notes
-- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USER-AGENT`, and `SERVICE`.
+- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USER-AGENT`, `SERVICE`, and `BADGE`.
 - The function exits early if both `issuerCredential` and `verifiableService` are found during credential processing.
 
 This method is essential for resolving and validating DIDs in a trusted ecosystem.
