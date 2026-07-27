@@ -329,7 +329,7 @@ When `adapter` is omitted, verre falls back to standard HTTP resolution as usual
 ---
 
 ## Notes
-- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSON`, `USER-AGENT`, `SERVICE`, and `BADGE`.
+- The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSONA`, `USER-AGENT`, `SERVICE`, and `BADGE`.
 - The function exits early if both `issuerCredential` and `verifiableService` are found during credential processing.
 
 This method is essential for resolving and validating DIDs in a trusted ecosystem.
