@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.2](https://github.com/verana-labs/verre/compare/v0.3.1...v0.3.2) (2026-07-27)
+
+
+### Features
+
+* expose validity window, raw credential and per-credential failures in TrustResolution ([#117](https://github.com/verana-labs/verre/issues/117)) ([15dbd2b](https://github.com/verana-labs/verre/commit/15dbd2b16b211576de23acf4e2b29acfa48b7322))
+
+
+### Bug Fixes
+
+* accept spec vpr-schemas-*-vtc-vp linked-VP fragments ([#118](https://github.com/verana-labs/verre/issues/118)) ([b2c25a2](https://github.com/verana-labs/verre/commit/b2c25a21cb08febccc077ba3706fad8fc8dfcd28))
+* guard async cache miss in DID trust resolution ([#114](https://github.com/verana-labs/verre/issues/114)) ([dd56b81](https://github.com/verana-labs/verre/commit/dd56b81a0942d8517788c8c8a0e86d6de7009352))
+* mark cjs build as commonjs ([#112](https://github.com/verana-labs/verre/issues/112)) ([34ecc7c](https://github.com/verana-labs/verre/commit/34ecc7c9c7e1f18d4b3dab3baa67acc0e7e2eccb))
+
 ## [0.3.1](https://github.com/verana-labs/verre/compare/v0.3.0...v0.3.1) (2026-06-16)
 
 
