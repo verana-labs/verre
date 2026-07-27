@@ -1,4 +1,4 @@
-import { DidDocument, DidResolverService } from '@credo-ts/core'
+import { DidResolverService } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
 import Redis from 'ioredis'
 import { GenericContainer, StartedTestContainer } from 'testcontainers'
@@ -6,21 +6,21 @@ import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import { resolveDID, TrustResolutionOutcome } from '../../src'
 import {
+  buildV4Fixtures,
   fetchMocker,
   getCredoTsDidResolver,
-  integrationDidDoc,
-  integrationMockResponses,
-  TrustResolutionRedisCache,
   setupAgent as setupAndInitializeAgent,
+  TrustResolutionRedisCache,
+  v4TestDocumentLoader,
   verifiablePublicRegistries,
+  V4Fixtures,
 } from '../__mocks__'
-
-const did = 'did:web:bcccdd780017.ngrok-free.app'
 
 describe('TrustResolutionRedisCache with Redis (testcontainers)', () => {
   let container: StartedTestContainer
   let redis: Redis
   let didResolver: ReturnType<typeof getCredoTsDidResolver>
+  let fixtures: V4Fixtures
 
   beforeAll(async () => {
     container = await new GenericContainer('redis:7-alpine').withExposedPorts(6379).start()
@@ -30,19 +30,23 @@ describe('TrustResolutionRedisCache with Redis (testcontainers)', () => {
       port: container.getMappedPort(6379),
     })
 
-    const agent = await setupAndInitializeAgent({ name: 'CacheTestAgent' })
+    const agent = await setupAndInitializeAgent({
+      name: 'CacheTestAgent',
+      documentLoader: v4TestDocumentLoader,
+    })
     didResolver = getCredoTsDidResolver(agent.context)
+    fixtures = await buildV4Fixtures(agent)
 
     vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => ({
       didResolutionMetadata: {},
       didDocumentMetadata: {},
-      didDocument: integrationDidDoc,
+      didDocument: fixtures.didDocument,
     }))
 
     vi.spyOn(DidResolverService.prototype, 'resolve').mockImplementation(async () => ({
       didResolutionMetadata: {},
       didDocumentMetadata: {},
-      didDocument: new DidDocument({ ...integrationDidDoc, context: integrationDidDoc['@context'] }),
+      didDocument: fixtures.credoDidDocument,
     }))
 
     fetchMocker.enable()
@@ -57,7 +61,8 @@ describe('TrustResolutionRedisCache with Redis (testcontainers)', () => {
   })
 
   it('should store TrustResolution in Redis and serve the second call from cache', async () => {
-    fetchMocker.setMockResponses(integrationMockResponses)
+    const did = fixtures.did
+    fetchMocker.setMockResponses(fixtures.mockResponses)
 
     // First call: full resolution
     const store = new TrustResolutionRedisCache(redis)

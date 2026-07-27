@@ -168,10 +168,13 @@ export const mockServiceVcSelfIssued = createVerifiablePresentation(
     name: 'Example LLC',
     type: 'ServiceCredential',
     description: 'Example service credential',
-    logo: 'data:image/png;base64,...',
+    logoUri: 'https://example.com/logo.png',
+    logoDigestSri: 'sha384-AAAA',
     minimumAgeRequired: 18,
-    termsAndConditions: 'https://example.com/terms',
-    privacyPolicy: 'https://example.com/privacy',
+    termsAndConditionsUri: 'https://example.com/terms',
+    termsAndConditionsDigestSri: 'sha384-BBBB',
+    privacyPolicyUri: 'https://example.com/privacy',
+    privacyPolicyDigestSri: 'sha384-CCCC',
   },
 )
 
@@ -187,10 +190,13 @@ export const mockServiceExtIssuerVc = createVerifiablePresentation(
     name: 'Example LLC',
     type: 'ServiceCredential',
     description: 'Example service credential',
-    logo: 'data:image/png;base64,...',
+    logoUri: 'https://example.com/logo.png',
+    logoDigestSri: 'sha384-AAAA',
     minimumAgeRequired: 18,
-    termsAndConditions: 'https://example.com/terms',
-    privacyPolicy: 'https://example.com/privacy',
+    termsAndConditionsUri: 'https://example.com/terms',
+    termsAndConditionsDigestSri: 'sha384-BBBB',
+    privacyPolicyUri: 'https://example.com/privacy',
+    privacyPolicyDigestSri: 'sha384-CCCC',
   },
 )
 
@@ -207,7 +213,7 @@ export const mockServiceSchemaSelfIssued = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
-    digestSRI: 'sha256-pIVmjOVtKtlbpF0dhfAao95BZvuK1syXj6IWFkuS+oo=',
+    digestSRI: 'sha256-kS6EOTrjYcU1r3Kzv5Ad3w1rj/Hzoc0kAw45ztM5SaY=',
   },
 )
 
@@ -224,7 +230,7 @@ export const mockServiceSchemaExtIssuer = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
     },
-    digestSRI: 'sha256-pIVmjOVtKtlbpF0dhfAao95BZvuK1syXj6IWFkuS+oo=',
+    digestSRI: 'sha256-kS6EOTrjYcU1r3Kzv5Ad3w1rj/Hzoc0kAw45ztM5SaY=',
   },
 )
 
@@ -238,7 +244,8 @@ export const mockOrgVc = createVerifiablePresentation(
   {
     id: 'did:example:456',
     name: 'Example Corp',
-    logo: 'data:image/png;base64,...',
+    logoUri: 'https://example.com/logo.png',
+    logoDigestSri: 'sha384-DDDD',
     registryId: 'EX-123456',
     registryUri: 'https://registry.example.com/org/EX-123456',
     address: '123 Example Street, Example City, EX 10001',
@@ -259,7 +266,7 @@ export const mockOrgSchema = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
     },
-    digestSRI: 'sha256-afCx7y71GyLz5XwmCjakyWeHQ7YV0a77gPel8oS9YHo=',
+    digestSRI: 'sha256-vwLut/MpniwiUbd/YcELS44c7SauVeHFHMFN7M9LNaY=',
   },
 )
 
@@ -273,7 +280,8 @@ export const mockOrgVcWithoutIssuer = createVerifiablePresentation(
   {
     id: 'did:example:456',
     name: 'Example Corp',
-    logo: 'data:image/png;base64,...',
+    logoUri: 'https://example.com/logo.png',
+    logoDigestSri: 'sha384-DDDD',
     registryId: 'EX-123456',
     registryUri: 'https://registry.example.com/org/EX-123456',
     address: '123 Example Street, Example City, EX 10001',
@@ -294,7 +302,7 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
     jsonSchema: {
       $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
     },
-    digestSRI: 'sha256-afCx7y71GyLz5XwmCjakyWeHQ7YV0a77gPel8oS9YHo=',
+    digestSRI: 'sha256-vwLut/MpniwiUbd/YcELS44c7SauVeHFHMFN7M9LNaY=',
   },
 )
 

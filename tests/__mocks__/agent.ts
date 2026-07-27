@@ -4,14 +4,30 @@
 import { askar, KdfMethod } from '@openwallet-foundation/askar-nodejs'
 
 import { AskarModule, AskarModuleConfigStoreOptions } from '@credo-ts/askar'
-import { Agent, AgentContext, DidsApi, DidsModule, LogLevel, utils, WebDidResolver } from '@credo-ts/core'
+import {
+  Agent,
+  AgentContext,
+  DidsApi,
+  DidsModule,
+  DocumentLoader,
+  LogLevel,
+  utils,
+  W3cCredentialsModule,
+  WebDidResolver,
+} from '@credo-ts/core'
 import { agentDependencies } from '@credo-ts/node'
 import { WebVhDidResolver } from '@credo-ts/webvh'
 import { Resolver } from 'did-resolver'
 
 import { TestLogger } from './logger'
 
-export const setupAgent = async ({ name }: { name: string }) => {
+export const setupAgent = async ({
+  name,
+  documentLoader,
+}: {
+  name: string
+  documentLoader?: (agentContext: AgentContext) => DocumentLoader
+}) => {
   const agent = new Agent({
     config: { logger: new TestLogger(LogLevel.off, 'test') },
     dependencies: agentDependencies,
@@ -23,6 +39,7 @@ export const setupAgent = async ({ name }: { name: string }) => {
       dids: new DidsModule({
         resolvers: [new WebDidResolver(), new WebVhDidResolver()],
       }),
+      ...(documentLoader ? { w3cCredentials: new W3cCredentialsModule({ documentLoader }) } : {}),
     },
   })
 

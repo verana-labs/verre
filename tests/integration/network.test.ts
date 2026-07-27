@@ -19,11 +19,12 @@ import {
   integrationDidDoc,
   integrationMockResponses,
   linkedVpOrg,
-  linkedVpService,
   linkedVpServiceWithInvalidJws,
   mockPermission,
   setupAgent as setupAndInitializeAgent,
   verifiablePublicRegistries,
+  buildV4Fixtures,
+  v4TestDocumentLoader,
 } from '../__mocks__'
 
 /**
@@ -52,7 +53,7 @@ let didResolver: Resolver
 describe('Integration with Verana Blockchain', () => {
   beforeAll(async () => {
     // Configure an in-memory wallet for the test agent
-    agent = await setupAndInitializeAgent({ name: 'InMemoryTestAgent' })
+    agent = await setupAndInitializeAgent({ name: 'InMemoryTestAgent', documentLoader: v4TestDocumentLoader })
     didResolver = getCredoTsDidResolver(agent.context)
 
     // Mock global fetch
@@ -67,7 +68,8 @@ describe('Integration with Verana Blockchain', () => {
     vi.clearAllMocks()
   })
 
-  it('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
+  // re-enable when a v4-content deployment exists; the pinned DID publishes v3 ECS content
+  it.skip('should perform a full integration self signed by resolving a real DID and validating the schema', async () => {
     // Use this DID to validate real-world service resolution scenarios
     const did =
       'did:webvh:QmQfm1rpBg7QquBnwEn8TQCut7VAY4r7y2ujjst4ZTg4o5:dm.gov-id-verifier.demos.dev.2060.io'
@@ -78,7 +80,6 @@ describe('Integration with Verana Blockchain', () => {
       verifiablePublicRegistries,
     })
 
-    // Validate result
     expect(resolveSpy).toHaveBeenCalledTimes(3)
     expect(resolveSpy).toHaveBeenCalledWith(did)
     expect(result.verified).toBe(true)
@@ -86,10 +87,66 @@ describe('Integration with Verana Blockchain', () => {
   }, 50000)
 
   it('should integrate with Verana testnet and retrieve the nested schema from the blockchain', async () => {
+    const fixtures = await buildV4Fixtures(agent)
+    const did = fixtures.did
+
+    vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => {
+      return {
+        didResolutionMetadata: {},
+        didDocumentMetadata: {},
+        didDocument: fixtures.didDocument,
+      }
+    })
+    vi.spyOn(DidResolverService.prototype, 'resolve').mockImplementation(async () => {
+      return {
+        didResolutionMetadata: {},
+        didDocumentMetadata: {},
+        didDocument: fixtures.credoDidDocument,
+      }
+    })
+
+    fetchMocker.setMockResponses(fixtures.mockResponses)
+    const cache = new InMemoryCache()
+    const result = await resolveDID(did, {
+      verifiablePublicRegistries,
+      didResolver,
+      cache,
+    })
+
+    expect(result).toHaveProperty('didDocument')
+    expect(result).toEqual(
+      expect.objectContaining({
+        didDocument: fixtures.didDocument,
+        verified: true,
+        outcome: TrustResolutionOutcome.VERIFIED_TEST,
+        service: expect.objectContaining({
+          schemaType: 'ecs-service',
+          name: 'V4 Demo Service',
+          logoUri: 'https://v4-agent.example/logo.png',
+          issuer: did,
+        }),
+        serviceProvider: expect.objectContaining({
+          schemaType: 'ecs-org',
+          name: 'V4 Demo Org',
+          registryId: 'REG-1',
+          issuer: did,
+        }),
+      }),
+    )
+
+    // Second call should be served entirely from cache: no new fetch calls
+    const fetchCountBefore = (global.fetch as any).mock.calls.length
+    const cachedResult = await resolveDID(did, {
+      verifiablePublicRegistries,
+      cache,
+    })
+    expect(cachedResult.verified).toBe(true)
+    expect((global.fetch as any).mock.calls.length).toBe(fetchCountBefore)
+  }, 20000)
+
+  it('resolves v3 fixture content as invalid', async () => {
     const did = 'did:web:bcccdd780017.ngrok-free.app'
 
-    // Create a mock object representing a didDocument
-    // Mock the Resolver's resolve method to return a predefined DID Document for deterministic testing
     vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async () => {
       return {
         didResolutionMetadata: {},
@@ -97,7 +154,6 @@ describe('Integration with Verana Blockchain', () => {
         didDocument: integrationDidDoc,
       }
     })
-    // Mock the DidResolverService's resolve method to return a constructed DidDocument instance
     vi.spyOn(DidResolverService.prototype, 'resolve').mockImplementation(async () => {
       return {
         didResolutionMetadata: {},
@@ -106,49 +162,14 @@ describe('Integration with Verana Blockchain', () => {
       }
     })
 
-    // Mock HTTP responses for schema and verifiable presentation endpoints to avoid real network calls
     fetchMocker.setMockResponses(integrationMockResponses)
-    const cache = new InMemoryCache()
     const result = await resolveDID(did, {
       verifiablePublicRegistries,
       didResolver,
-      cache,
     })
 
-    // Validate result
-    expect(result).toHaveProperty('didDocument')
-    expect(result).toEqual(
-      expect.objectContaining({
-        didDocument: integrationDidDoc,
-        verified: true,
-        outcome: TrustResolutionOutcome.VERIFIED_TEST,
-        service: {
-          ...linkedVpService?.verifiableCredential?.[0]?.credentialSubject,
-          issuer: did,
-          schemaType: 'ecs-service',
-          validFrom: linkedVpService?.verifiableCredential?.[0]?.issuanceDate,
-          validUntil: linkedVpService?.verifiableCredential?.[0]?.expirationDate,
-          raw: linkedVpService?.verifiableCredential?.[0],
-        },
-        serviceProvider: {
-          ...linkedVpOrg?.verifiableCredential?.[0]?.credentialSubject,
-          issuer: did,
-          schemaType: 'ecs-org',
-          validFrom: linkedVpOrg?.verifiableCredential?.[0]?.issuanceDate,
-          validUntil: linkedVpOrg?.verifiableCredential?.[0]?.expirationDate,
-          raw: linkedVpOrg?.verifiableCredential?.[0],
-        },
-      }),
-    )
-
-    // Second call should be served entirely from cache — no new fetch calls
-    const fetchCountBefore = (global.fetch as any).mock.calls.length
-    const cachedResult = await resolveDID(did, {
-      verifiablePublicRegistries,
-      cache,
-    })
-    expect(cachedResult.verified).toBe(true)
-    expect((global.fetch as any).mock.calls.length).toBe(fetchCountBefore)
+    expect(result.verified).toBe(false)
+    expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
   }, 10000)
 
   it('should fail integration when a verifiable credential validation fails', async () => {
