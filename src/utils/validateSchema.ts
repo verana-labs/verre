@@ -40,9 +40,6 @@ function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
   return `sha384-${digest}`
 }
 
-/**
- * [WL-ECS] provenance of a schema: which Ecosystem created it, and in which VPR.
- */
 export type EcsProvenance = {
   ecsEcosystems: EcsEcosystem[]
   schemaId: string
