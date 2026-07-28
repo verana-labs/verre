@@ -162,8 +162,7 @@ function resolveTrustRegistry(
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
-  registryId?: string
-  registryBaseUrl?: string
+  vprId?: string
 } {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
   const schemaUrl =
@@ -182,8 +181,7 @@ function resolveTrustRegistry(
     outcome,
     schemaUrl,
     adapter: registry?.adapter,
-    registryId: registry?.id,
-    registryBaseUrl: registry?.baseUrls[0],
+    vprId: registry?.id,
   }
 }
 
@@ -511,8 +509,10 @@ async function processCredential(
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome, schemaUrl, adapter, registryId, registryBaseUrl } =
-        resolveTrustRegistry(refUrl, verifiablePublicRegistries)
+      const { trustRegistry, schemaId, outcome, schemaUrl, adapter, vprId } = resolveTrustRegistry(
+        refUrl,
+        verifiablePublicRegistries,
+      )
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome, hasAdapter: !!adapter })
 
       if (!issuer || !issuanceDate)
@@ -549,18 +549,10 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
-      let schemaType = identifySchema(subjectSchema)
-      if (schemaType && ecsEcosystems) {
-        const allowed = await ecsEcosystemAllows(
-          ecsEcosystems,
-          registryId,
-          registryBaseUrl,
-          schemaId,
-          adapter,
-          logger,
-        )
-        if (!allowed) schemaType = null
-      }
+      const schemaType = await identifySchema(
+        subjectSchema,
+        ecsEcosystems ? { ecsEcosystems, schemaId, vprId, adapter, logger } : undefined,
+      )
       const source = sourceCredential ?? w3cCredential
       const credential = {
         schemaType,
@@ -724,36 +716,6 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
     first instanceof Error ? first.message : String(first),
     failedCredentials,
   )
-}
-
-async function ecsEcosystemAllows(
-  ecsEcosystems: EcsEcosystem[],
-  registryId: string | undefined,
-  registryBaseUrl: string | undefined,
-  schemaId: string,
-  adapter: IRegistryAdapter | undefined,
-  logger: IVerreLogger,
-): Promise<boolean> {
-  if (!registryId || !registryBaseUrl) return false
-  try {
-    const ecosystemDid = adapter?.fetchSchemaEcosystemDid
-      ? await adapter.fetchSchemaEcosystemDid(schemaId)
-      : await fetchEcosystemDid(registryBaseUrl, schemaId)
-    return !!ecosystemDid && ecsEcosystems.some(e => e.did === ecosystemDid && e.vpr === registryId)
-  } catch {
-    logger.warn('Failed to resolve schema ecosystem, treating as not allowlisted', { schemaId })
-    return false
-  }
-}
-
-async function fetchEcosystemDid(registryBaseUrl: string, schemaId: string): Promise<string | undefined> {
-  const base = toIndexerUrl(registryBaseUrl.replace(/\/$/, ''))
-  const { schema } = await fetchJson<{ schema?: { tr_id?: number } }>(`${base}/cs/v1/get/${schemaId}`)
-  if (!Number.isInteger(schema?.tr_id)) return undefined
-  const { trust_registry } = await fetchJson<{ trust_registry?: { did?: string } }>(
-    `${base}/tr/v1/get/${schema?.tr_id}`,
-  )
-  return trust_registry?.did
 }
 
 /**
