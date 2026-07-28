@@ -77,9 +77,9 @@ export interface IRegistryAdapter {
     Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
   >
   /**
-   * Resolves the DID of the Ecosystem owning a schema. Used for the WL-ECS allowlist.
+   * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
    */
-  fetchSchemaEcosystemDid?(schemaId: string): Promise<string | undefined>
+  fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
 }
 
 export type VerifiablePublicRegistry = {

@@ -84,9 +84,12 @@ async function isWhitelistedEcsEcosystem({
   adapter,
   logger,
 }: EcsProvenance): Promise<boolean> {
-  if (!vprId || !adapter?.fetchSchemaEcosystemDid) {
-    logger?.warn('Cannot resolve the Ecosystem of a schema, treating it as not whitelisted', { schemaId })
-    return false
+  if (!vprId) return false
+  if (!adapter) {
+    throw new TrustError(
+      TrustErrorCode.INVALID_REQUEST,
+      'ecsEcosystems requires a registry adapter to resolve the Ecosystem that created a schema',
+    )
   }
   try {
     const ecosystemDid = await adapter.fetchSchemaEcosystemDid(schemaId)

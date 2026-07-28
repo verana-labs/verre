@@ -11,6 +11,8 @@ import {
   TrustResolutionOutcome,
 } from '../../src'
 import { resolverInstance } from '../../src/libraries'
+import { InMemoryCache } from '../../src/utils/helper'
+import { identifySchema } from '../../src/utils/validateSchema'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   createRegistriesWithAdapter,
@@ -376,6 +378,46 @@ describe('DidValidator', () => {
       resolverInstance.clear()
     })
 
+    const registriesForEcosystem = (ecosystemDid: string) =>
+      createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        fetchPermission: async () => ({
+          type: PermissionType.ISSUER,
+          created: '2000-11-18T15:26:01.487Z',
+        }),
+        fetchSchemaEcosystemDid: async () => ecosystemDid,
+      })
+
+    const allowlistMockResponses = {
+      'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+      'https://example.com/vp-ser-ext-issued': { ok: true, status: 200, data: mockServiceExtIssuerVc },
+      'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
+      'https://ecs-trust-registry/service-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: mockServiceSchemaSelfIssued,
+      },
+      'https://ecs-trust-registry/service-ext-issuer-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: mockServiceSchemaExtIssuer,
+      },
+      'https://ecs-trust-registry/org-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: mockOrgSchema,
+      },
+      'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+        ok: true,
+        status: 200,
+        data: mockW3cJsonSchemaV2,
+      },
+    }
+
     it('should call adapter methods instead of HTTP for schema and permission', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
@@ -519,6 +561,41 @@ describe('DidValidator', () => {
         ecsEcosystems: [trusted],
       })
       expect(deniedExternal.serviceProvider).toBeUndefined()
+    })
+
+    it('does not serve a cached resolution to a caller using a different whitelist', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses(allowlistMockResponses)
+
+      const cache = new InMemoryCache()
+      const registries = registriesForEcosystem('did:example:rogue')
+
+      const open = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+        cache,
+      })
+      expect(open.verified).toBe(true)
+
+      const restricted = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+        cache,
+        ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'https://vpr-hostname/vpr' }],
+      })
+      expect(restricted.verified).toBe(false)
+    })
+
+    it('fails loudly when a whitelist is configured without a registry adapter', async () => {
+      await expect(
+        identifySchema(mockCredentialSchemaSer, {
+          ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'https://vpr-hostname/vpr' }],
+          schemaId: '12345678',
+          vprId: 'https://vpr-hostname/vpr',
+        }),
+      ).rejects.toThrow('requires a registry adapter')
     })
   })
 

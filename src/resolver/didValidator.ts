@@ -196,8 +196,19 @@ function resolveTrustRegistry(
  *
  * @internal
  */
+// a resolution made under a whitelist must not be served to a caller using a different one
+function cacheKeyFor(did: string, ecsEcosystems?: EcsEcosystem[]): string {
+  if (!ecsEcosystems) return did
+  const whitelist = ecsEcosystems
+    .map(e => `${e.vpr}|${e.did}`)
+    .sort()
+    .join(',')
+  return `${did}#ecs:${whitelist}`
+}
+
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
-  const cached = options.cache?.get(did)
+  const cacheKey = cacheKeyFor(did, options.ecsEcosystems)
+  const cached = options.cache?.get(cacheKey)
   const cachedValue = cached ? await cached : undefined
   if (cachedValue?.verified === true) return cached as Promise<TrustResolution>
 
@@ -206,7 +217,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
 
     try {
       const result = await processDidDocument(did, didDocument, options)
-      options.cache?.set(did, Promise.resolve(result))
+      options.cache?.set(cacheKey, Promise.resolve(result))
       return result
     } catch (error) {
       return handleTrustError(error, didDocument)
