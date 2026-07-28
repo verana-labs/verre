@@ -378,7 +378,7 @@ describe('DidValidator', () => {
       resolverInstance.clear()
     })
 
-    const registriesForEcosystem = (ecosystemDid: string) =>
+    const registriesFor = (ecosystemBySchemaId: Record<string, string>) =>
       createRegistriesWithAdapter({
         fetchSchema: async (url: string) => {
           if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
@@ -389,7 +389,7 @@ describe('DidValidator', () => {
           type: PermissionType.ISSUER,
           created: '2000-11-18T15:26:01.487Z',
         }),
-        fetchSchemaEcosystemDid: async () => ecosystemDid,
+        fetchSchemaEcosystemDid: async (schemaId: string) => ecosystemBySchemaId[schemaId],
       })
 
     const allowlistMockResponses = {
@@ -491,45 +491,7 @@ describe('DidValidator', () => {
         return mockResolversByDid[did]
       })
 
-      const registriesFor = (ecosystemBySchemaId: Record<string, string>) =>
-        createRegistriesWithAdapter({
-          fetchSchema: async (url: string) => {
-            if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
-            if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
-            throw new Error(`Unexpected schema URL in adapter: ${url}`)
-          },
-          fetchPermission: async () => ({
-            type: PermissionType.ISSUER,
-            created: '2000-11-18T15:26:01.487Z',
-          }),
-          fetchSchemaEcosystemDid: async (schemaId: string) => ecosystemBySchemaId[schemaId],
-        })
-
-      fetchMocker.setMockResponses({
-        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
-        'https://example.com/vp-ser-ext-issued': { ok: true, status: 200, data: mockServiceExtIssuerVc },
-        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
-        'https://ecs-trust-registry/service-credential-schema-credential.json': {
-          ok: true,
-          status: 200,
-          data: mockServiceSchemaSelfIssued,
-        },
-        'https://ecs-trust-registry/service-ext-issuer-credential-schema-credential.json': {
-          ok: true,
-          status: 200,
-          data: mockServiceSchemaExtIssuer,
-        },
-        'https://ecs-trust-registry/org-credential-schema-credential.json': {
-          ok: true,
-          status: 200,
-          data: mockOrgSchema,
-        },
-        'https://www.w3.org/ns/credentials/json-schema/v2.json': {
-          ok: true,
-          status: 200,
-          data: mockW3cJsonSchemaV2,
-        },
-      })
+      fetchMocker.setMockResponses(allowlistMockResponses)
 
       const trusted = { did: 'did:example:ecosystem', vpr: 'https://vpr-hostname/vpr' }
 
@@ -570,7 +532,7 @@ describe('DidValidator', () => {
       fetchMocker.setMockResponses(allowlistMockResponses)
 
       const cache = new InMemoryCache()
-      const registries = registriesForEcosystem('did:example:rogue')
+      const registries = registriesFor({ '12345678': 'did:example:rogue', '12345671': 'did:example:rogue' })
 
       const open = await resolveDID(didSelfIssued, {
         verifiablePublicRegistries: registries,
