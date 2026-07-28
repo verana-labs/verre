@@ -34,6 +34,12 @@ export type ResolverConfig = {
   cache?: TrustResolutionCache<string, Promise<TrustResolution>>
   skipDigestSRICheck?: boolean
   logger?: IVerreLogger
+  ecsEcosystems?: EcsEcosystem[]
+}
+
+export type EcsEcosystem = {
+  did: string
+  vpr: string
 }
 
 export type VerifyPermissionsOptions = {
@@ -70,6 +76,10 @@ export interface IRegistryAdapter {
   ): Promise<
     Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
   >
+  /**
+   * Resolves the DID of the Ecosystem owning a schema. Used for the WL-ECS allowlist.
+   */
+  fetchSchemaEcosystemDid?(schemaId: string): Promise<string | undefined>
 }
 
 export type VerifiablePublicRegistry = {

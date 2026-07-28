@@ -10,6 +10,7 @@ import { DIDDocument, Resolver, Service } from 'did-resolver'
 import { resolverInstance } from '../libraries/index.js'
 import {
   ECS,
+  EcsEcosystem,
   IRegistryAdapter,
   ResolverConfig,
   TrustResolution,
@@ -127,12 +128,13 @@ export async function resolveCredential(
 ): Promise<CredentialResolution> {
   const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
-    const { verifiablePublicRegistries, skipDigestSRICheck } = options
+    const { verifiablePublicRegistries, skipDigestSRICheck, ecsEcosystems } = options
     const { credential: w3cCredential, outcome } = await processCredential(
       credential,
       verifiablePublicRegistries ?? [],
       skipDigestSRICheck,
       logger,
+      ecsEcosystems,
     )
     return { verified: true, outcome, issuer: w3cCredential.issuer }
   } catch (error) {
@@ -160,6 +162,8 @@ function resolveTrustRegistry(
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
+  registryId?: string
+  registryBaseUrl?: string
 } {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
   const schemaUrl =
@@ -178,6 +182,8 @@ function resolveTrustRegistry(
     outcome,
     schemaUrl,
     adapter: registry?.adapter,
+    registryId: registry?.id,
+    registryBaseUrl: registry?.baseUrls[0],
   }
 }
 
@@ -259,7 +265,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
+  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck, ecsEcosystems } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -288,6 +294,7 @@ async function processDidDocument(
           logger,
           didResolver,
           skipDigestSRICheck,
+          ecsEcosystems,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -297,13 +304,7 @@ async function processDidDocument(
 
         if (isServiceCred && isExternalIssuer) {
           logger.debug('Processing external issuer service credential', { issuer: credential.issuer })
-          const resolution = await _resolve(credential.issuer, {
-            verifiablePublicRegistries,
-            didResolver,
-            attrs: credential,
-            skipDigestSRICheck,
-            cache: options.cache,
-          })
+          const resolution = await _resolve(credential.issuer, { ...options, attrs: credential })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
         }
@@ -384,6 +385,7 @@ async function getVerifiedCredential(
   logger: IVerreLogger,
   didResolver: Resolver,
   skipDigestSRICheck?: boolean,
+  ecsEcosystems?: EcsEcosystem[],
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   logger.debug('Verifying credential', { vp })
 
@@ -407,7 +409,13 @@ async function getVerifiedCredential(
 
   logger.debug('Credential verified successfully')
   try {
-    return await processCredential(w3cCredential, verifiablePublicRegistries, skipDigestSRICheck, logger)
+    return await processCredential(
+      w3cCredential,
+      verifiablePublicRegistries,
+      skipDigestSRICheck,
+      logger,
+      ecsEcosystems,
+    )
   } catch (error) {
     throw toCredentialFailure(error, w3cCredential)
   }
@@ -469,6 +477,7 @@ async function processCredential(
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   skipDigestSRICheck: boolean = false,
   logger: IVerreLogger,
+  ecsEcosystems?: EcsEcosystem[],
   issuer?: string,
   issuanceDate?: string,
   attrs?: Record<string, string>,
@@ -487,6 +496,7 @@ async function processCredential(
       verifiablePublicRegistries,
       skipDigestSRICheck,
       logger,
+      ecsEcosystems,
       w3cCredential.issuer as string,
       w3cCredential.issuanceDate as string,
       subject as Record<string, string>,
@@ -501,10 +511,8 @@ async function processCredential(
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome, schemaUrl, adapter } = resolveTrustRegistry(
-        refUrl,
-        verifiablePublicRegistries,
-      )
+      const { trustRegistry, schemaId, outcome, schemaUrl, adapter, registryId, registryBaseUrl } =
+        resolveTrustRegistry(refUrl, verifiablePublicRegistries)
       logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome, hasAdapter: !!adapter })
 
       if (!issuer || !issuanceDate)
@@ -541,9 +549,21 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
+      let schemaType = identifySchema(subjectSchema)
+      if (schemaType && ecsEcosystems) {
+        const allowed = await ecsEcosystemAllows(
+          ecsEcosystems,
+          registryId,
+          registryBaseUrl,
+          schemaId,
+          adapter,
+          logger,
+        )
+        if (!allowed) schemaType = null
+      }
       const source = sourceCredential ?? w3cCredential
       const credential = {
-        schemaType: identifySchema(subjectSchema),
+        schemaType,
         id,
         issuer,
         ...attrs,
@@ -704,6 +724,36 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
     first instanceof Error ? first.message : String(first),
     failedCredentials,
   )
+}
+
+async function ecsEcosystemAllows(
+  ecsEcosystems: EcsEcosystem[],
+  registryId: string | undefined,
+  registryBaseUrl: string | undefined,
+  schemaId: string,
+  adapter: IRegistryAdapter | undefined,
+  logger: IVerreLogger,
+): Promise<boolean> {
+  if (!registryId || !registryBaseUrl) return false
+  try {
+    const ecosystemDid = adapter?.fetchSchemaEcosystemDid
+      ? await adapter.fetchSchemaEcosystemDid(schemaId)
+      : await fetchEcosystemDid(registryBaseUrl, schemaId)
+    return !!ecosystemDid && ecsEcosystems.some(e => e.did === ecosystemDid && e.vpr === registryId)
+  } catch {
+    logger.warn('Failed to resolve schema ecosystem, treating as not allowlisted', { schemaId })
+    return false
+  }
+}
+
+async function fetchEcosystemDid(registryBaseUrl: string, schemaId: string): Promise<string | undefined> {
+  const base = toIndexerUrl(registryBaseUrl.replace(/\/$/, ''))
+  const { schema } = await fetchJson<{ schema?: { tr_id?: number } }>(`${base}/cs/v1/get/${schemaId}`)
+  if (!Number.isInteger(schema?.tr_id)) return undefined
+  const { trust_registry } = await fetchJson<{ trust_registry?: { did?: string } }>(
+    `${base}/tr/v1/get/${schema?.tr_id}`,
+  )
+  return trust_registry?.did
 }
 
 /**

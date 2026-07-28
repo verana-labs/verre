@@ -85,6 +85,7 @@ async function verifyPermissions(options: VerifyPermissionsOptions): Promise<{ v
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **cache** (*TrustResolutionCache<string, Promise<TrustResolution>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
 * **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
+* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems allowed to produce ECS credentials (`{ did, vpr }` pairs, where `vpr` is the registry id). When set, credentials whose schema belongs to any other ecosystem are treated as ordinary VTCs. When undefined, any ecosystem is accepted.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
 ---
