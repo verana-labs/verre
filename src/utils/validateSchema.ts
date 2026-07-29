@@ -9,7 +9,7 @@ const canonicalize = ((_canonicalize as any).default ?? _canonicalize) as (
   input: unknown,
 ) => string | undefined
 
-import { ECS, TrustErrorCode } from '../types.js'
+import { ECS, EcsEcosystem, IRegistryAdapter, IVerreLogger, TrustErrorCode } from '../types.js'
 
 import { hash } from './crypto.js'
 import { TrustError } from './trustError.js'
@@ -40,23 +40,61 @@ function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
   return `sha384-${digest}`
 }
 
+export type EcsProvenance = {
+  ecsEcosystems: EcsEcosystem[]
+  schemaId: string
+  vprId?: string
+  adapter?: IRegistryAdapter
+  logger?: IVerreLogger
+}
+
 /**
  * Identifies the appropriate schema for a given verifiable presentation (VP).
  *
- * Uses digest to validate the schemaObj against ECS schemas
+ * Uses digest to validate the schemaObj against ECS schemas. When `provenance` is given, a
+ * digest match is only an ECS if the Ecosystem that created the schema is whitelisted
+ * ([WL-ECS]); otherwise the credential degrades to a regular VTC.
  *
  * @param schemaObj - The schema to check.
+ * @param provenance - Optional [WL-ECS] context. Omitted, any Ecosystem is accepted.
  * @returns The matching schema name or `null` if no match is found.
  */
-export const identifySchema = (schemaObj: Record<string, unknown>): ECS | null => {
+export const identifySchema = async (
+  schemaObj: Record<string, unknown>,
+  provenance?: EcsProvenance,
+): Promise<ECS | null> => {
   const actualDigest = computeSchemaDigest(schemaObj)
 
   for (const [schemaName, refDigest] of Object.entries(ECS_SCHEMA_DIGESTS) as [ECS, string][]) {
     if (refDigest === actualDigest) {
+      if (provenance && !(await isWhitelistedEcsEcosystem(provenance))) return null
       return schemaName
     }
   }
   return null
+}
+
+async function isWhitelistedEcsEcosystem({
+  ecsEcosystems,
+  schemaId,
+  vprId,
+  adapter,
+  logger,
+}: EcsProvenance): Promise<boolean> {
+  if (!vprId) return false
+  if (!adapter) {
+    throw new TrustError(
+      TrustErrorCode.INVALID_REQUEST,
+      'ecsEcosystems requires a registry adapter to resolve the Ecosystem that created a schema',
+    )
+  }
+  try {
+    const ecosystemDid = await adapter.fetchSchemaEcosystemDid(schemaId)
+    return !!ecosystemDid && ecsEcosystems.some(e => e.did === ecosystemDid && e.vpr === vprId)
+  } catch {
+    logger?.warn('Failed to resolve the Ecosystem of a schema, treating it as not whitelisted', { schemaId })
+    return false
+  }
 }
 
 /**

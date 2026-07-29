@@ -10,6 +10,7 @@ import { DIDDocument, Resolver, Service } from 'did-resolver'
 import { resolverInstance } from '../libraries/index.js'
 import {
   ECS,
+  EcsEcosystem,
   IRegistryAdapter,
   ResolverConfig,
   TrustResolution,
@@ -127,12 +128,13 @@ export async function resolveCredential(
 ): Promise<CredentialResolution> {
   const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
-    const { verifiablePublicRegistries, skipDigestSRICheck } = options
+    const { verifiablePublicRegistries, skipDigestSRICheck, ecsEcosystems } = options
     const { credential: w3cCredential, outcome } = await processCredential(
       credential,
       verifiablePublicRegistries ?? [],
       skipDigestSRICheck,
       logger,
+      ecsEcosystems,
     )
     return { verified: true, outcome, issuer: w3cCredential.issuer }
   } catch (error) {
@@ -160,6 +162,7 @@ function resolveTrustRegistry(
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
+  vprId?: string
 } {
   const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
   const schemaUrl =
@@ -178,6 +181,7 @@ function resolveTrustRegistry(
     outcome,
     schemaUrl,
     adapter: registry?.adapter,
+    vprId: registry?.id,
   }
 }
 
@@ -192,8 +196,19 @@ function resolveTrustRegistry(
  *
  * @internal
  */
+// a resolution made under a whitelist must not be served to a caller using a different one
+function cacheKeyFor(did: string, ecsEcosystems?: EcsEcosystem[]): string {
+  if (!ecsEcosystems) return did
+  const whitelist = ecsEcosystems
+    .map(e => `${e.vpr}|${e.did}`)
+    .sort()
+    .join(',')
+  return `${did}#ecs:${whitelist}`
+}
+
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
-  const cached = options.cache?.get(did)
+  const cacheKey = cacheKeyFor(did, options.ecsEcosystems)
+  const cached = options.cache?.get(cacheKey)
   const cachedValue = cached ? await cached : undefined
   if (cachedValue?.verified === true) return cached as Promise<TrustResolution>
 
@@ -202,7 +217,7 @@ async function _resolve(did: string, options: InternalResolverConfig): Promise<T
 
     try {
       const result = await processDidDocument(did, didDocument, options)
-      options.cache?.set(did, Promise.resolve(result))
+      options.cache?.set(cacheKey, Promise.resolve(result))
       return result
     } catch (error) {
       return handleTrustError(error, didDocument)
@@ -259,7 +274,7 @@ async function processDidDocument(
   if (!didDocument?.service) {
     throw new TrustError(TrustErrorCode.NOT_FOUND, 'Failed to retrieve DID Document with service.')
   }
-  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck } = options
+  const { verifiablePublicRegistries, didResolver, attrs, skipDigestSRICheck, ecsEcosystems } = options
 
   const credentials: ICredential[] = []
   let serviceProvider: ICredential | undefined
@@ -288,6 +303,7 @@ async function processDidDocument(
           logger,
           didResolver,
           skipDigestSRICheck,
+          ecsEcosystems,
         )
         credentials.push(credential)
         outcome = vpOutcome
@@ -297,13 +313,7 @@ async function processDidDocument(
 
         if (isServiceCred && isExternalIssuer) {
           logger.debug('Processing external issuer service credential', { issuer: credential.issuer })
-          const resolution = await _resolve(credential.issuer, {
-            verifiablePublicRegistries,
-            didResolver,
-            attrs: credential,
-            skipDigestSRICheck,
-            cache: options.cache,
-          })
+          const resolution = await _resolve(credential.issuer, { ...options, attrs: credential })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
         }
@@ -384,6 +394,7 @@ async function getVerifiedCredential(
   logger: IVerreLogger,
   didResolver: Resolver,
   skipDigestSRICheck?: boolean,
+  ecsEcosystems?: EcsEcosystem[],
 ): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
   logger.debug('Verifying credential', { vp })
 
@@ -407,7 +418,13 @@ async function getVerifiedCredential(
 
   logger.debug('Credential verified successfully')
   try {
-    return await processCredential(w3cCredential, verifiablePublicRegistries, skipDigestSRICheck, logger)
+    return await processCredential(
+      w3cCredential,
+      verifiablePublicRegistries,
+      skipDigestSRICheck,
+      logger,
+      ecsEcosystems,
+    )
   } catch (error) {
     throw toCredentialFailure(error, w3cCredential)
   }
@@ -469,6 +486,7 @@ async function processCredential(
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   skipDigestSRICheck: boolean = false,
   logger: IVerreLogger,
+  ecsEcosystems?: EcsEcosystem[],
   issuer?: string,
   issuanceDate?: string,
   attrs?: Record<string, string>,
@@ -487,6 +505,7 @@ async function processCredential(
       verifiablePublicRegistries,
       skipDigestSRICheck,
       logger,
+      ecsEcosystems,
       w3cCredential.issuer as string,
       w3cCredential.issuanceDate as string,
       subject as Record<string, string>,
@@ -501,7 +520,7 @@ async function processCredential(
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome, schemaUrl, adapter } = resolveTrustRegistry(
+      const { trustRegistry, schemaId, outcome, schemaUrl, adapter, vprId } = resolveTrustRegistry(
         refUrl,
         verifiablePublicRegistries,
       )
@@ -541,9 +560,13 @@ async function processCredential(
 
       // Validate the credential subject attributes against the JSON schema content
       validateSchemaContent(subjectSchema, attrs)
+      const schemaType = await identifySchema(
+        subjectSchema,
+        ecsEcosystems ? { ecsEcosystems, schemaId, vprId, adapter, logger } : undefined,
+      )
       const source = sourceCredential ?? w3cCredential
       const credential = {
-        schemaType: identifySchema(subjectSchema),
+        schemaType,
         id,
         issuer,
         ...attrs,
