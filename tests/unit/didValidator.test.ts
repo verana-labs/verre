@@ -5,7 +5,7 @@ import {
   CREDENTIAL_FORMAT_LDP_VC,
   ECS,
   IVerreLogger,
-  PermissionType,
+  ParticipantRole,
   resolveDID,
   TrustErrorCode,
   TrustResolutionOutcome,
@@ -36,7 +36,7 @@ import {
   mockW3cJsonSchemaV2,
   setupAgent,
   verifiablePublicRegistries,
-  mockPermission,
+  mockParticipant,
 } from '../__mocks__'
 
 const mockResolversByDid: Record<string, any> = {
@@ -97,10 +97,10 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
-          { ok: true, status: 200, data: mockPermission },
-        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345671':
-          { ok: true, status: 200, data: mockPermission },
+        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
+          { ok: true, status: 200, data: mockParticipant },
+        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345671':
+          { ok: true, status: 200, data: mockParticipant },
       })
 
       // Execute method under test
@@ -221,10 +221,10 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
-          { ok: true, status: 200, data: mockPermission },
-        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345673':
-          { ok: true, status: 200, data: mockPermission },
+        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
+          { ok: true, status: 200, data: mockParticipant },
+        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345673':
+          { ok: true, status: 200, data: mockParticipant },
       })
 
       // Execute method under test
@@ -308,17 +308,17 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345678':
+        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
           {
             ok: true,
             status: 200,
-            data: mockPermission,
+            data: mockParticipant,
           },
-        'https://testtrust.com/v1/perm/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&type=ISSUER&response_max_size=1&schema_id=12345673':
+        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345673':
           {
             ok: true,
             status: 200,
-            data: mockPermission,
+            data: mockParticipant,
           },
       })
 
@@ -385,8 +385,8 @@ describe('DidValidator', () => {
           if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
           throw new Error(`Unexpected schema URL in adapter: ${url}`)
         },
-        fetchPermission: async () => ({
-          type: PermissionType.ISSUER,
+        fetchParticipant: async () => ({
+          role: ParticipantRole.ISSUER,
           created: '2000-11-18T15:26:01.487Z',
         }),
         fetchSchemaEcosystemDid: async (schemaId: string) => ecosystemBySchemaId[schemaId],
@@ -436,14 +436,14 @@ describe('DidValidator', () => {
         throw new Error(`Unexpected schema URL in adapter: ${url}`)
       })
 
-      const fetchPermissionSpy = vi.fn(async () => ({
-        type: PermissionType.ISSUER,
+      const fetchParticipantSpy = vi.fn(async () => ({
+        role: ParticipantRole.ISSUER,
         created: '2000-11-18T15:26:01.487Z',
       }))
 
       const registriesWithAdapter = createRegistriesWithAdapter({
         fetchSchema: fetchSchemaSpy,
-        fetchPermission: fetchPermissionSpy,
+        fetchParticipant: fetchParticipantSpy,
       })
 
       fetchMocker.setMockResponses({
@@ -477,11 +477,11 @@ describe('DidValidator', () => {
 
       // Adapter methods were invoked — no HTTP to the indexer
       expect(fetchSchemaSpy).toHaveBeenCalled()
-      expect(fetchPermissionSpy).toHaveBeenCalled()
+      expect(fetchParticipantSpy).toHaveBeenCalled()
 
       // Logger confirms the adapter path was taken
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Using registry adapter for permission check',
+        'Using registry adapter for participant check',
         expect.objectContaining({ schemaId: expect.any(String), did: didSelfIssued }),
       )
     })

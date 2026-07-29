@@ -20,7 +20,7 @@ import { createHash } from 'crypto'
 import { vi } from 'vitest'
 
 import { essentialSchemas } from './data'
-import { mockPermission } from './object'
+import { mockParticipant } from './object'
 
 // Vendored copy of https://www.w3.org/ns/credentials/json-schema/v2.json so tests stay offline
 const jsonSchemaCredentialMetaSchema = {
@@ -355,8 +355,8 @@ export async function buildV4Fixtures(agent: Agent): Promise<V4Fixtures> {
     mockResponses[jscUrl] = { ok: true, data: JsonTransformer.toJSON(jsc) }
     mockResponses[`${VPR_IDX}/cs/v1/js/${schemaId}`] = { ok: true, data: schemaBody }
     mockResponses[
-      `${VPR_IDX}/perm/v1/list?did=${encodeURIComponent(v4Did)}&type=ISSUER&response_max_size=1&schema_id=${schemaId}`
-    ] = { ok: true, data: mockPermission }
+      `${VPR_IDX}/pp/v1/list?did=${encodeURIComponent(v4Did)}&role=ISSUER&response_max_size=1&schema_id=${schemaId}`
+    ] = { ok: true, data: mockParticipant }
   }
 
   return { did: v4Did, didDocument, credoDidDocument, mockResponses }
