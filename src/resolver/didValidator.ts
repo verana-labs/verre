@@ -80,7 +80,7 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
 }
 
 /**
- * Verifies whether a given issuer has permission to issue a specific credential
+ * Verifies whether a given issuer is an authorized Participant for a specific credential
  * according to the trust registries and schema definitions.
  *
  * @param options - Configuration object containing all required data.
@@ -88,7 +88,7 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
  * @param options.jsonSchemaCredentialId - URL or identifier for the JSON schema of the credential.
  * @param options.issuanceDate - The date at which the credential was issued.
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
- * @param options.permissionType - The type of permission to verify.
+ * @param options.role - The Participant role to verify.
  * @param options.logger - (Optional) Logger used for debugging.
  */
 export async function verifyParticipant(options: VerifyParticipantOptions) {
@@ -472,7 +472,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
  *
  * @param w3cCredential - The Verifiable Credential to validate.
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
- * @param issuer - Optional issuer DID to validate permissions against the trust registry.
+ * @param issuer - Optional issuer DID to validate as a Participant against the registry.
  * @param attrs - Optional attributes to validate against the credential subject schema.
  * @param sourceCredential - Optional credential the validation started from. When a credential
  * declares a `JsonSchemaCredential`, this function recurses on the *schema* credential, so the
@@ -532,8 +532,8 @@ async function processCredential(
           `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
         )
 
-      // Schema fetches and permission check share no dependencies — run in parallel
-      logger.debug('Fetching schemas and verifying permission in parallel')
+      // Schema fetches and participant check share no dependencies — run in parallel
+      logger.debug('Fetching schemas and verifying participant in parallel')
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
         adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
@@ -730,8 +730,8 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
 }
 
 /**
- * Verifies that an entity holds valid permissions for the specified schema
- * and ensures the credential's issuance date is not earlier than the permission creation date.
+ * Verifies that an entity is an authorized Participant for the specified schema
+ * and ensures the credential's issuance date is not earlier than the Participant creation date.
  */
 async function verifyAuthorization(
   trustRegistry: string,
@@ -750,7 +750,7 @@ async function verifyAuthorization(
         created: string
         effective_from?: string | null
         effective_until?: string | null
-        revoked?: number | string | null
+        revoked?: string | null
       }
     | undefined
 
@@ -758,7 +758,7 @@ async function verifyAuthorization(
     logger.debug('Using registry adapter for participant check', { schemaId, did })
     perm = await adapter.fetchParticipant(schemaId, did, role)
   } else {
-    const participantUrl = `${toIndexerUrl(trustRegistry)}/pp/v1/list?did=${encodeURIComponent(
+    const participantUrl = `${toIndexerUrl(trustRegistry)}/v4/participant/list?did=${encodeURIComponent(
       did,
     )}&role=${role}&response_max_size=1&schema_id=${schemaId}`
     logger.debug('Fetching participants', { participantUrl, schemaId })
@@ -775,12 +775,12 @@ async function verifyAuthorization(
   if (perm.revoked != null)
     throw new TrustError(
       TrustErrorCode.NOT_AUTHORIZED,
-      `Permission for the specified DID: ${did} for schema ${schemaId} was revoked at ${perm.revoked}`,
+      `Participant for the specified DID: ${did} for schema ${schemaId} was revoked at ${perm.revoked}`,
     )
 
   const effectiveFrom = perm.effective_from ?? perm.created
   const effectiveUntil = perm.effective_until ?? new Date().toISOString()
-  logger.debug('Permission found, verifying dates', {
+  logger.debug('Participant found, verifying dates', {
     did,
     issuanceDate,
     effectiveFrom,
@@ -792,7 +792,7 @@ async function verifyAuthorization(
   if (issuanceTs < effectiveFromTs || issuanceTs > effectiveUntilTs) {
     throw new TrustError(
       TrustErrorCode.NOT_AUTHORIZED,
-      `Credential issuance date (${issuanceDate}) is not within the permission effective range (${effectiveFrom} - ${effectiveUntil})`,
+      `Credential issuance date (${issuanceDate}) is not within the Participant effective range (${effectiveFrom} - ${effectiveUntil})`,
     )
   }
 

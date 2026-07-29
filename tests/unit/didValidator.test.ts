@@ -97,9 +97,9 @@ describe('DidValidator', () => {
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
+        'https://testtrust.com/v1/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
           { ok: true, status: 200, data: mockParticipant },
-        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345671':
+        'https://testtrust.com/v1/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345671':
           { ok: true, status: 200, data: mockParticipant },
       })
 
@@ -221,9 +221,9 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
+        'https://testtrust.com/v1/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
           { ok: true, status: 200, data: mockParticipant },
-        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345673':
+        'https://testtrust.com/v1/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345673':
           { ok: true, status: 200, data: mockParticipant },
       })
 
@@ -308,13 +308,13 @@ describe('DidValidator', () => {
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
+        'https://testtrust.com/v1/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345678':
           {
             ok: true,
             status: 200,
             data: mockParticipant,
           },
-        'https://testtrust.com/v1/pp/v1/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345673':
+        'https://testtrust.com/v1/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&response_max_size=1&schema_id=12345673':
           {
             ok: true,
             status: 200,

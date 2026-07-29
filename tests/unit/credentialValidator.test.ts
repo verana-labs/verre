@@ -47,7 +47,7 @@ describe('Credential Validator', () => {
           status: 200,
           data: ecsService,
         },
-        'https://d6a1950112a2.ngrok-free.app/vt/pp/v1/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&role=ISSUER&response_max_size=1&schema_id=ecs-service':
+        'https://d6a1950112a2.ngrok-free.app/vt/v4/participant/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&role=ISSUER&response_max_size=1&schema_id=ecs-service':
           {
             ok: true,
             status: 200,
@@ -81,7 +81,7 @@ describe('Credential Validator', () => {
           status: 200,
           data: ecsService,
         },
-        'https://d6a1950112a2.ngrok-free.app/vt/pp/v1/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&role=HOLDER&response_max_size=1&schema_id=ecs-service':
+        'https://d6a1950112a2.ngrok-free.app/vt/v4/participant/list?did=did%3Aweb%3Ad6a1950112a2.ngrok-free.app&role=HOLDER&response_max_size=1&schema_id=ecs-service':
           {
             ok: true,
             status: 200,

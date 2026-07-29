@@ -66,7 +66,7 @@ export interface IRegistryAdapter {
    */
   fetchSchema(url: string): Promise<string>
   /**
-   * Fetches the Participant for a given DID and schema. Replaces the HTTP call to /pp/v1/list.
+   * Fetches the Participant for a given DID and schema. Replaces the HTTP call to /v4/participant/list.
    * Return undefined if no Participant exists (verre will throw NOT_AUTHORIZED).
    */
   fetchParticipant(
@@ -157,8 +157,8 @@ export enum ParticipantState {
   SLASHED = 'SLASHED',
   REVOKED = 'REVOKED',
   EXPIRED = 'EXPIRED',
-  ACTIVE = 'ACTIVE',
   FUTURE = 'FUTURE',
+  ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
 
