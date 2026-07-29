@@ -288,6 +288,9 @@ interface IRegistryAdapter {
   ): Promise<
     Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until'> | undefined
   >
+
+  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
+  fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
 }
 ```
 
@@ -310,6 +313,10 @@ class RegistryAdapter implements IRegistryAdapter {
   async fetchParticipant(schemaId: string, did: string, role: ParticipantRole) {
     // Direct in-process lookup — no HTTP
     return this.participantService.findFirst({ schemaId, did, role })
+  }
+
+  async fetchSchemaEcosystemDid(schemaId: string) {
+    return this.schemaService.getEcosystemDid(schemaId)
   }
 }
 
