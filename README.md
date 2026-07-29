@@ -133,10 +133,10 @@ Resolves to a `TrustResolution` containing:
 
 #### Parameters
 
-* **did** (*string*): The DID of the entity to validate permissions for.
+* **did** (*string*): The DID of the entity to validate as a Participant.
 * **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
 * **issuanceDate** (*string*): Date when the credential was issued.
-* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
+* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate Participant entries.
 * **role** (*ParticipantRole*): The Participant role to verify.
 * **logger** (*IVerreLogger*, optional): Logger used for debugging
 
@@ -260,7 +260,7 @@ console.log('Resolved DID Document:', result)
 
 ## Registry Adapter — embedded use
 
-By default, verre resolves permissions and schemas by making HTTP calls to the registry's
+By default, verre resolves Participants and schemas by making HTTP calls to the registry's
 API and indexer endpoints. This works well when verre is used as an external client.
 
 However, if your service **is itself the registry** (e.g. a trust-registry backend or
@@ -279,7 +279,7 @@ interface IRegistryAdapter {
   // Returns the raw JSON text of the subject schema by its resolved URL.
   fetchSchema(url: string): Promise<string>
 
-  // Returns the permission record for a DID, or undefined if none exists.
+  // Returns the Participant record for a DID, or undefined if none exists.
   // verre handles date-range validation (effective_from / effective_until) after this call.
   fetchParticipant(
     schemaId: string,
@@ -299,7 +299,7 @@ import { resolveDID, IRegistryAdapter, VerifiablePublicRegistry, ParticipantRole
 class RegistryAdapter implements IRegistryAdapter {
   constructor(
     private schemaService: SchemaService,
-    private permissionService: PermissionService,
+    private participantService: ParticipantService,
   ) {}
 
   async fetchSchema(url: string): Promise<string> {
@@ -318,7 +318,7 @@ const registries: VerifiablePublicRegistry[] = [
     id: 'https://registry.example.com/vpr',
     baseUrls: ['https://registry.example.com/vpr'],
     production: true,
-    adapter: new RegistryAdapter(schemaService, permissionService),
+    adapter: new RegistryAdapter(schemaService, participantService),
   },
 ]
 

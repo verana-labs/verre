@@ -796,12 +796,12 @@ async function verifyAuthorization(
     )
   }
 
-  logger.debug('Permission verified successfully', { did, schemaId })
+  logger.debug('Participant verified successfully', { did, schemaId })
 }
 
 /**
  * If the registry URL originates from the API (`https://api.`), this function
- * automatically switches it to the indexer (`https://idx.`) for permission resolution.
+ * automatically switches it to the indexer (`https://idx.`) for participant resolution.
  *
  * @param registry - The trust registry URL.
  * @returns A URL pointing to the indexer when needed.
