@@ -42,7 +42,7 @@ function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
 
 export type EcsProvenance = {
   ecsEcosystems: EcsEcosystem[]
-  schemaId: string
+  schemaId: number | string
   vprId?: string
   adapter?: IRegistryAdapter
   logger?: IVerreLogger

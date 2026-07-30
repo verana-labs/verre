@@ -70,21 +70,27 @@ export interface IRegistryAdapter {
    * Return undefined if no Participant exists (verre will throw NOT_AUTHORIZED).
    */
   fetchParticipant(
-    schemaId: string,
+    schemaId: number | string,
     did: string,
     role: ParticipantRole,
   ): Promise<
-    Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
+    | Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>
+    | undefined
   >
   /**
    * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
    */
-  fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
+  fetchSchemaEcosystemDid(schemaId: number | string): Promise<string | undefined>
 }
 
+// [WL-VPR]
 export type VerifiablePublicRegistry = {
   id: string
-  baseUrls: string[]
+  scheme: string
+  api: string[]
+  rpc?: string[]
+  resolver?: string[]
+  version?: string
   production: boolean
   adapter?: IRegistryAdapter
 }

@@ -235,7 +235,7 @@ describe('Integration with Verana Blockchain', () => {
 
     // TODO: Remove once self-permissions are implemented in vs-agent
     fetchMocker.setMockResponses({
-      'https://dm.chatbot.demos.dev.2060.io/v4/participant/list?did=did%3Aweb%3Adm.chatbot.demos.dev.2060.io&role=ISSUER&limit=1&schema_id=ecs-service':
+      'https://dm.chatbot.demos.dev.2060.io/v4/participant/list?did=did%3Aweb%3Adm.chatbot.demos.dev.2060.io&role=ISSUER&schema_id=ecs-service&when=2024-02-08T18%3A38%3A46%2B01%3A00':
         {
           ok: true,
           status: 200,

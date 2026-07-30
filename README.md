@@ -85,7 +85,7 @@ async function verifyParticipant(options: VerifyParticipantOptions): Promise<{ v
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **cache** (*TrustResolutionCache<string, Promise<TrustResolution>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
 * **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
-* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems whitelisted to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].id`). When set, a schema whose Ecosystem is not whitelisted degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; verre throws if one is not configured. Resolutions are cached per whitelist.
+* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems whitelisted to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].scheme`). When set, a schema whose Ecosystem is not whitelisted degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; verre throws if one is not configured. Resolutions are cached per whitelist.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
 ---
@@ -322,8 +322,9 @@ class RegistryAdapter implements IRegistryAdapter {
 
 const registries: VerifiablePublicRegistry[] = [
   {
-    id: 'https://registry.example.com/vpr',
-    baseUrls: ['https://registry.example.com/vpr'],
+    id: 'vna-mainnet-1',
+    scheme: 'vpr:verana:vna-mainnet-1',
+    api: ['https://idx.mainnet.verana.network'],
     production: true,
     adapter: new RegistryAdapter(schemaService, participantService),
   },

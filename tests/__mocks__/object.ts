@@ -208,10 +208,10 @@ export const mockServiceSchemaSelfIssued = createVerifiableCredential(
     digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
-    id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+    id: 'vpr:verana:vna-testnet-1:cs:12345678',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+      $ref: 'vpr:verana:vna-testnet-1:cs:12345678',
     },
     digestSRI: 'sha256-kS6EOTrjYcU1r3Kzv5Ad3w1rj/Hzoc0kAw45ztM5SaY=',
   },
@@ -225,10 +225,10 @@ export const mockServiceSchemaExtIssuer = createVerifiableCredential(
     digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
-    id: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+    id: 'vpr:verana:vna-testnet-1:cs:12345678',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345678',
+      $ref: 'vpr:verana:vna-testnet-1:cs:12345678',
     },
     digestSRI: 'sha256-kS6EOTrjYcU1r3Kzv5Ad3w1rj/Hzoc0kAw45ztM5SaY=',
   },
@@ -261,10 +261,10 @@ export const mockOrgSchema = createVerifiableCredential(
     digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
-    id: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
+    id: 'vpr:verana:vna-testnet-1:cs:12345671',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345671',
+      $ref: 'vpr:verana:vna-testnet-1:cs:12345671',
     },
     digestSRI: 'sha256-vwLut/MpniwiUbd/YcELS44c7SauVeHFHMFN7M9LNaY=',
   },
@@ -297,10 +297,10 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
     digestSRI: 'sha256-qm/TCo3y3vnDW3lvcF42wTannkJbyU+uUxWHyl23NKM=',
   },
   {
-    id: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
+    id: 'vpr:verana:vna-testnet-1:cs:12345673',
     type: 'JsonSchema',
     jsonSchema: {
-      $ref: 'https://vpr-hostname/vpr/v1/cs/js/12345673',
+      $ref: 'vpr:verana:vna-testnet-1:cs:12345673',
     },
     digestSRI: 'sha256-vwLut/MpniwiUbd/YcELS44c7SauVeHFHMFN7M9LNaY=',
   },
@@ -311,6 +311,7 @@ export const mockParticipant = {
     {
       role: 'ISSUER',
       created: '2000-11-18T15:26:01.487Z',
+      participant_state: 'ACTIVE',
     },
   ],
 }
@@ -320,6 +321,7 @@ export const mockHolderParticipant = {
     {
       role: 'HOLDER',
       created: '2000-11-18T15:26:01.487Z',
+      participant_state: 'ACTIVE',
     },
   ],
 }
@@ -330,18 +332,15 @@ export const mockCredentialSchemaSer = essentialSchemas[ECS.SERVICE]
 
 export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
   {
-    id: 'https://vpr-hostname/vpr',
-    baseUrls: ['https://testTrust.com'],
+    id: 'vna-testnet-1',
+    scheme: 'vpr:verana:vna-testnet-1',
+    api: ['https://idx.testnet.verana.network'],
     production: true,
   },
   {
-    id: 'vpr:verana:vna-testnet-1',
-    baseUrls: ['https://idx.testnet.verana.network/verana'],
-    production: true,
-  },
-  {
-    id: 'https://api.testnet.verana.network/verana',
-    baseUrls: ['https://idx.testnet.verana.network/verana'],
+    id: 'vna-devnet-1',
+    scheme: 'vpr:verana:vna-devnet-1',
+    api: ['https://idx.devnet.verana.network'],
     production: false,
   },
 ]
@@ -349,8 +348,9 @@ export const verifiablePublicRegistries: VerifiablePublicRegistry[] = [
 export function createRegistriesWithAdapter(adapter: IRegistryAdapter): VerifiablePublicRegistry[] {
   return [
     {
-      id: 'https://vpr-hostname/vpr',
-      baseUrls: ['https://testTrust.com'],
+      id: 'vna-testnet-1',
+      scheme: 'vpr:verana:vna-testnet-1',
+      api: ['https://idx.testnet.verana.network'],
       production: true,
       adapter,
     },
@@ -428,8 +428,8 @@ export const integrationMockResponses = {
     status: 200,
     data: jsonSchemaCredentialOrg,
   },
-  'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&limit=1&schema_id=133':
+  'https://api.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&schema_id=133&when=2025-09-03T13%3A50%3A33.394Z':
     { ok: true, status: 200, data: mockParticipant },
-  'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&limit=1&schema_id=132':
+  'https://api.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&schema_id=132&when=2025-09-03T13%3A50%3A32.354Z':
     { ok: true, status: 200, data: mockParticipant },
 }

@@ -22,7 +22,9 @@ import {
   InternalResolverConfig,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
+  Participant,
   ParticipantListResponse,
+  ParticipantState,
   CredentialResolution,
   VerifyParticipantOptions,
   ParticipantRole,
@@ -98,11 +100,8 @@ export async function verifyParticipant(options: VerifyParticipantOptions) {
     logger.debug('Verifying participant', { role })
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential, logger)
-    const { trustRegistry, schemaId, adapter } = resolveTrustRegistry(
-      getRefUrl(subject),
-      verifiablePublicRegistries,
-    )
-    await verifyAuthorization(trustRegistry, schemaId, issuanceDate, did, role, logger, adapter)
+    const { api, schemaId, adapter } = resolveSchemaRef(getRefUrl(subject), verifiablePublicRegistries)
+    await verifyAuthorization(api, schemaId, issuanceDate, did, role, logger, adapter)
     logger.debug('Participant verified successfully')
     return { verified: true }
   } catch (error) {
@@ -153,35 +152,42 @@ export async function resolveCredential(
  * @param verifiablePublicRegistries Optional list of registries used for matching and trust evaluation.
  * @returns The resolved trust registry base URL, schema ID, trust outcome, and normalized schema URL.
  */
-function resolveTrustRegistry(
-  refUrl: string,
+function resolveSchemaRef(
+  ref: string,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
 ): {
-  trustRegistry: string
-  schemaId: string
+  api: string
+  schemaId: number | string
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
-  vprId?: string
+  vpr?: string
 } {
-  const registry = verifiablePublicRegistries?.find(registry => refUrl.startsWith(registry.id))
-  const schemaUrl =
-    registry?.id && registry.id[0] ? refUrl.replace(registry.id, registry.baseUrls[0]) : refUrl
-  const urlObj = new URL(schemaUrl)
-  const segments = urlObj.pathname.split('/').filter(Boolean)
-  const outcome = !registry
-    ? TrustResolutionOutcome.NOT_TRUSTED
-    : registry.production
-      ? TrustResolutionOutcome.VERIFIED
-      : TrustResolutionOutcome.VERIFIED_TEST
+  const parsed = /^(vpr:[^:]+:[^:]+):cs:(\d+)$/.exec(ref)
+  if (parsed) {
+    const registry = verifiablePublicRegistries?.find(r => r.scheme === parsed[1])
+    if (!registry) {
+      throw new TrustError(TrustErrorCode.NOT_SUPPORTED, `Unknown verifiable public registry for: ${ref}`)
+    }
+    const api = registry.api[0]?.replace(/\/$/, '') ?? ''
+    const schemaId = Number(parsed[2])
+    return {
+      api,
+      schemaId,
+      outcome: registry.production ? TrustResolutionOutcome.VERIFIED : TrustResolutionOutcome.VERIFIED_TEST,
+      schemaUrl: `${api}/v4/credential-schema/js/${schemaId}`,
+      adapter: registry.adapter,
+      vpr: registry.scheme,
+    }
+  }
 
+  // self-issued schemas are served by the VS itself and belong to no VPR
+  const urlObj = new URL(ref)
   return {
-    trustRegistry: urlObj.origin,
-    schemaId: segments.at(-1)!,
-    outcome,
-    schemaUrl,
-    adapter: registry?.adapter,
-    vprId: registry?.id,
+    api: urlObj.origin,
+    schemaId: urlObj.pathname.split('/').filter(Boolean).at(-1)!,
+    outcome: TrustResolutionOutcome.NOT_TRUSTED,
+    schemaUrl: ref,
   }
 }
 
@@ -520,11 +526,11 @@ async function processCredential(
     try {
       // Extract the reference URL from the subject if it contains a JSON Schema reference
       const refUrl = getRefUrl(subject)
-      const { trustRegistry, schemaId, outcome, schemaUrl, adapter, vprId } = resolveTrustRegistry(
+      const { api, schemaId, outcome, schemaUrl, adapter, vpr } = resolveSchemaRef(
         refUrl,
         verifiablePublicRegistries,
       )
-      logger.debug('Trust registry resolved', { trustRegistry, schemaId, outcome, hasAdapter: !!adapter })
+      logger.debug('Schema reference resolved', { api, schemaId, outcome, hasAdapter: !!adapter })
 
       if (!issuer || !issuanceDate)
         throw new TrustError(
@@ -537,15 +543,7 @@ async function processCredential(
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
         adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
-        verifyAuthorization(
-          trustRegistry,
-          schemaId,
-          issuanceDate,
-          issuer,
-          ParticipantRole.ISSUER,
-          logger,
-          adapter,
-        ),
+        verifyAuthorization(api, schemaId, issuanceDate, issuer, ParticipantRole.ISSUER, logger, adapter),
       ])
 
       const schemaData = JSON.parse(schemaRawText)
@@ -562,7 +560,7 @@ async function processCredential(
       validateSchemaContent(subjectSchema, attrs)
       const schemaType = await identifySchema(
         subjectSchema,
-        ecsEcosystems ? { ecsEcosystems, schemaId, vprId, adapter, logger } : undefined,
+        ecsEcosystems ? { ecsEcosystems, schemaId, vprId: vpr, adapter, logger } : undefined,
       )
       const source = sourceCredential ?? w3cCredential
       const credential = {
@@ -734,8 +732,8 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
  * and ensures the credential's issuance date is not earlier than the Participant creation date.
  */
 async function verifyAuthorization(
-  trustRegistry: string,
-  schemaId: string,
+  api: string,
+  schemaId: number | string,
   issuanceDate: string,
   did: string,
   role: ParticipantRole,
@@ -744,72 +742,49 @@ async function verifyAuthorization(
 ) {
   logger.debug('Verifying participant', { schemaId, did, hasAdapter: !!adapter })
 
-  let perm:
-    | {
-        role: string
-        created: string
-        effective_from?: string | null
-        effective_until?: string | null
-        revoked?: string | null
-      }
-    | undefined
+  let participants: Pick<
+    Participant,
+    'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'
+  >[]
 
   if (adapter) {
     logger.debug('Using registry adapter for participant check', { schemaId, did })
-    perm = await adapter.fetchParticipant(schemaId, did, role)
+    const found = await adapter.fetchParticipant(schemaId, did, role)
+    participants = found ? [found] : []
   } else {
-    const participantUrl = `${toIndexerUrl(trustRegistry)}/v4/participant/list?did=${encodeURIComponent(
+    // `when` narrows to entries effective at issuance, so a later grant cannot shadow the one that covered it
+    const participantUrl = `${api}/v4/participant/list?did=${encodeURIComponent(
       did,
-    )}&role=${role}&limit=1&schema_id=${schemaId}`
+    )}&role=${role}&schema_id=${schemaId}&when=${encodeURIComponent(issuanceDate)}`
     logger.debug('Fetching participants', { participantUrl, schemaId })
     const response = await fetchJson<ParticipantListResponse>(participantUrl)
-    perm = response.participants?.[0]
+    participants = response.participants ?? []
   }
 
-  if (!perm || perm.role !== role)
-    throw new TrustError(
-      TrustErrorCode.NOT_AUTHORIZED,
-      `No valid ${role} Participant was found for the specified DID: ${did} for schema ${schemaId}`,
-    )
-
-  if (perm.revoked != null)
-    throw new TrustError(
-      TrustErrorCode.NOT_AUTHORIZED,
-      `Participant for the specified DID: ${did} for schema ${schemaId} was revoked at ${perm.revoked}`,
-    )
-
-  const effectiveFrom = perm.effective_from ?? perm.created
-  const effectiveUntil = perm.effective_until ?? new Date().toISOString()
-  logger.debug('Participant found, verifying dates', {
-    did,
-    issuanceDate,
-    effectiveFrom,
-    effectiveUntil,
-  })
   const issuanceTs = Date.parse(issuanceDate)
-  const effectiveFromTs = Date.parse(effectiveFrom)
-  const effectiveUntilTs = Date.parse(effectiveUntil)
-  if (issuanceTs < effectiveFromTs || issuanceTs > effectiveUntilTs) {
+  const authorized = participants.find(participant => {
+    if (participant.role !== role) return false
+    const effectiveFrom = Date.parse(participant.effective_from ?? participant.created)
+    const effectiveUntil = participant.effective_until ? Date.parse(participant.effective_until) : Date.now()
+    return issuanceTs >= effectiveFrom && issuanceTs <= effectiveUntil
+  })
+
+  if (!authorized)
     throw new TrustError(
       TrustErrorCode.NOT_AUTHORIZED,
-      `Credential issuance date (${issuanceDate}) is not within the Participant effective range (${effectiveFrom} - ${effectiveUntil})`,
+      `No ${role} Participant effective at ${issuanceDate} was found for the specified DID: ${did} for schema ${schemaId}`,
     )
-  }
+
+  // later expiry does not invalidate an already-issued credential, every other state does:
+  // REPAID reports a slash that may also mask a revocation, FUTURE and INACTIVE were never effective
+  if (
+    authorized.participant_state !== ParticipantState.ACTIVE &&
+    authorized.participant_state !== ParticipantState.EXPIRED
+  )
+    throw new TrustError(
+      TrustErrorCode.NOT_AUTHORIZED,
+      `Participant for the specified DID: ${did} for schema ${schemaId} is ${authorized.participant_state ?? 'in an unknown state'}`,
+    )
 
   logger.debug('Participant verified successfully', { did, schemaId })
-}
-
-/**
- * If the registry URL originates from the API (`https://api.`), this function
- * automatically switches it to the indexer (`https://idx.`) for participant resolution.
- *
- * @param registry - The trust registry URL.
- * @returns A URL pointing to the indexer when needed.
- */
-function toIndexerUrl(registry: string): string {
-  if (registry.startsWith('https://api.')) {
-    return registry.replace('https://api.', 'https://idx.')
-  }
-
-  return registry
 }

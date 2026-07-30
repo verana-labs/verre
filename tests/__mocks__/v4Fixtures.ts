@@ -187,9 +187,9 @@ export const v4TestDocumentLoader = (agentContext: AgentContext) => {
 
 const HOST = 'v4-agent.example'
 export const v4Did = `did:web:${HOST}`
-const VPR_API = 'https://api.testnet.verana.network/verana'
-const VPR_IDX = 'https://idx.testnet.verana.network/verana'
-const VPR_ORIGIN = new URL(VPR_IDX).origin
+const VPR_SCHEME = 'vpr:verana:vna-devnet-1'
+const ISSUANCE_DATE = '2024-01-01T00:00:00Z'
+const VPR_ORIGIN = 'https://idx.devnet.verana.network'
 const W3C_META_URL = 'https://www.w3.org/ns/credentials/json-schema/v2.json'
 
 // fetchMocker serves text() as JSON.stringify(data), so SRI digests cover exactly those bytes
@@ -301,7 +301,7 @@ export async function buildV4Fixtures(agent: Agent): Promise<V4Fixtures> {
   for (const kind of ['service', 'org'] as const) {
     const schemaId = kind === 'service' ? 132 : 133
     const schemaBody = essentialSchemas[kind === 'service' ? 'ecs-service' : 'ecs-org']
-    const refUrl = `${VPR_API}/cs/v1/js/${schemaId}`
+    const refUrl = `${VPR_SCHEME}:cs:${schemaId}`
     const jscUrl = `https://${HOST}/vt/schemas-${kind}-jsc.json`
     const vpUrl = `https://${HOST}/vt/vpr-schemas-${kind}-vtc-vp.json`
 
@@ -354,9 +354,9 @@ export async function buildV4Fixtures(agent: Agent): Promise<V4Fixtures> {
 
     mockResponses[vpUrl] = { ok: true, data: JsonTransformer.toJSON(vp) }
     mockResponses[jscUrl] = { ok: true, data: JsonTransformer.toJSON(jsc) }
-    mockResponses[`${VPR_IDX}/cs/v1/js/${schemaId}`] = { ok: true, data: schemaBody }
+    mockResponses[`${VPR_ORIGIN}/v4/credential-schema/js/${schemaId}`] = { ok: true, data: schemaBody }
     mockResponses[
-      `${VPR_ORIGIN}/v4/participant/list?did=${encodeURIComponent(v4Did)}&role=ISSUER&limit=1&schema_id=${schemaId}`
+      `${VPR_ORIGIN}/v4/participant/list?did=${encodeURIComponent(v4Did)}&role=ISSUER&schema_id=${schemaId}&when=${encodeURIComponent(ISSUANCE_DATE)}`
     ] = { ok: true, data: mockParticipant }
   }
 
