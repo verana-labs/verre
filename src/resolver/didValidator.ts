@@ -22,10 +22,10 @@ import {
   InternalResolverConfig,
   VerifiablePublicRegistry,
   TrustResolutionOutcome,
-  PermissionResponse,
+  ParticipantListResponse,
   CredentialResolution,
-  VerifyPermissionsOptions,
-  PermissionType,
+  VerifyParticipantOptions,
+  ParticipantRole,
   LogLevel,
   IVerreLogger,
   FailedCredential,
@@ -80,7 +80,7 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
 }
 
 /**
- * Verifies whether a given issuer has permission to issue a specific credential
+ * Verifies whether a given issuer is an authorized Participant for a specific credential
  * according to the trust registries and schema definitions.
  *
  * @param options - Configuration object containing all required data.
@@ -88,25 +88,25 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
  * @param options.jsonSchemaCredentialId - URL or identifier for the JSON schema of the credential.
  * @param options.issuanceDate - The date at which the credential was issued.
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
- * @param options.permissionType - The type of permission to verify.
+ * @param options.role - The Participant role to verify.
  * @param options.logger - (Optional) Logger used for debugging.
  */
-export async function verifyPermissions(options: VerifyPermissionsOptions) {
+export async function verifyParticipant(options: VerifyParticipantOptions) {
   const logger = options.logger ?? new VerreLogger(LogLevel.NONE)
   try {
-    const { did, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries, permissionType } = options
-    logger.debug('Verifying permissions', { permissionType })
+    const { did, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries, role } = options
+    logger.debug('Verifying participant', { role })
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential, logger)
     const { trustRegistry, schemaId, adapter } = resolveTrustRegistry(
       getRefUrl(subject),
       verifiablePublicRegistries,
     )
-    await verifyPermission(trustRegistry, schemaId, issuanceDate, did, permissionType, logger, adapter)
-    logger.debug('Issuer permissions verified successfully')
+    await verifyAuthorization(trustRegistry, schemaId, issuanceDate, did, role, logger, adapter)
+    logger.debug('Participant verified successfully')
     return { verified: true }
   } catch (error) {
-    logger.error('Issuer permissions verification failed', error)
+    logger.error('Participant verification failed', error)
     return { verified: false }
   }
 }
@@ -176,7 +176,7 @@ function resolveTrustRegistry(
       : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
-    trustRegistry: `${urlObj.origin}/${segments[0]}`,
+    trustRegistry: urlObj.origin,
     schemaId: segments.at(-1)!,
     outcome,
     schemaUrl,
@@ -472,7 +472,7 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
  *
  * @param w3cCredential - The Verifiable Credential to validate.
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
- * @param issuer - Optional issuer DID to validate permissions against the trust registry.
+ * @param issuer - Optional issuer DID to validate as a Participant against the registry.
  * @param attrs - Optional attributes to validate against the credential subject schema.
  * @param sourceCredential - Optional credential the validation started from. When a credential
  * declares a `JsonSchemaCredential`, this function recurses on the *schema* credential, so the
@@ -528,21 +528,21 @@ async function processCredential(
 
       if (!issuer || !issuanceDate)
         throw new TrustError(
-          TrustErrorCode.INVALID_PERMISSIONS,
+          TrustErrorCode.NOT_AUTHORIZED,
           `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
         )
 
-      // Schema fetches and permission check share no dependencies — run in parallel
-      logger.debug('Fetching schemas and verifying permission in parallel')
+      // Schema fetches and participant check share no dependencies — run in parallel
+      logger.debug('Fetching schemas and verifying participant in parallel')
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
         adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
-        verifyPermission(
+        verifyAuthorization(
           trustRegistry,
           schemaId,
           issuanceDate,
           issuer,
-          PermissionType.ISSUER,
+          ParticipantRole.ISSUER,
           logger,
           adapter,
         ),
@@ -730,57 +730,57 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
 }
 
 /**
- * Verifies that an entity holds valid permissions for the specified schema
- * and ensures the credential's issuance date is not earlier than the permission creation date.
+ * Verifies that an entity is an authorized Participant for the specified schema
+ * and ensures the credential's issuance date is not earlier than the Participant creation date.
  */
-async function verifyPermission(
+async function verifyAuthorization(
   trustRegistry: string,
   schemaId: string,
   issuanceDate: string,
   did: string,
-  permissionType: PermissionType,
+  role: ParticipantRole,
   logger: IVerreLogger,
   adapter?: IRegistryAdapter,
 ) {
-  logger.debug('Verifying permission', { schemaId, did, hasAdapter: !!adapter })
+  logger.debug('Verifying participant', { schemaId, did, hasAdapter: !!adapter })
 
   let perm:
     | {
-        type: string
+        role: string
         created: string
         effective_from?: string | null
         effective_until?: string | null
-        revoked?: number | string | null
+        revoked?: string | null
       }
     | undefined
 
   if (adapter) {
-    logger.debug('Using registry adapter for permission check', { schemaId, did })
-    perm = await adapter.fetchPermission(schemaId, did, permissionType)
+    logger.debug('Using registry adapter for participant check', { schemaId, did })
+    perm = await adapter.fetchParticipant(schemaId, did, role)
   } else {
-    const permUrl = `${toIndexerUrl(trustRegistry)}/perm/v1/list?did=${encodeURIComponent(
+    const participantUrl = `${toIndexerUrl(trustRegistry)}/v4/participant/list?did=${encodeURIComponent(
       did,
-    )}&type=${permissionType}&response_max_size=1&schema_id=${schemaId}`
-    logger.debug('Fetching issuer permissions', { permUrl, schemaId })
-    const permResponse = await fetchJson<PermissionResponse>(permUrl)
-    perm = permResponse.permissions?.[0]
+    )}&role=${role}&limit=1&schema_id=${schemaId}`
+    logger.debug('Fetching participants', { participantUrl, schemaId })
+    const response = await fetchJson<ParticipantListResponse>(participantUrl)
+    perm = response.participants?.[0]
   }
 
-  if (!perm || perm.type !== permissionType)
+  if (!perm || perm.role !== role)
     throw new TrustError(
-      TrustErrorCode.INVALID_PERMISSIONS,
-      `No valid ${permissionType} permissions were found for the specified DID: ${did} for schema ${schemaId}`,
+      TrustErrorCode.NOT_AUTHORIZED,
+      `No valid ${role} Participant was found for the specified DID: ${did} for schema ${schemaId}`,
     )
 
   if (perm.revoked != null)
     throw new TrustError(
-      TrustErrorCode.INVALID_PERMISSIONS,
-      `Permission for the specified DID: ${did} for schema ${schemaId} was revoked at ${perm.revoked}`,
+      TrustErrorCode.NOT_AUTHORIZED,
+      `Participant for the specified DID: ${did} for schema ${schemaId} was revoked at ${perm.revoked}`,
     )
 
   const effectiveFrom = perm.effective_from ?? perm.created
   const effectiveUntil = perm.effective_until ?? new Date().toISOString()
-  logger.debug('Permission found, verifying dates', {
+  logger.debug('Participant found, verifying dates', {
     did,
     issuanceDate,
     effectiveFrom,
@@ -791,17 +791,17 @@ async function verifyPermission(
   const effectiveUntilTs = Date.parse(effectiveUntil)
   if (issuanceTs < effectiveFromTs || issuanceTs > effectiveUntilTs) {
     throw new TrustError(
-      TrustErrorCode.INVALID_PERMISSIONS,
-      `Credential issuance date (${issuanceDate}) is not within the permission effective range (${effectiveFrom} - ${effectiveUntil})`,
+      TrustErrorCode.NOT_AUTHORIZED,
+      `Credential issuance date (${issuanceDate}) is not within the Participant effective range (${effectiveFrom} - ${effectiveUntil})`,
     )
   }
 
-  logger.debug('Permission verified successfully', { did, schemaId })
+  logger.debug('Participant verified successfully', { did, schemaId })
 }
 
 /**
  * If the registry URL originates from the API (`https://api.`), this function
- * automatically switches it to the indexer (`https://idx.`) for permission resolution.
+ * automatically switches it to the indexer (`https://idx.`) for participant resolution.
  *
  * @param registry - The trust registry URL.
  * @returns A URL pointing to the indexer when needed.

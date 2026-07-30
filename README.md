@@ -66,7 +66,7 @@ Both methods return an object describing the trust evaluation outcome.
 ### Import
 
 ```ts
-import { resolveDID, resolveCredential, verifyPermissions } from '@verana-labs/verre';
+import { resolveDID, resolveCredential, verifyParticipant } from '@verana-labs/verre';
 ```
 
 ## Method Signatures
@@ -74,7 +74,7 @@ import { resolveDID, resolveCredential, verifyPermissions } from '@verana-labs/v
 ```ts
 async function resolveDID(did: string, options?: ResolverConfig): Promise<TrustResolution>
 async function resolveCredential(credential: W3cVerifiableCredential, options?: ResolverConfig): Promise<TrustResolution>
-async function verifyPermissions(options: VerifyPermissionsOptions): Promise<{ verified: boolean }>
+async function verifyParticipant(options: VerifyParticipantOptions): Promise<{ verified: boolean }>
 ```
 
 ## Parameters
@@ -129,15 +129,15 @@ Resolves to a `TrustResolution` containing:
 
 ---
 
-### verifyPermissions
+### verifyParticipant
 
 #### Parameters
 
-* **did** (*string*): The DID of the entity to validate permissions for.
+* **did** (*string*): The DID of the entity to validate as a Participant.
 * **jsonSchemaCredentialId** (*string*): URL or reference to the JSON schema defining the credential structure.
 * **issuanceDate** (*string*): Date when the credential was issued.
-* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate permission rules.
-* **permissionType** (*PermissionType*): The type of permission to verify.
+* **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate Participant entries.
+* **role** (*ParticipantRole*): The Participant role to verify.
 * **logger** (*IVerreLogger*, optional): Logger used for debugging
 
 
@@ -260,7 +260,7 @@ console.log('Resolved DID Document:', result)
 
 ## Registry Adapter — embedded use
 
-By default, verre resolves permissions and schemas by making HTTP calls to the registry's
+By default, verre resolves Participants and schemas by making HTTP calls to the registry's
 API and indexer endpoints. This works well when verre is used as an external client.
 
 However, if your service **is itself the registry** (e.g. a trust-registry backend or
@@ -279,27 +279,30 @@ interface IRegistryAdapter {
   // Returns the raw JSON text of the subject schema by its resolved URL.
   fetchSchema(url: string): Promise<string>
 
-  // Returns the permission record for a DID, or undefined if none exists.
+  // Returns the Participant record for a DID, or undefined if none exists.
   // verre handles date-range validation (effective_from / effective_until) after this call.
-  fetchPermission(
+  fetchParticipant(
     schemaId: string,
     did: string,
-    permissionType: PermissionType,
+    role: ParticipantRole,
   ): Promise<
-    Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until'> | undefined
+    Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until'> | undefined
   >
+
+  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
+  fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
 }
 ```
 
 ### Example
 
 ```ts
-import { resolveDID, IRegistryAdapter, VerifiablePublicRegistry, PermissionType } from '@verana-labs/verre'
+import { resolveDID, IRegistryAdapter, VerifiablePublicRegistry, ParticipantRole } from '@verana-labs/verre'
 
 class RegistryAdapter implements IRegistryAdapter {
   constructor(
     private schemaService: SchemaService,
-    private permissionService: PermissionService,
+    private participantService: ParticipantService,
   ) {}
 
   async fetchSchema(url: string): Promise<string> {
@@ -307,9 +310,13 @@ class RegistryAdapter implements IRegistryAdapter {
     return this.schemaService.getJsonByUrl(url)
   }
 
-  async fetchPermission(schemaId: string, did: string, permissionType: PermissionType) {
+  async fetchParticipant(schemaId: string, did: string, role: ParticipantRole) {
     // Direct in-process lookup — no HTTP
-    return this.permissionService.findFirst({ schemaId, did, type: permissionType })
+    return this.participantService.findFirst({ schemaId, did, role })
+  }
+
+  async fetchSchemaEcosystemDid(schemaId: string) {
+    return this.schemaService.getEcosystemDid(schemaId)
   }
 }
 
@@ -318,7 +325,7 @@ const registries: VerifiablePublicRegistry[] = [
     id: 'https://registry.example.com/vpr',
     baseUrls: ['https://registry.example.com/vpr'],
     production: true,
-    adapter: new RegistryAdapter(schemaService, permissionService),
+    adapter: new RegistryAdapter(schemaService, participantService),
   },
 ]
 

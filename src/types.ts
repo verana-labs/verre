@@ -42,12 +42,12 @@ export type EcsEcosystem = {
   vpr: string
 }
 
-export type VerifyPermissionsOptions = {
+export type VerifyParticipantOptions = {
   did: string
   jsonSchemaCredentialId: string
   issuanceDate: string
   verifiablePublicRegistries: VerifiablePublicRegistry[]
-  permissionType: PermissionType
+  role: ParticipantRole
   logger?: IVerreLogger
 }
 
@@ -66,15 +66,15 @@ export interface IRegistryAdapter {
    */
   fetchSchema(url: string): Promise<string>
   /**
-   * Fetches the permission for a given DID and schema. Replaces the HTTP call to /perm/v1/list.
-   * Return undefined if no permission exists (verre will throw INVALID_PERMISSIONS).
+   * Fetches the Participant for a given DID and schema. Replaces the HTTP call to /v4/participant/list.
+   * Return undefined if no Participant exists (verre will throw NOT_AUTHORIZED).
    */
-  fetchPermission(
+  fetchParticipant(
     schemaId: string,
     did: string,
-    permissionType: PermissionType,
+    role: ParticipantRole,
   ): Promise<
-    Pick<Permission, 'type' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
+    Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
   >
   /**
    * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
@@ -98,43 +98,39 @@ export type TrustResolutionMetadata = {
   errorCode?: TrustErrorCode
 }
 
-export type Permission = {
+export type Participant = {
   id: number
   schema_id: number
-  type: PermissionType
-  grantee: string
-  did?: string
-  country?: string
-  validator_perm_id?: number
+  role: ParticipantRole
+  did: string
+  corporation_id: number
+  vs_operator: string
   created: string
-  created_by: string
-  modified: string
-  extended?: number | null
-  extended_by?: string | null
+  adjusted?: string | null
+  slashed?: string | null
+  repaid?: string | null
   effective_from?: string | null
   effective_until?: string | null
-  revoked?: number | null
-  revoked_by?: string | null
-  terminated?: number | null
-  terminated_by?: string | null
+  modified: string
   validation_fees: number
   issuance_fees: number
   verification_fees: number
   deposit: number
-  slashed?: number | null
-  slashed_by?: string | null
-  repaid?: number | null
-  repaid_by?: string | null
-  slashed_deposit?: number | null
-  repaid_deposit?: number | null
-  vp_state: VerifiablePresentationState
-  vp_exp?: number | null
-  vp_last_state_change: number | null
-  vp_validator_deposit?: number
-  vp_current_fees: number
-  vp_current_deposit: number
-  vp_summary_digest_sri?: string | null
-  vp_term_requested?: number | null
+  slashed_deposit: number
+  repaid_deposit: number
+  revoked?: string | null
+  validator_participant_id?: number | null
+  op_state: OnboardingProcessState
+  op_exp?: string | null
+  op_last_state_change: string
+  op_validator_deposit?: number
+  op_current_fees: number
+  op_current_deposit: number
+  op_summary_digest?: string | null
+  issuance_fee_discount: number
+  verification_fee_discount: number
+  /** Derived by the indexer at the evaluation block, not an on-chain field. */
+  participant_state?: ParticipantState
 }
 
 // Enums
@@ -146,22 +142,27 @@ export enum ECS {
   USER_AGENT = 'ecs-user-agent',
 }
 
-export enum PermissionType {
+export enum ParticipantRole {
   ISSUER = 'ISSUER',
   VERIFIER = 'VERIFIER',
   ISSUER_GRANTOR = 'ISSUER_GRANTOR',
   VERIFIER_GRANTOR = 'VERIFIER_GRANTOR',
-  TRUST_REGISTRY = 'TRUST_REGISTRY',
+  ECOSYSTEM = 'ECOSYSTEM',
   HOLDER = 'HOLDER',
 }
 
-export enum PermissionManagementMode {
-  OPEN = 'OPEN',
-  GRANTOR_VALIDATION = 'GRANTOR_VALIDATION',
-  TRUST_REGISTRY_VALIDATION = 'TRUST_REGISTRY_VALIDATION',
+// derived by the indexer from the Participant timestamps, in this priority order
+export enum ParticipantState {
+  REPAID = 'REPAID',
+  SLASHED = 'SLASHED',
+  REVOKED = 'REVOKED',
+  EXPIRED = 'EXPIRED',
+  FUTURE = 'FUTURE',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 
-export enum VerifiablePresentationState {
+export enum OnboardingProcessState {
   PENDING = 'PENDING',
   VALIDATED = 'VALIDATED',
   TERMINATED = 'TERMINATED',
@@ -171,7 +172,7 @@ export enum TrustErrorCode {
   INVALID = 'invalid',
   NOT_FOUND = 'not_found',
   NOT_SUPPORTED = 'not_supported',
-  INVALID_PERMISSIONS = 'invalid_permissions',
+  NOT_AUTHORIZED = 'not_authorized',
   INVALID_REQUEST = 'invalid_request',
   SCHEMA_MISMATCH = 'schema_mismatch',
   VERIFICATION_FAILED = 'verification_failed',
@@ -197,8 +198,8 @@ export enum LogLevel {
 }
 
 // interfaces
-export interface PermissionResponse {
-  permissions: Permission[]
+export interface ParticipantListResponse {
+  participants: Participant[]
 }
 
 export interface BaseCredential {

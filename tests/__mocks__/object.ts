@@ -306,19 +306,19 @@ export const mockOrgSchemaWithoutIssuer = createVerifiableCredential(
   },
 )
 
-export const mockPermission = {
-  permissions: [
+export const mockParticipant = {
+  participants: [
     {
-      type: 'ISSUER',
+      role: 'ISSUER',
       created: '2000-11-18T15:26:01.487Z',
     },
   ],
 }
 
-export const mockHolderPermission = {
-  permissions: [
+export const mockHolderParticipant = {
+  participants: [
     {
-      type: 'HOLDER',
+      role: 'HOLDER',
       created: '2000-11-18T15:26:01.487Z',
     },
   ],
@@ -428,8 +428,8 @@ export const integrationMockResponses = {
     status: 200,
     data: jsonSchemaCredentialOrg,
   },
-  'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=133':
-    { ok: true, status: 200, data: mockPermission },
-  'https://idx.testnet.verana.network/verana/perm/v1/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&type=ISSUER&response_max_size=1&schema_id=132':
-    { ok: true, status: 200, data: mockPermission },
+  'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&limit=1&schema_id=133':
+    { ok: true, status: 200, data: mockParticipant },
+  'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&limit=1&schema_id=132':
+    { ok: true, status: 200, data: mockParticipant },
 }
