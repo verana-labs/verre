@@ -189,6 +189,7 @@ const HOST = 'v4-agent.example'
 export const v4Did = `did:web:${HOST}`
 const VPR_API = 'https://api.testnet.verana.network/verana'
 const VPR_IDX = 'https://idx.testnet.verana.network/verana'
+const VPR_ORIGIN = new URL(VPR_IDX).origin
 const W3C_META_URL = 'https://www.w3.org/ns/credentials/json-schema/v2.json'
 
 // fetchMocker serves text() as JSON.stringify(data), so SRI digests cover exactly those bytes
@@ -355,7 +356,7 @@ export async function buildV4Fixtures(agent: Agent): Promise<V4Fixtures> {
     mockResponses[jscUrl] = { ok: true, data: JsonTransformer.toJSON(jsc) }
     mockResponses[`${VPR_IDX}/cs/v1/js/${schemaId}`] = { ok: true, data: schemaBody }
     mockResponses[
-      `${VPR_IDX}/v4/participant/list?did=${encodeURIComponent(v4Did)}&role=ISSUER&limit=1&schema_id=${schemaId}`
+      `${VPR_ORIGIN}/v4/participant/list?did=${encodeURIComponent(v4Did)}&role=ISSUER&limit=1&schema_id=${schemaId}`
     ] = { ok: true, data: mockParticipant }
   }
 
