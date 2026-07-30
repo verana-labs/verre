@@ -176,7 +176,7 @@ function resolveTrustRegistry(
       : TrustResolutionOutcome.VERIFIED_TEST
 
   return {
-    trustRegistry: `${urlObj.origin}/${segments[0]}`,
+    trustRegistry: urlObj.origin,
     schemaId: segments.at(-1)!,
     outcome,
     schemaUrl,
@@ -760,7 +760,7 @@ async function verifyAuthorization(
   } else {
     const participantUrl = `${toIndexerUrl(trustRegistry)}/v4/participant/list?did=${encodeURIComponent(
       did,
-    )}&role=${role}&response_max_size=1&schema_id=${schemaId}`
+    )}&role=${role}&limit=1&schema_id=${schemaId}`
     logger.debug('Fetching participants', { participantUrl, schemaId })
     const response = await fetchJson<ParticipantListResponse>(participantUrl)
     perm = response.participants?.[0]

@@ -428,8 +428,8 @@ export const integrationMockResponses = {
     status: 200,
     data: jsonSchemaCredentialOrg,
   },
-  'https://idx.testnet.verana.network/verana/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&response_max_size=1&schema_id=133':
+  'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&limit=1&schema_id=133':
     { ok: true, status: 200, data: mockParticipant },
-  'https://idx.testnet.verana.network/verana/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&response_max_size=1&schema_id=132':
+  'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Abcccdd780017.ngrok-free.app&role=ISSUER&limit=1&schema_id=132':
     { ok: true, status: 200, data: mockParticipant },
 }
