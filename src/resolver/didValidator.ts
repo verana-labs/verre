@@ -163,7 +163,7 @@ function resolveSchemaRef(
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
 ): {
   api?: string
-  schemaId?: number | string
+  schemaId?: number
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
@@ -738,7 +738,7 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
  */
 async function verifyAuthorization(
   api: string,
-  schemaId: number | string,
+  schemaId: number,
   issuanceDate: string,
   did: string,
   role: ParticipantRole,
