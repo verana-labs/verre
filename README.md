@@ -289,7 +289,7 @@ interface IRegistryAdapter {
     Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until'> | undefined
   >
 
-  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
+  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
   fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
 }
 ```
