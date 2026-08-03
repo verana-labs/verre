@@ -63,7 +63,7 @@ describe('Credential Validator', () => {
       expect(result.outcome).toBe(TrustResolutionOutcome.NOT_TRUSTED)
     })
 
-    it('should return verified: true when permission checks succeed', async () => {
+    it('cannot verify a Participant for a schema outside a registry', async () => {
       // mocked data
       fetchMocker.setMockResponses({
         'https://d6a1950112a2.ngrok-free.app/vt/schemas-example-service-jsc.json': {
@@ -96,7 +96,9 @@ describe('Credential Validator', () => {
         verifiablePublicRegistries,
         role: ParticipantRole.HOLDER,
       })
-      expect(result.verified).toBe(true)
+      expect(result.verified).toBe(false)
+      const requested = (global.fetch as unknown as { mock: { calls: string[][] } }).mock.calls.map(c => c[0])
+      expect(requested.some(url => url.includes('/v4/participant/list'))).toBe(false)
     })
   })
 })

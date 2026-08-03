@@ -101,6 +101,12 @@ export async function verifyParticipant(options: VerifyParticipantOptions) {
     const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential, logger)
     const { api, schemaId, adapter } = resolveSchemaRef(getRefUrl(subject), verifiablePublicRegistries)
+    if (!api || schemaId === undefined) {
+      throw new TrustError(
+        TrustErrorCode.NOT_SUPPORTED,
+        `Cannot verify a Participant for a schema outside a verifiable public registry: ${jsonSchemaCredentialId}`,
+      )
+    }
     await verifyAuthorization(api, schemaId, issuanceDate, did, role, logger, adapter)
     logger.debug('Participant verified successfully')
     return { verified: true }
@@ -156,8 +162,8 @@ function resolveSchemaRef(
   ref: string,
   verifiablePublicRegistries?: VerifiablePublicRegistry[],
 ): {
-  api: string
-  schemaId: number | string
+  api?: string
+  schemaId?: number | string
   outcome: TrustResolutionOutcome
   schemaUrl: string
   adapter?: IRegistryAdapter
@@ -181,14 +187,9 @@ function resolveSchemaRef(
     }
   }
 
-  // self-issued schemas are served by the VS itself and belong to no VPR
-  const urlObj = new URL(ref)
-  return {
-    api: urlObj.origin,
-    schemaId: urlObj.pathname.split('/').filter(Boolean).at(-1)!,
-    outcome: TrustResolutionOutcome.NOT_TRUSTED,
-    schemaUrl: ref,
-  }
+  // self-issued schemas belong to no VPR, so there is no registry to authorise against
+  new URL(ref)
+  return { outcome: TrustResolutionOutcome.NOT_TRUSTED, schemaUrl: ref }
 }
 
 /**
@@ -543,7 +544,9 @@ async function processCredential(
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
         adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
-        verifyAuthorization(api, schemaId, issuanceDate, issuer, ParticipantRole.ISSUER, logger, adapter),
+        api && schemaId !== undefined
+          ? verifyAuthorization(api, schemaId, issuanceDate, issuer, ParticipantRole.ISSUER, logger, adapter)
+          : undefined,
       ])
 
       const schemaData = JSON.parse(schemaRawText)
@@ -560,7 +563,9 @@ async function processCredential(
       validateSchemaContent(subjectSchema, attrs)
       const schemaType = await identifySchema(
         subjectSchema,
-        ecsEcosystems ? { ecsEcosystems, schemaId, vprId: vpr, adapter, logger } : undefined,
+        ecsEcosystems && schemaId !== undefined
+          ? { ecsEcosystems, schemaId, vprId: vpr, adapter, logger }
+          : undefined,
       )
       const source = sourceCredential ?? w3cCredential
       const credential = {
