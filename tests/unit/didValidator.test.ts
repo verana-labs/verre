@@ -557,7 +557,7 @@ describe('DidValidator', () => {
       expect(result.verified).toBe(false)
     })
 
-    it('does not serve a cached resolution to a caller using a different whitelist', async () => {
+    it('does not serve a cached resolution to a caller using a different allowlist', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
       })
@@ -616,7 +616,7 @@ describe('DidValidator', () => {
       expect(result.verified).toBe(false)
     })
 
-    it('fails loudly when a whitelist is configured without a registry adapter', async () => {
+    it('fails loudly when an allowlist is configured without a registry adapter', async () => {
       await expect(
         identifySchema(mockCredentialSchemaSer, {
           ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'vpr:verana:vna-testnet-1' }],

@@ -78,7 +78,7 @@ export interface IRegistryAdapter {
     | undefined
   >
   /**
-   * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
+   * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
    */
   fetchSchemaEcosystemDid(schemaId: number | string): Promise<string | undefined>
 }

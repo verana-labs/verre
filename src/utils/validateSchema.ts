@@ -52,7 +52,7 @@ export type EcsProvenance = {
  * Identifies the appropriate schema for a given verifiable presentation (VP).
  *
  * Uses digest to validate the schemaObj against ECS schemas. When `provenance` is given, a
- * digest match is only an ECS if the Ecosystem that created the schema is whitelisted
+ * digest match is only an ECS if the Ecosystem that created the schema is allowed
  * ([WL-ECS]); otherwise the credential degrades to a regular VTC.
  *
  * @param schemaObj - The schema to check.
@@ -67,14 +67,14 @@ export const identifySchema = async (
 
   for (const [schemaName, refDigest] of Object.entries(ECS_SCHEMA_DIGESTS) as [ECS, string][]) {
     if (refDigest === actualDigest) {
-      if (provenance && !(await isWhitelistedEcsEcosystem(provenance))) return null
+      if (provenance && !(await isAllowedEcsEcosystem(provenance))) return null
       return schemaName
     }
   }
   return null
 }
 
-async function isWhitelistedEcsEcosystem({
+async function isAllowedEcsEcosystem({
   ecsEcosystems,
   schemaId,
   vprId,
@@ -92,7 +92,7 @@ async function isWhitelistedEcsEcosystem({
     const ecosystemDid = await adapter.fetchSchemaEcosystemDid(schemaId)
     return !!ecosystemDid && ecsEcosystems.some(e => e.did === ecosystemDid && e.vpr === vprId)
   } catch {
-    logger?.warn('Failed to resolve the Ecosystem of a schema, treating it as not whitelisted', { schemaId })
+    logger?.warn('Failed to resolve the Ecosystem of a schema, treating it as not allowed', { schemaId })
     return false
   }
 }

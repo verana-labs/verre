@@ -202,14 +202,14 @@ function resolveSchemaRef(
  *
  * @internal
  */
-// a resolution made under a whitelist must not be served to a caller using a different one
+// a resolution made under an allowlist must not be served to a caller using a different one
 function cacheKeyFor(did: string, ecsEcosystems?: EcsEcosystem[]): string {
   if (!ecsEcosystems) return did
-  const whitelist = ecsEcosystems
+  const allowlist = ecsEcosystems
     .map(e => `${e.vpr}|${e.did}`)
     .sort()
     .join(',')
-  return `${did}#ecs:${whitelist}`
+  return `${did}#ecs:${allowlist}`
 }
 
 async function _resolve(did: string, options: InternalResolverConfig): Promise<TrustResolution> {
