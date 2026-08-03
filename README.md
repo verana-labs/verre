@@ -85,7 +85,7 @@ async function verifyParticipant(options: VerifyParticipantOptions): Promise<{ v
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **cache** (*TrustResolutionCache<string, Promise<TrustResolution>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
 * **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
-* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems whitelisted to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].id`). When set, a schema whose Ecosystem is not whitelisted degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; verre throws if one is not configured. Resolutions are cached per whitelist.
+* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems allowed to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].scheme`). When set, a schema whose Ecosystem is not allowed degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; verre throws if one is not configured. Resolutions are cached per allowlist.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
 ---
@@ -279,17 +279,17 @@ interface IRegistryAdapter {
   // Returns the raw JSON text of the subject schema by its resolved URL.
   fetchSchema(url: string): Promise<string>
 
-  // Returns the Participant record for a DID, or undefined if none exists.
-  // verre handles date-range validation (effective_from / effective_until) after this call.
+  // Returns the Participant effective at `when` for a DID, or undefined if none exists.
   fetchParticipant(
-    schemaId: string,
+    schemaId: number | string,
     did: string,
     role: ParticipantRole,
+    when: string,
   ): Promise<
     Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until'> | undefined
   >
 
-  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
+  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
   fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
 }
 ```
@@ -310,9 +310,9 @@ class RegistryAdapter implements IRegistryAdapter {
     return this.schemaService.getJsonByUrl(url)
   }
 
-  async fetchParticipant(schemaId: string, did: string, role: ParticipantRole) {
+  async fetchParticipant(schemaId: number | string, did: string, role: ParticipantRole, when: string) {
     // Direct in-process lookup — no HTTP
-    return this.participantService.findFirst({ schemaId, did, role })
+    return this.participantService.findEffectiveAt({ schemaId, did, role, when })
   }
 
   async fetchSchemaEcosystemDid(schemaId: string) {
@@ -322,8 +322,9 @@ class RegistryAdapter implements IRegistryAdapter {
 
 const registries: VerifiablePublicRegistry[] = [
   {
-    id: 'https://registry.example.com/vpr',
-    baseUrls: ['https://registry.example.com/vpr'],
+    id: 'vna-mainnet-1',
+    scheme: 'vpr:verana:vna-mainnet-1',
+    api: ['https://idx.mainnet.verana.network'],
     production: true,
     adapter: new RegistryAdapter(schemaService, participantService),
   },

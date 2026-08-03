@@ -66,25 +66,32 @@ export interface IRegistryAdapter {
    */
   fetchSchema(url: string): Promise<string>
   /**
-   * Fetches the Participant for a given DID and schema. Replaces the HTTP call to /v4/participant/list.
-   * Return undefined if no Participant exists (verre will throw NOT_AUTHORIZED).
+   * Fetches the Participant effective at `when` for a given DID and schema. Replaces the HTTP call
+   * to /v4/participant/list. Return undefined if none exists (verre will throw NOT_AUTHORIZED).
    */
   fetchParticipant(
-    schemaId: string,
+    schemaId: number | string,
     did: string,
     role: ParticipantRole,
+    when: string,
   ): Promise<
-    Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'revoked'> | undefined
+    | Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>
+    | undefined
   >
   /**
-   * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] whitelist.
+   * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
    */
-  fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
+  fetchSchemaEcosystemDid(schemaId: number | string): Promise<string | undefined>
 }
 
+// [WL-VPR]
 export type VerifiablePublicRegistry = {
   id: string
-  baseUrls: string[]
+  scheme: string
+  api: string[]
+  rpc?: string[]
+  resolver?: string[]
+  version?: string
   production: boolean
   adapter?: IRegistryAdapter
 }

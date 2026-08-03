@@ -6,6 +6,7 @@ import {
   ECS,
   IVerreLogger,
   ParticipantRole,
+  ParticipantState,
   resolveDID,
   TrustErrorCode,
   TrustResolutionOutcome,
@@ -86,20 +87,20 @@ describe('DidValidator', () => {
           status: 200,
           data: mockW3cJsonSchemaV2,
         },
-        'https://testTrust.com/v1/cs/js/12345671': {
+        'https://idx.testnet.verana.network/v4/credential-schema/js/12345671': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://testTrust.com/v1/cs/js/12345678': {
+        'https://idx.testnet.verana.network/v4/credential-schema/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
         },
         'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
-        'https://testtrust.com/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&limit=1&schema_id=12345678':
+        'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345678&when=2024-02-08T18%3A38%3A46%2B01%3A00':
           { ok: true, status: 200, data: mockParticipant },
-        'https://testtrust.com/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&limit=1&schema_id=12345671':
+        'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345671&when=2024-02-08T18%3A38%3A46%2B01%3A00':
           { ok: true, status: 200, data: mockParticipant },
       })
 
@@ -211,19 +212,19 @@ describe('DidValidator', () => {
           status: 200,
           data: mockW3cJsonSchemaV2,
         },
-        'https://testTrust.com/v1/cs/js/12345673': {
+        'https://idx.testnet.verana.network/v4/credential-schema/js/12345673': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://testTrust.com/v1/cs/js/12345678': {
+        'https://idx.testnet.verana.network/v4/credential-schema/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://testtrust.com/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&limit=1&schema_id=12345678':
+        'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345678&when=2024-02-08T18%3A38%3A46%2B01%3A00':
           { ok: true, status: 200, data: mockParticipant },
-        'https://testtrust.com/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&limit=1&schema_id=12345673':
+        'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345673&when=2024-02-08T18%3A38%3A46%2B01%3A00':
           { ok: true, status: 200, data: mockParticipant },
       })
 
@@ -298,23 +299,23 @@ describe('DidValidator', () => {
           status: 200,
           data: mockW3cJsonSchemaV2,
         },
-        'https://testTrust.com/v1/cs/js/12345673': {
+        'https://idx.testnet.verana.network/v4/credential-schema/js/12345673': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaOrg,
         },
-        'https://testTrust.com/v1/cs/js/12345678': {
+        'https://idx.testnet.verana.network/v4/credential-schema/js/12345678': {
           ok: true,
           status: 200,
           data: mockCredentialSchemaSer,
         },
-        'https://testtrust.com/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&limit=1&schema_id=12345678':
+        'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345678&when=2024-02-08T18%3A38%3A46%2B01%3A00':
           {
             ok: true,
             status: 200,
             data: mockParticipant,
           },
-        'https://testtrust.com/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&limit=1&schema_id=12345673':
+        'https://idx.testnet.verana.network/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345673&when=2024-02-08T18%3A38%3A46%2B01%3A00':
           {
             ok: true,
             status: 200,
@@ -388,8 +389,9 @@ describe('DidValidator', () => {
         fetchParticipant: async () => ({
           role: ParticipantRole.ISSUER,
           created: '2000-11-18T15:26:01.487Z',
+          participant_state: ParticipantState.ACTIVE,
         }),
-        fetchSchemaEcosystemDid: async (schemaId: string) => ecosystemBySchemaId[schemaId],
+        fetchSchemaEcosystemDid: async (schemaId: number) => ecosystemBySchemaId[schemaId],
       })
 
     const allowlistMockResponses = {
@@ -439,6 +441,7 @@ describe('DidValidator', () => {
       const fetchParticipantSpy = vi.fn(async () => ({
         role: ParticipantRole.ISSUER,
         created: '2000-11-18T15:26:01.487Z',
+        participant_state: ParticipantState.ACTIVE,
       }))
 
       const registriesWithAdapter = createRegistriesWithAdapter({
@@ -477,12 +480,17 @@ describe('DidValidator', () => {
 
       // Adapter methods were invoked — no HTTP to the indexer
       expect(fetchSchemaSpy).toHaveBeenCalled()
-      expect(fetchParticipantSpy).toHaveBeenCalled()
+      expect(fetchParticipantSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        didSelfIssued,
+        ParticipantRole.ISSUER,
+        '2024-02-08T18:38:46+01:00',
+      )
 
       // Logger confirms the adapter path was taken
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Using registry adapter for participant check',
-        expect.objectContaining({ schemaId: expect.any(String), did: didSelfIssued }),
+        expect.objectContaining({ schemaId: expect.any(Number), did: didSelfIssued }),
       )
     })
 
@@ -493,7 +501,7 @@ describe('DidValidator', () => {
 
       fetchMocker.setMockResponses(allowlistMockResponses)
 
-      const trusted = { did: 'did:example:ecosystem', vpr: 'https://vpr-hostname/vpr' }
+      const trusted = { did: 'did:example:ecosystem', vpr: 'vpr:verana:vna-testnet-1' }
 
       const allowed = await resolveDID(didSelfIssued, {
         verifiablePublicRegistries: registriesFor({ '12345678': trusted.did, '12345671': trusted.did }),
@@ -525,7 +533,36 @@ describe('DidValidator', () => {
       expect(deniedExternal.serviceProvider).toBeUndefined()
     })
 
-    it('does not serve a cached resolution to a caller using a different whitelist', async () => {
+    it('rejects a credential issued after the participant window ends', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses(allowlistMockResponses)
+      vi.setSystemTime(new Date('2020-01-01T00:00:00Z'))
+
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        fetchParticipant: async () => ({
+          role: ParticipantRole.ISSUER,
+          created: '2000-11-18T15:26:01.487Z',
+          participant_state: ParticipantState.ACTIVE,
+        }),
+        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+      vi.useRealTimers()
+      expect(result.verified).toBe(false)
+    })
+
+    it('does not serve a cached resolution to a caller using a different allowlist', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
       })
@@ -545,15 +582,49 @@ describe('DidValidator', () => {
         verifiablePublicRegistries: registries,
         skipDigestSRICheck: true,
         cache,
-        ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'https://vpr-hostname/vpr' }],
+        ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'vpr:verana:vna-testnet-1' }],
       })
       expect(restricted.verified).toBe(false)
     })
 
-    it('fails loudly when a whitelist is configured without a registry adapter', async () => {
+    it.each([
+      ParticipantState.SLASHED,
+      ParticipantState.REVOKED,
+      ParticipantState.REPAID,
+      ParticipantState.FUTURE,
+      ParticipantState.INACTIVE,
+      undefined,
+    ])('rejects a participant reported as %s', async state => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses(allowlistMockResponses)
+
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        fetchParticipant: async () => ({
+          role: ParticipantRole.ISSUER,
+          created: '2000-11-18T15:26:01.487Z',
+          participant_state: state,
+        }),
+        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+      expect(result.verified).toBe(false)
+    })
+
+    it('fails loudly when an allowlist is configured without a registry adapter', async () => {
       await expect(
         identifySchema(mockCredentialSchemaSer, {
-          ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'https://vpr-hostname/vpr' }],
+          ecsEcosystems: [{ did: 'did:example:ecosystem', vpr: 'vpr:verana:vna-testnet-1' }],
           schemaId: '12345678',
           vprId: 'https://vpr-hostname/vpr',
         }),
