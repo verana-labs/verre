@@ -749,7 +749,7 @@ async function verifyAuthorization(
 
   if (adapter) {
     logger.debug('Using registry adapter for participant check', { schemaId, did })
-    const found = await adapter.fetchParticipant(schemaId, did, role)
+    const found = await adapter.fetchParticipant(schemaId, did, role, issuanceDate)
     participants = found ? [found] : []
   } else {
     // `when` narrows to entries effective at issuance, so a later grant cannot shadow the one that covered it

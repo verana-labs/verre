@@ -480,7 +480,12 @@ describe('DidValidator', () => {
 
       // Adapter methods were invoked — no HTTP to the indexer
       expect(fetchSchemaSpy).toHaveBeenCalled()
-      expect(fetchParticipantSpy).toHaveBeenCalled()
+      expect(fetchParticipantSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        didSelfIssued,
+        ParticipantRole.ISSUER,
+        '2024-02-08T18:38:46+01:00',
+      )
 
       // Logger confirms the adapter path was taken
       expect(mockLogger.debug).toHaveBeenCalledWith(

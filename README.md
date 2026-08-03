@@ -279,12 +279,12 @@ interface IRegistryAdapter {
   // Returns the raw JSON text of the subject schema by its resolved URL.
   fetchSchema(url: string): Promise<string>
 
-  // Returns the Participant record for a DID, or undefined if none exists.
-  // verre handles date-range validation (effective_from / effective_until) after this call.
+  // Returns the Participant effective at `when` for a DID, or undefined if none exists.
   fetchParticipant(
-    schemaId: string,
+    schemaId: number | string,
     did: string,
     role: ParticipantRole,
+    when: string,
   ): Promise<
     Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until'> | undefined
   >
@@ -310,9 +310,9 @@ class RegistryAdapter implements IRegistryAdapter {
     return this.schemaService.getJsonByUrl(url)
   }
 
-  async fetchParticipant(schemaId: string, did: string, role: ParticipantRole) {
+  async fetchParticipant(schemaId: number | string, did: string, role: ParticipantRole, when: string) {
     // Direct in-process lookup — no HTTP
-    return this.participantService.findFirst({ schemaId, did, role })
+    return this.participantService.findEffectiveAt({ schemaId, did, role, when })
   }
 
   async fetchSchemaEcosystemDid(schemaId: string) {

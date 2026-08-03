@@ -66,13 +66,14 @@ export interface IRegistryAdapter {
    */
   fetchSchema(url: string): Promise<string>
   /**
-   * Fetches the Participant for a given DID and schema. Replaces the HTTP call to /v4/participant/list.
-   * Return undefined if no Participant exists (verre will throw NOT_AUTHORIZED).
+   * Fetches the Participant effective at `when` for a given DID and schema. Replaces the HTTP call
+   * to /v4/participant/list. Return undefined if none exists (verre will throw NOT_AUTHORIZED).
    */
   fetchParticipant(
     schemaId: number | string,
     did: string,
     role: ParticipantRole,
+    when: string,
   ): Promise<
     | Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>
     | undefined
