@@ -134,8 +134,6 @@ describe('Integration with Verana Blockchain', () => {
       }),
     )
 
-    // The fixture participants carry no effective_until, so the credentials' validUntil
-    // (VC 1.1 expirationDate 2099-01-01) is the only EVAL-2 boundary.
     expect(result.expiresAtTime).toBe('2099-01-01T00:00:00Z')
 
     // Second call should be served entirely from cache: no new fetch calls

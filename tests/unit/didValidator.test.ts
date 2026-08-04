@@ -666,7 +666,6 @@ describe('DidValidator', () => {
       },
     }
 
-    // A self-issued registry whose Participant carries the given `effective_until`.
     const registriesWithParticipantExpiry = (effectiveUntil?: string) =>
       createRegistriesWithAdapter({
         fetchSchema: async (url: string) => {
@@ -683,8 +682,6 @@ describe('DidValidator', () => {
         fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
       })
 
-    // Both mock credentials carry expirationDate = now + 5y (VC 1.1); the participant boundary is
-    // what we vary to make one side win the `min`.
     const credentialValidUntil = mockServiceVcSelfIssued.verifiableCredential[0].expirationDate as string
 
     it('takes the participant effective_until when it is earlier than the credential validUntil', async () => {
@@ -722,8 +719,6 @@ describe('DidValidator', () => {
     })
 
     it('is null when no credential nor participant boundary exists', async () => {
-      // Clone the VPs without an expirationDate so the credential contributes no validUntil,
-      // and give the participant no effective_until either.
       const stripExpiry = (vp: any) => {
         const clone = structuredClone(vp)
         delete clone.verifiableCredential[0].expirationDate
