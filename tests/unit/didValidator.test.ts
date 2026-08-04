@@ -399,6 +399,7 @@ describe('DidValidator', () => {
           participant_state: ParticipantState.ACTIVE,
         }),
         fetchSchemaEcosystemDid: async (schemaId: number) => ecosystemBySchemaId[schemaId],
+        fetchDigest: async () => undefined,
       })
 
     const allowlistMockResponses = {
@@ -454,6 +455,7 @@ describe('DidValidator', () => {
       const registriesWithAdapter = createRegistriesWithAdapter({
         fetchSchema: fetchSchemaSpy,
         fetchParticipant: fetchParticipantSpy,
+        fetchDigest: async () => undefined,
       })
 
       fetchMocker.setMockResponses({
@@ -499,6 +501,41 @@ describe('DidValidator', () => {
         'Using registry adapter for participant check',
         expect.objectContaining({ schemaId: expect.any(Number), did: didSelfIssued }),
       )
+    })
+
+    it('populates issuedAtTime from the on-chain digest anchor via the adapter', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses(allowlistMockResponses)
+
+      const anchoredAt = '2024-03-01T10:00:00.000Z'
+      const fetchDigestSpy = vi.fn(async () => ({ created: anchoredAt, height: 12345 }))
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        fetchParticipant: async () => ({
+          role: ParticipantRole.ISSUER,
+          created: '2000-11-18T15:26:01.487Z',
+          participant_state: ParticipantState.ACTIVE,
+        }),
+        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
+        fetchDigest: fetchDigestSpy,
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.verified).toBe(true)
+      // fetchDigest is called with the credential's digestJCS, and its `created` becomes issuedAtTime.
+      expect(fetchDigestSpy).toHaveBeenCalledWith(result.service?.digestJCS)
+      expect(result.service?.issuedAtTime).toBe(anchoredAt)
+      expect(result.serviceProvider?.issuedAtTime).toBe(anchoredAt)
     })
 
     it('classifies ECS only for allowlisted ecosystems, including the external issuer path', async () => {
@@ -559,6 +596,7 @@ describe('DidValidator', () => {
           participant_state: ParticipantState.ACTIVE,
         }),
         fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
+        fetchDigest: async () => undefined,
       })
 
       const result = await resolveDID(didSelfIssued, {
@@ -619,6 +657,7 @@ describe('DidValidator', () => {
           participant_state: state,
         }),
         fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
+        fetchDigest: async () => undefined,
       })
 
       const result = await resolveDID(didSelfIssued, {

@@ -569,6 +569,8 @@ async function processCredential(
           : undefined,
       )
       const source = sourceCredential ?? w3cCredential
+      const digestJCS = computeCredentialDigestJCS(source as unknown as Record<string, unknown>)
+      const issuedAtTime = adapter ? (await adapter.fetchDigest(digestJCS))?.created : undefined
       const credential = {
         schemaType,
         id,
@@ -576,7 +578,8 @@ async function processCredential(
         ...attrs,
         ...normalizeValidityWindow(source),
         raw: source,
-        digestJCS: computeCredentialDigestJCS(source as unknown as Record<string, unknown>),
+        digestJCS,
+        ...(issuedAtTime ? { issuedAtTime } : {}),
       } as ICredential
       return { credential, outcome }
     } catch (error) {

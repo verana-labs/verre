@@ -82,6 +82,16 @@ export interface IRegistryAdapter {
    * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
    */
   fetchSchemaEcosystemDid(schemaId: number | string): Promise<string | undefined>
+  /**
+   * Resolves the on-chain anchor of a credential's `digestJCS`. Returns undefined when the digest
+   * is not anchored. verre reads `created` as the credential's issuance time.
+   */
+  fetchDigest(digestJCS: string): Promise<DigestAnchor | undefined>
+}
+
+export type DigestAnchor = {
+  created: string
+  height: number
 }
 
 // [WL-VPR]
@@ -217,6 +227,8 @@ export interface BaseCredential {
   validUntil?: string
   raw?: W3cVerifiableCredential
   digestJCS?: string
+  /** Issuance time from the on-chain digest anchor (`fetchDigest(...).created`). */
+  issuedAtTime?: string
 }
 
 export interface IOrg extends BaseCredential {
