@@ -7,6 +7,7 @@ export type TrustResolution = {
   didDocument?: DIDDocument
   verified: boolean
   outcome: TrustResolutionOutcome
+  expiresAtTime?: string | null
   metadata?: TrustResolutionMetadata
   service?: IService
   serviceProvider?: ICredential

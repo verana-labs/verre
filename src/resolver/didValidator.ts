@@ -344,6 +344,7 @@ async function processDidDocument(
       verified: true,
       service,
       serviceProvider,
+      expiresAtTime: computeExpiresAtTime(service, serviceProvider),
     }
   }
   throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
@@ -541,7 +542,7 @@ async function processCredential(
 
       // Schema fetches and participant check share no dependencies — run in parallel
       logger.debug('Fetching schemas and verifying participant in parallel')
-      const [schemaRawText, subjectSchemaRawText] = await Promise.all([
+      const [schemaRawText, subjectSchemaRawText, participantEffectiveUntil] = await Promise.all([
         fetchText(schema.id),
         adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
         api && schemaId !== undefined
@@ -576,6 +577,8 @@ async function processCredential(
         ...normalizeValidityWindow(source),
         raw: source,
       } as ICredential
+      // Feeds expiresAtTime; keyed on the credential so it survives the external-issuer recursion.
+      if (participantEffectiveUntil) authorizingParticipantExpiry.set(credential, participantEffectiveUntil)
       return { credential, outcome }
     } catch (error) {
       logger.error('Failed to process credential', error)
@@ -646,6 +649,25 @@ function getRefUrl(subject: W3cCredentialSubject): string {
 
 function extractSchema<T>(value?: T | T[]): T | undefined {
   return Array.isArray(value) ? value[0] : value
+}
+
+/** Maps a resolved credential to its authorizing Participant's `effective_until`, off the public shape. */
+const authorizingParticipantExpiry = new WeakMap<object, string>()
+
+/**
+ * Computes `expiresAtTime`: the earliest of the ECS-SERVICE and ECS-ORG/PERSONA validity windows
+ * and their authorizing Participants' `effective_until`. Absent boundaries are skipped; `null` when none.
+ */
+function computeExpiresAtTime(service: IService, serviceProvider: ICredential): string | null {
+  const boundaries = [
+    service.validUntil,
+    authorizingParticipantExpiry.get(service),
+    serviceProvider.validUntil,
+    authorizingParticipantExpiry.get(serviceProvider),
+  ].filter((b): b is string => typeof b === 'string' && !Number.isNaN(Date.parse(b)))
+
+  if (boundaries.length === 0) return null
+  return boundaries.reduce((earliest, b) => (Date.parse(b) < Date.parse(earliest) ? b : earliest))
 }
 
 /**
@@ -735,6 +757,8 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
 /**
  * Verifies that an entity is an authorized Participant for the specified schema
  * and ensures the credential's issuance date is not earlier than the Participant creation date.
+ *
+ * @returns The authorized Participant's `effective_until`, or `undefined` when it has no expiry.
  */
 async function verifyAuthorization(
   api: string,
@@ -744,7 +768,7 @@ async function verifyAuthorization(
   role: ParticipantRole,
   logger: IVerreLogger,
   adapter?: IRegistryAdapter,
-) {
+): Promise<string | undefined> {
   logger.debug('Verifying participant', { schemaId, did, hasAdapter: !!adapter })
 
   let participants: Pick<
@@ -792,4 +816,5 @@ async function verifyAuthorization(
     )
 
   logger.debug('Participant verified successfully', { did, schemaId })
+  return authorized.effective_until ?? undefined
 }

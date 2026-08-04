@@ -632,6 +632,123 @@ describe('DidValidator', () => {
     })
   })
 
+  describe('expiresAtTime (IDX-VT-EVAL-2)', () => {
+    beforeEach(() => {
+      vi.spyOn(signatureVerifier, 'verifySignature').mockResolvedValue({ result: true })
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
+        async (did: string) => mockResolversByDid[did],
+      )
+      fetchMocker.enable()
+    })
+
+    afterEach(() => {
+      fetchMocker.reset()
+      fetchMocker.disable()
+      vi.clearAllMocks()
+      resolverInstance.clear()
+    })
+
+    const schemaResponses = {
+      'https://ecs-trust-registry/service-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: mockServiceSchemaSelfIssued,
+      },
+      'https://ecs-trust-registry/org-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: mockOrgSchema,
+      },
+      'https://www.w3.org/ns/credentials/json-schema/v2.json': {
+        ok: true,
+        status: 200,
+        data: mockW3cJsonSchemaV2,
+      },
+    }
+
+    // A self-issued registry whose Participant carries the given `effective_until`.
+    const registriesWithParticipantExpiry = (effectiveUntil?: string) =>
+      createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        fetchParticipant: async () => ({
+          role: ParticipantRole.ISSUER,
+          created: '2000-11-18T15:26:01.487Z',
+          participant_state: ParticipantState.ACTIVE,
+          ...(effectiveUntil ? { effective_until: effectiveUntil } : {}),
+        }),
+        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
+      })
+
+    // Both mock credentials carry expirationDate = now + 5y (VC 1.1); the participant boundary is
+    // what we vary to make one side win the `min`.
+    const credentialValidUntil = mockServiceVcSelfIssued.verifiableCredential[0].expirationDate as string
+
+    it('takes the participant effective_until when it is earlier than the credential validUntil', async () => {
+      const earlyBoundary = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // now + 1y
+      fetchMocker.setMockResponses({
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
+        ...schemaResponses,
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registriesWithParticipantExpiry(earlyBoundary),
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.verified).toBe(true)
+      expect(result.expiresAtTime).toBe(earlyBoundary)
+    })
+
+    it('takes the credential validUntil (VC 1.1 expirationDate) when it is earlier than the participant', async () => {
+      const lateBoundary = new Date(Date.now() + 20 * 365 * 24 * 60 * 60 * 1000).toISOString() // now + 20y
+      fetchMocker.setMockResponses({
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+        'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
+        ...schemaResponses,
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registriesWithParticipantExpiry(lateBoundary),
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.verified).toBe(true)
+      expect(result.expiresAtTime).toBe(credentialValidUntil)
+    })
+
+    it('is null when no credential nor participant boundary exists', async () => {
+      // Clone the VPs without an expirationDate so the credential contributes no validUntil,
+      // and give the participant no effective_until either.
+      const stripExpiry = (vp: any) => {
+        const clone = structuredClone(vp)
+        delete clone.verifiableCredential[0].expirationDate
+        return clone
+      }
+      fetchMocker.setMockResponses({
+        'https://example.com/vp-ser-self-issued': {
+          ok: true,
+          status: 200,
+          data: stripExpiry(mockServiceVcSelfIssued),
+        },
+        'https://example.com/vp-org': { ok: true, status: 200, data: stripExpiry(mockOrgVc) },
+        ...schemaResponses,
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registriesWithParticipantExpiry(undefined),
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.verified).toBe(true)
+      expect(result.expiresAtTime).toBeNull()
+    })
+  })
+
   describe('resolver method with fully askar initialized agent', () => {
     it('should resolve a did:web using an agent with Askar in-memory wallet', async () => {
       const agent = await setupAgent({ name: 'InMemoryTestAgent' })
