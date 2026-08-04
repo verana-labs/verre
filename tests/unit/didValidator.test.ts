@@ -2,6 +2,7 @@ import { Resolver } from 'did-resolver'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import {
+  computeCredentialDigestJCS,
   CREDENTIAL_FORMAT_LDP_VC,
   ECS,
   IVerreLogger,
@@ -123,6 +124,7 @@ describe('DidValidator', () => {
             validFrom: mockServiceVcSelfIssued.verifiableCredential[0].issuanceDate,
             validUntil: mockServiceVcSelfIssued.verifiableCredential[0].expirationDate,
             raw: mockServiceVcSelfIssued.verifiableCredential[0],
+            digestJCS: computeCredentialDigestJCS(mockServiceVcSelfIssued.verifiableCredential[0]),
           },
           serviceProvider: {
             schemaType: ECS.ORG,
@@ -132,6 +134,7 @@ describe('DidValidator', () => {
             validFrom: mockOrgVc.verifiableCredential[0].issuanceDate,
             validUntil: mockOrgVc.verifiableCredential[0].expirationDate,
             raw: mockOrgVc.verifiableCredential[0],
+            digestJCS: computeCredentialDigestJCS(mockOrgVc.verifiableCredential[0]),
           },
         }),
       )
@@ -246,6 +249,7 @@ describe('DidValidator', () => {
             validFrom: mockServiceExtIssuerVc.verifiableCredential[0].issuanceDate,
             validUntil: mockServiceExtIssuerVc.verifiableCredential[0].expirationDate,
             raw: mockServiceExtIssuerVc.verifiableCredential[0],
+            digestJCS: computeCredentialDigestJCS(mockServiceExtIssuerVc.verifiableCredential[0]),
           },
           serviceProvider: {
             schemaType: ECS.ORG,
@@ -255,6 +259,7 @@ describe('DidValidator', () => {
             validFrom: mockOrgVcWithoutIssuer.verifiableCredential[0].issuanceDate,
             validUntil: mockOrgVcWithoutIssuer.verifiableCredential[0].expirationDate,
             raw: mockOrgVcWithoutIssuer.verifiableCredential[0],
+            digestJCS: computeCredentialDigestJCS(mockOrgVcWithoutIssuer.verifiableCredential[0]),
           },
         }),
       )
@@ -343,6 +348,7 @@ describe('DidValidator', () => {
             validFrom: mockServiceExtIssuerVc.verifiableCredential[0].issuanceDate,
             validUntil: mockServiceExtIssuerVc.verifiableCredential[0].expirationDate,
             raw: mockServiceExtIssuerVc.verifiableCredential[0],
+            digestJCS: computeCredentialDigestJCS(mockServiceExtIssuerVc.verifiableCredential[0]),
           },
           serviceProvider: {
             schemaType: ECS.ORG,
@@ -352,6 +358,7 @@ describe('DidValidator', () => {
             validFrom: mockOrgVcWithoutIssuer.verifiableCredential[0].issuanceDate,
             validUntil: mockOrgVcWithoutIssuer.verifiableCredential[0].expirationDate,
             raw: mockOrgVcWithoutIssuer.verifiableCredential[0],
+            digestJCS: computeCredentialDigestJCS(mockOrgVcWithoutIssuer.verifiableCredential[0]),
           },
         }),
       )

@@ -34,6 +34,7 @@ import {
   CREDENTIAL_FORMAT_LDP_VC,
 } from '../types.js'
 import {
+  computeCredentialDigestJCS,
   fetchJson,
   fetchText,
   handleTrustError,
@@ -575,6 +576,7 @@ async function processCredential(
         ...attrs,
         ...normalizeValidityWindow(source),
         raw: source,
+        digestJCS: computeCredentialDigestJCS(source as unknown as Record<string, unknown>),
       } as ICredential
       return { credential, outcome }
     } catch (error) {

@@ -1,5 +1,6 @@
 import { Agent, DidDocument, DidResolverService, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
+import { createHash } from 'node:crypto'
 import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
 
 import {
@@ -49,6 +50,21 @@ import {
 // --- Globals for test lifecycle ---
 let agent: Agent
 let didResolver: Resolver
+
+function issuerCanonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(issuerCanonicalJson).join(',')}]`
+  const obj = value as Record<string, unknown>
+  return `{${Object.keys(obj)
+    .sort()
+    .map(k => `${JSON.stringify(k)}:${issuerCanonicalJson(obj[k])}`)
+    .join(',')}}`
+}
+function anchorDigest(credential: Record<string, unknown>): string {
+  const { proof, ...content } = credential
+  void proof
+  return `sha384-${createHash('sha384').update(issuerCanonicalJson(content)).digest('base64')}`
+}
 
 describe('Integration with Verana Blockchain', () => {
   beforeAll(async () => {
@@ -133,6 +149,14 @@ describe('Integration with Verana Blockchain', () => {
         }),
       }),
     )
+
+    expect(result.service?.digestJCS).toBe(
+      anchorDigest(result.service!.raw as unknown as Record<string, unknown>),
+    )
+    expect(result.serviceProvider?.digestJCS).toBe(
+      anchorDigest(result.serviceProvider!.raw as unknown as Record<string, unknown>),
+    )
+    expect(result.service?.digestJCS).toMatch(/^sha384-/)
 
     // Second call should be served entirely from cache: no new fetch calls
     const fetchCountBefore = (global.fetch as any).mock.calls.length

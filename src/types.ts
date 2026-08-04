@@ -216,6 +216,7 @@ export interface BaseCredential {
   validFrom?: string
   validUntil?: string
   raw?: W3cVerifiableCredential
+  digestJCS?: string
 }
 
 export interface IOrg extends BaseCredential {

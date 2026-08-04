@@ -27,17 +27,39 @@ const ECS_SCHEMA_DIGESTS: Record<string, string> = {
   [ECS.BADGE]: 'sha384-ZxJ2aRpoF/5DJSILWwOES6bmpMg3RZYOfO2CCF8hC/YDNvU+PhCqAnAXq/66nXCq',
 }
 
-/**
- * Computes the SRI-style SHA-384 digest of a JSON schema object,
- */
+/** Digest algorithm for all Essential Credential Schemas. */
+export const ECS_DIGEST_ALGORITHM = 'sha384'
+
+/** Computes the SRI-style digest of a JSON schema object, with `$id` excluded. */
 function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
   const { $id, ...schemaWithoutId } = schemaObj
 
   const canonical = canonicalize(schemaWithoutId)
   if (!canonical) throw new TrustError(TrustErrorCode.SCHEMA_MISMATCH, 'Failed to canonicalize schema')
 
-  const digest = base64.encode(hash('sha384', canonical))
-  return `sha384-${digest}`
+  const digest = base64.encode(hash(ECS_DIGEST_ALGORITHM, canonical))
+  return `${ECS_DIGEST_ALGORITHM}-${digest}`
+}
+
+/**
+ * Computes a credential's `digestJCS`: the JCS-canonicalized content (proof stripped, id kept),
+ * hashed and formatted `<algorithm>-<base64>`. This is the digest the issuer anchors on-chain,
+ * distinct from `digestSRI`, which hashes raw referenced-schema bytes.
+ *
+ * @param credential - The raw Verifiable Credential, as issued.
+ * @param algorithm - Digest algorithm; defaults to SHA-384 (the ECS algorithm).
+ */
+export function computeCredentialDigestJCS(
+  credential: Record<string, unknown>,
+  algorithm: string = ECS_DIGEST_ALGORITHM,
+): string {
+  const { proof, ...content } = credential
+
+  const canonical = canonicalize(content)
+  if (!canonical) throw new TrustError(TrustErrorCode.SCHEMA_MISMATCH, 'Failed to canonicalize credential')
+
+  const digest = base64.encode(hash(algorithm, canonical))
+  return `${algorithm}-${digest}`
 }
 
 export type EcsProvenance = {
