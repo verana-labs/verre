@@ -606,7 +606,7 @@ async function processCredential(
         // [IDX-VT-EVAL-2] minimises over every Participant entry anchoring the credential
         const subjectDid = typeof attrs?.id === 'string' ? attrs.id : undefined
         if (subjectDid) {
-          // a credential with no anchoring entry simply contributes no boundary, it is not a failure
+          // a credential with no anchoring entry contributes no boundary, it is not a failure
           const anchoring = await fetchParticipantsAt(
             api,
             schemaId,
@@ -614,7 +614,14 @@ async function processCredential(
             ParticipantRole.HOLDER,
             anchored.created,
             adapter,
-          ).catch(() => [])
+          ).catch(error => {
+            logger.warn('Could not resolve the anchoring Participants, expiresAtTime may be later', {
+              subjectDid,
+              schemaId,
+              error,
+            })
+            return []
+          })
           subjectEffectiveUntils = anchoring.map(participant => participant.effective_until)
         }
       }
@@ -833,15 +840,16 @@ async function resolveAnchoredDigest(
   adapter?: IRegistryAdapter,
 ): Promise<{ created: string; height?: number } | undefined> {
   if (adapter) return adapter.fetchDigest(digestJCS)
-  try {
-    const raw = await fetchJson<{ digest?: { created?: string } }>(
-      `${api}/v4/di/get/${encodeURIComponent(digestJCS)}`,
+  const digestUrl = `${api}/v4/di/get/${encodeURIComponent(digestJCS)}`
+  const response = await fetch(digestUrl)
+  if (response.status === 404) return undefined
+  if (!response.ok)
+    throw new TrustError(
+      TrustErrorCode.INVALID_REQUEST,
+      `Failed to resolve digest from ${digestUrl}: ${response.status} ${response.statusText}`,
     )
-    return raw.digest?.created ? { created: raw.digest.created } : undefined
-  } catch {
-    // a 404 means the digest was never anchored, which EVAL-1 treats as a failed credential
-    return undefined
-  }
+  const raw = (await response.json()) as { digest?: { created?: string } }
+  return raw.digest?.created ? { created: raw.digest.created } : undefined
 }
 
 async function fetchParticipantsAt(
