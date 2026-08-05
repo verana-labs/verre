@@ -19,6 +19,8 @@ import {
 import { createHash } from 'crypto'
 import { vi } from 'vitest'
 
+import { computeCredentialDigestJCS } from '../../src/utils/credentialDigest'
+
 import { essentialSchemas } from './data'
 import { mockParticipant } from './object'
 
@@ -355,6 +357,26 @@ export async function buildV4Fixtures(agent: Agent): Promise<V4Fixtures> {
     mockResponses[vpUrl] = { ok: true, data: JsonTransformer.toJSON(vp) }
     mockResponses[jscUrl] = { ok: true, data: JsonTransformer.toJSON(jsc) }
     mockResponses[`${VPR_ORIGIN}/v4/credential-schema/js/${schemaId}`] = { ok: true, data: schemaBody }
+    mockResponses[`${VPR_ORIGIN}/v4/credential-schema/get/${schemaId}`] = {
+      ok: true,
+      data: {
+        schema: {
+          id: schemaId,
+          ecosystem_id: 1,
+          digest_algorithm: 'sha2-384',
+          json_schema: JSON.stringify(schemaBody),
+        },
+      },
+    }
+    // [IDX-VT-EVAL-1] anchoring at the issuance instant keeps the participant mock below valid
+    const digestJCS = computeCredentialDigestJCS(JsonTransformer.toJSON(vtc) as never, 'sha2-384')
+    mockResponses[`${VPR_ORIGIN}/v4/di/get/${encodeURIComponent(digestJCS)}`] = {
+      ok: true,
+      data: { digest: { digest: digestJCS, created: ISSUANCE_DATE } },
+    }
+    mockResponses[
+      `${VPR_ORIGIN}/v4/participant/list?did=${encodeURIComponent(v4Did)}&role=HOLDER&schema_id=${schemaId}&when=${encodeURIComponent(ISSUANCE_DATE)}`
+    ] = { ok: true, data: { participants: [] } }
     mockResponses[
       `${VPR_ORIGIN}/v4/participant/list?did=${encodeURIComponent(v4Did)}&role=ISSUER&schema_id=${schemaId}&when=${encodeURIComponent(ISSUANCE_DATE)}`
     ] = { ok: true, data: mockParticipant }
