@@ -7,8 +7,6 @@ export function hash(algorithm: string, data: string) {
       return sha384(data)
     case 'SHA512':
       return sha512(data)
-    case 'SHA256':
-      return sha256(data)
     case 'SHA1':
       return sha1(data)
     default:
