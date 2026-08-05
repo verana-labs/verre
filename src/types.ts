@@ -11,6 +11,7 @@ export type TrustResolution = {
   service?: IService
   serviceProvider?: ICredential
   failedCredentials?: FailedCredential[]
+  expiresAtTime?: string | null
 }
 
 export const CREDENTIAL_FORMAT_LDP_VC = 'ldp_vc'
@@ -66,22 +67,52 @@ export interface IRegistryAdapter {
    */
   fetchSchema(url: string): Promise<string>
   /**
-   * Fetches the Participant effective at `when` for a given DID and schema. Replaces the HTTP call
-   * to /v4/participant/list. Return undefined if none exists (verre will throw NOT_AUTHORIZED).
+   * Resolves the anchored issuance time of a credential digest ([MOD-DI-QRY-1]).
+   * undefined means no provable issuance time, which fails [IDX-VT-EVAL-1].
    */
-  fetchParticipant(
-    schemaId: number | string,
+  fetchDigest(digestJCS: string): Promise<{ created: string; height?: number } | undefined>
+  /**
+   * Fetches the CredentialSchema, including the digest_algorithm that drives [IDX-VT-EVAL-1]
+   * and the VPR ids verre surfaces as evidence. Subsumes fetchSchemaEcosystemDid.
+   */
+  fetchCredentialSchema(schemaId: number): Promise<CredentialSchemaRef | undefined>
+  /**
+   * Every Participant entry effective at `when` for a DID and schema. [IDX-VT-EVAL-2] minimises
+   * over every anchoring entry, so a single row is not enough.
+   */
+  listParticipants(
+    schemaId: number,
     did: string,
     role: ParticipantRole,
     when: string,
   ): Promise<
-    | Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>
-    | undefined
+    Array<
+      Pick<
+        Participant,
+        'id' | 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'
+      >
+    >
   >
   /**
-   * Resolves the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
+   * @deprecated superseded by fetchCredentialSchema, removed in the next minor.
    */
-  fetchSchemaEcosystemDid(schemaId: number | string): Promise<string | undefined>
+  fetchSchemaEcosystemDid?(schemaId: number): Promise<string | undefined>
+}
+
+export type CredentialSchemaRef = {
+  id: number
+  ecosystemId: number
+  ecosystemDid: string
+  digestAlgorithm: string
+  jsonSchema: string
+}
+
+export type ParticipantRef = {
+  id: number
+  role: ParticipantRole
+  effectiveFrom?: string
+  effectiveUntil?: string
+  state?: ParticipantState
 }
 
 // [WL-VPR]
@@ -182,6 +213,7 @@ export enum TrustErrorCode {
   NOT_AUTHORIZED = 'not_authorized',
   INVALID_REQUEST = 'invalid_request',
   SCHEMA_MISMATCH = 'schema_mismatch',
+  NO_ANCHORED_DIGEST = 'no_anchored_digest',
   VERIFICATION_FAILED = 'verification_failed',
 }
 

@@ -279,18 +279,24 @@ interface IRegistryAdapter {
   // Returns the raw JSON text of the subject schema by its resolved URL.
   fetchSchema(url: string): Promise<string>
 
-  // Returns the Participant effective at `when` for a DID, or undefined if none exists.
-  fetchParticipant(
-    schemaId: number | string,
+  // Returns every Participant entry effective at `when` for a DID.
+  listParticipants(
+    schemaId: number,
     did: string,
     role: ParticipantRole,
     when: string,
   ): Promise<
-    Pick<Participant, 'role' | 'created' | 'effective_from' | 'effective_until'> | undefined
+    Array<Pick<Participant, 'id' | 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>>
   >
 
-  // Returns the DID of the Ecosystem that created a schema, for the [WL-ECS] allowlist.
-  fetchSchemaEcosystemDid(schemaId: string): Promise<string | undefined>
+  // Returns the CredentialSchema, including the digest_algorithm that drives [IDX-VT-EVAL-1].
+  fetchCredentialSchema(schemaId: number): Promise<CredentialSchemaRef | undefined>
+
+  // Returns the anchored issuance time of a credential digest ([MOD-DI-QRY-1]).
+  fetchDigest(digestJCS: string): Promise<{ created: string; height?: number } | undefined>
+
+  // @deprecated superseded by fetchCredentialSchema, removed in the next minor.
+  fetchSchemaEcosystemDid?(schemaId: number): Promise<string | undefined>
 }
 ```
 
@@ -310,13 +316,17 @@ class RegistryAdapter implements IRegistryAdapter {
     return this.schemaService.getJsonByUrl(url)
   }
 
-  async fetchParticipant(schemaId: number | string, did: string, role: ParticipantRole, when: string) {
-    // Direct in-process lookup — no HTTP
-    return this.participantService.findEffectiveAt({ schemaId, did, role, when })
+  async listParticipants(schemaId: number, did: string, role: ParticipantRole, when: string) {
+    // Direct in-process lookup, no HTTP
+    return this.participantService.findAllEffectiveAt({ schemaId, did, role, when })
   }
 
-  async fetchSchemaEcosystemDid(schemaId: string) {
-    return this.schemaService.getEcosystemDid(schemaId)
+  async fetchCredentialSchema(schemaId: number) {
+    return this.schemaService.getCredentialSchema(schemaId)
+  }
+
+  async fetchDigest(digestJCS: string) {
+    return this.digestService.findByDigest(digestJCS)
   }
 }
 

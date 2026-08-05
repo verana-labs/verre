@@ -42,7 +42,7 @@ function computeSchemaDigest(schemaObj: Record<string, unknown>): string {
 
 export type EcsProvenance = {
   ecsEcosystems: EcsEcosystem[]
-  schemaId: number | string
+  schemaId: number
   vprId?: string
   adapter?: IRegistryAdapter
   logger?: IVerreLogger
@@ -89,7 +89,10 @@ async function isAllowedEcsEcosystem({
     )
   }
   try {
-    const ecosystemDid = await adapter.fetchSchemaEcosystemDid(schemaId)
+    // adapters written against the previous minor only implement fetchSchemaEcosystemDid
+    const ecosystemDid = adapter.fetchCredentialSchema
+      ? (await adapter.fetchCredentialSchema(schemaId))?.ecosystemDid
+      : await adapter.fetchSchemaEcosystemDid?.(schemaId)
     return !!ecosystemDid && ecsEcosystems.some(e => e.did === ecosystemDid && e.vpr === vprId)
   } catch {
     logger?.warn('Failed to resolve the Ecosystem of a schema, treating it as not allowed', { schemaId })

@@ -32,18 +32,36 @@ import {
   IVerreLogger,
   FailedCredential,
   CREDENTIAL_FORMAT_LDP_VC,
+  CredentialSchemaRef,
 } from '../types.js'
 import {
   fetchJson,
   fetchText,
   handleTrustError,
   identifySchema,
+  computeCredentialDigestJCS,
   TrustError,
   validateSchemaContent,
   verifyDigestSRI,
   verifySignature,
   VerreLogger,
 } from '../utils/index.js'
+
+type CredentialResult = {
+  credential: ICredential
+  outcome: TrustResolutionOutcome
+  participantEffectiveUntils?: Array<string | null | undefined>
+}
+
+// [IDX-VT-EVAL-2] the trust verdict flips at the earliest of the anchor credentials' validUntil and
+// their anchoring Participants' effective_until. Never a duration from the evaluation instant.
+export function earliestBoundary(values: Array<string | null | undefined>): string | null {
+  const times = values
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .map(value => Date.parse(value))
+    .filter(time => Number.isFinite(time))
+  return times.length > 0 ? new Date(Math.min(...times)).toISOString() : null
+}
 
 /**
  * Resolves a Decentralized Identifier (DID) and performs trust validation.
@@ -287,6 +305,8 @@ async function processDidDocument(
   let serviceProvider: ICredential | undefined
   let service: IService | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
+  const participantBoundaries = new Map<ICredential, Array<string | null | undefined>>()
+  let delegatedExpiresAtTime: string | null | undefined
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
   const serviceResults = await Promise.allSettled(
@@ -304,7 +324,11 @@ async function processDidDocument(
           )
 
         logger.debug('Getting verified credential from VP', { id })
-        const { credential, outcome: vpOutcome } = await getVerifiedCredential(
+        const {
+          credential,
+          outcome: vpOutcome,
+          participantEffectiveUntils,
+        } = await getVerifiedCredential(
           vp,
           verifiablePublicRegistries ?? [],
           logger,
@@ -313,6 +337,7 @@ async function processDidDocument(
           ecsEcosystems,
         )
         credentials.push(credential)
+        participantBoundaries.set(credential, participantEffectiveUntils ?? [])
         outcome = vpOutcome
 
         const isServiceCred = credential.schemaType === ECS.SERVICE
@@ -323,6 +348,7 @@ async function processDidDocument(
           const resolution = await _resolve(credential.issuer, { ...options, attrs: credential })
           service = resolution.service
           serviceProvider = resolution.serviceProvider
+          delegatedExpiresAtTime = resolution.expiresAtTime
         }
       }
     }),
@@ -344,6 +370,13 @@ async function processDidDocument(
       verified: true,
       service,
       serviceProvider,
+      expiresAtTime: earliestBoundary([
+        service.validUntil,
+        serviceProvider.validUntil,
+        ...(participantBoundaries.get(service) ?? []),
+        ...(participantBoundaries.get(serviceProvider) ?? []),
+        delegatedExpiresAtTime,
+      ]),
     }
   }
   throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
@@ -402,7 +435,7 @@ async function getVerifiedCredential(
   didResolver: Resolver,
   skipDigestSRICheck?: boolean,
   ecsEcosystems?: EcsEcosystem[],
-): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
+): Promise<CredentialResult> {
   logger.debug('Verifying credential', { vp })
 
   const w3cCredential = getCredential(vp)
@@ -498,7 +531,7 @@ async function processCredential(
   issuanceDate?: string,
   attrs?: Record<string, string>,
   sourceCredential?: W3cVerifiableCredential,
-): Promise<{ credential: ICredential; outcome: TrustResolutionOutcome }> {
+): Promise<CredentialResult> {
   logger.debug('Processing credential', { id: w3cCredential.id })
 
   const { schema, subject } = resolveSchemaAndSubject(w3cCredential, logger)
@@ -539,15 +572,59 @@ async function processCredential(
           `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
         )
 
-      // Schema fetches and participant check share no dependencies — run in parallel
-      logger.debug('Fetching schemas and verifying participant in parallel')
+      logger.debug('Fetching schemas in parallel')
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
         fetchText(schema.id),
         adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
-        api && schemaId !== undefined
-          ? verifyAuthorization(api, schemaId, issuanceDate, issuer, ParticipantRole.ISSUER, logger, adapter)
-          : undefined,
       ])
+
+      // [IDX-VT-EVAL-1] the issuance instant must come from the ledger, never from the credential:
+      // an issuer-asserted date can be backdated to a window it was not authorised in
+      let subjectEffectiveUntils: Array<string | null | undefined> = []
+      if (api && schemaId !== undefined) {
+        const credentialSchema = await resolveCredentialSchema(api, schemaId, adapter)
+        const digestJCS = computeCredentialDigestJCS(
+          (sourceCredential ?? w3cCredential) as W3cVerifiableCredential,
+          credentialSchema.digestAlgorithm,
+        )
+        const anchored = await resolveAnchoredDigest(api, digestJCS, adapter)
+        if (!anchored)
+          throw new TrustError(
+            TrustErrorCode.NO_ANCHORED_DIGEST,
+            `No anchored digest ${digestJCS} was found, the credential has no provable issuance time`,
+          )
+        await verifyAuthorization(
+          api,
+          schemaId,
+          anchored.created,
+          issuer,
+          ParticipantRole.ISSUER,
+          logger,
+          adapter,
+        )
+
+        // [IDX-VT-EVAL-2] minimises over every Participant entry anchoring the credential
+        const subjectDid = typeof attrs?.id === 'string' ? attrs.id : undefined
+        if (subjectDid) {
+          // a credential with no anchoring entry contributes no boundary, it is not a failure
+          const anchoring = await fetchParticipantsAt(
+            api,
+            schemaId,
+            subjectDid,
+            ParticipantRole.HOLDER,
+            anchored.created,
+            adapter,
+          ).catch(error => {
+            logger.warn('Could not resolve the anchoring Participants, expiresAtTime may be later', {
+              subjectDid,
+              schemaId,
+              error,
+            })
+            return []
+          })
+          subjectEffectiveUntils = anchoring.map(participant => participant.effective_until)
+        }
+      }
 
       const schemaData = JSON.parse(schemaRawText)
       const subjectSchema = JSON.parse(subjectSchemaRawText)
@@ -576,7 +653,7 @@ async function processCredential(
         ...normalizeValidityWindow(source),
         raw: source,
       } as ICredential
-      return { credential, outcome }
+      return { credential, outcome, participantEffectiveUntils: subjectEffectiveUntils }
     } catch (error) {
       logger.error('Failed to process credential', error)
       throw new TrustError(TrustErrorCode.INVALID, `Failed to validate credential: ${error.message}`)
@@ -732,6 +809,70 @@ function aggregateCredentialFailures(reasons: unknown[]): TrustError {
   )
 }
 
+async function resolveCredentialSchema(
+  api: string,
+  schemaId: number,
+  adapter?: IRegistryAdapter,
+): Promise<CredentialSchemaRef> {
+  if (adapter) {
+    const found = await adapter.fetchCredentialSchema(schemaId)
+    if (!found) throw new TrustError(TrustErrorCode.NOT_FOUND, `Unknown credential schema: ${schemaId}`)
+    return found
+  }
+  const raw = await fetchJson<{
+    schema?: { id?: number; ecosystem_id?: number; digest_algorithm?: string; json_schema?: string }
+  }>(`${api}/v4/credential-schema/get/${schemaId}`)
+  const schema = raw.schema
+  if (!schema?.digest_algorithm)
+    throw new TrustError(TrustErrorCode.NOT_FOUND, `Unknown credential schema: ${schemaId}`)
+  return {
+    id: Number(schema.id ?? schemaId),
+    ecosystemId: Number(schema.ecosystem_id ?? 0),
+    ecosystemDid: '',
+    digestAlgorithm: schema.digest_algorithm,
+    jsonSchema: schema.json_schema ?? '',
+  }
+}
+
+async function resolveAnchoredDigest(
+  api: string,
+  digestJCS: string,
+  adapter?: IRegistryAdapter,
+): Promise<{ created: string; height?: number } | undefined> {
+  if (adapter) return adapter.fetchDigest(digestJCS)
+  const digestUrl = `${api}/v4/di/get/${encodeURIComponent(digestJCS)}`
+  const response = await fetch(digestUrl)
+  if (response.status === 404) return undefined
+  if (!response.ok)
+    throw new TrustError(
+      TrustErrorCode.INVALID_REQUEST,
+      `Failed to resolve digest from ${digestUrl}: ${response.status} ${response.statusText}`,
+    )
+  const raw = (await response.json()) as { digest?: { created?: string } }
+  return raw.digest?.created ? { created: raw.digest.created } : undefined
+}
+
+async function fetchParticipantsAt(
+  api: string,
+  schemaId: number,
+  did: string,
+  role: ParticipantRole,
+  when: string,
+  adapter?: IRegistryAdapter,
+): Promise<
+  Array<
+    Pick<Participant, 'id' | 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>
+  >
+> {
+  if (adapter) return adapter.listParticipants(schemaId, did, role, when)
+  // `when` narrows to entries effective at issuance, so a later grant cannot shadow the one that covered it
+  const participantUrl = `${api}/v4/participant/list?did=${encodeURIComponent(
+    did,
+  )}&role=${role}&schema_id=${schemaId}&when=${encodeURIComponent(when)}`
+  const response = await fetchJson<ParticipantListResponse>(participantUrl)
+  return response.participants ?? []
+}
+
 /**
  * Verifies that an entity is an authorized Participant for the specified schema
  * and ensures the credential's issuance date is not earlier than the Participant creation date.
@@ -744,27 +885,18 @@ async function verifyAuthorization(
   role: ParticipantRole,
   logger: IVerreLogger,
   adapter?: IRegistryAdapter,
-) {
+): Promise<
+  Pick<Participant, 'id' | 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'>
+> {
   logger.debug('Verifying participant', { schemaId, did, hasAdapter: !!adapter })
 
   let participants: Pick<
     Participant,
-    'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'
+    'id' | 'role' | 'created' | 'effective_from' | 'effective_until' | 'participant_state'
   >[]
 
-  if (adapter) {
-    logger.debug('Using registry adapter for participant check', { schemaId, did })
-    const found = await adapter.fetchParticipant(schemaId, did, role, issuanceDate)
-    participants = found ? [found] : []
-  } else {
-    // `when` narrows to entries effective at issuance, so a later grant cannot shadow the one that covered it
-    const participantUrl = `${api}/v4/participant/list?did=${encodeURIComponent(
-      did,
-    )}&role=${role}&schema_id=${schemaId}&when=${encodeURIComponent(issuanceDate)}`
-    logger.debug('Fetching participants', { participantUrl, schemaId })
-    const response = await fetchJson<ParticipantListResponse>(participantUrl)
-    participants = response.participants ?? []
-  }
+  if (adapter) logger.debug('Using registry adapter for participant check', { schemaId, did })
+  participants = await fetchParticipantsAt(api, schemaId, did, role, issuanceDate, adapter)
 
   const issuanceTs = Date.parse(issuanceDate)
   const authorized = participants.find(participant => {
@@ -792,4 +924,5 @@ async function verifyAuthorization(
     )
 
   logger.debug('Participant verified successfully', { did, schemaId })
+  return authorized
 }

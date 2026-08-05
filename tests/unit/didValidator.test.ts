@@ -12,6 +12,7 @@ import {
   TrustResolutionOutcome,
 } from '../../src'
 import { resolverInstance } from '../../src/libraries'
+import { computeCredentialDigestJCS } from '../../src/utils/credentialDigest'
 import { InMemoryCache } from '../../src/utils/helper'
 import { identifySchema } from '../../src/utils/validateSchema'
 import * as signatureVerifier from '../../src/utils/verifier'
@@ -45,6 +46,40 @@ const mockResolversByDid: Record<string, any> = {
   [didSelfIssued]: { ...mockResolverSelfIssued },
 }
 
+// [IDX-VT-EVAL-1] resolution now demands a ledger-anchored digest. Anchoring at the same instant the
+// participant fixtures already encode keeps every participant/list URL below unchanged.
+const ANCHORED_AT = '2024-02-08T18:38:46+01:00'
+// deliberately different from any credential's issuanceDate, so a test can prove the ledger
+// instant is what reaches the participant lookup
+const LEDGER_ANCHORED_AT = '2023-05-05T00:00:00.000Z'
+const IDX = 'https://idx.testnet.verana.network'
+
+const anchorMocks = (...vcs: unknown[]) => {
+  const mocks: Record<string, { ok: boolean; status: number; data: unknown }> = {}
+  for (const id of [12345678, 12345671, 12345673]) {
+    mocks[`${IDX}/v4/credential-schema/get/${id}`] = {
+      ok: true,
+      status: 200,
+      data: { schema: { id, ecosystem_id: 1, digest_algorithm: 'sha384', json_schema: '' } },
+    }
+  }
+  for (const vc of vcs) {
+    const digest = computeCredentialDigestJCS(vc as never, 'sha384')
+    mocks[`${IDX}/v4/di/get/${encodeURIComponent(digest)}`] = {
+      ok: true,
+      status: 200,
+      data: { digest: { digest, created: ANCHORED_AT } },
+    }
+  }
+  return mocks
+}
+
+const ALL_ANCHOR_MOCKS = anchorMocks(
+  mockServiceVcSelfIssued.verifiableCredential[0],
+  mockOrgVc.verifiableCredential[0],
+  mockServiceExtIssuerVc.verifiableCredential[0],
+)
+
 describe('DidValidator', () => {
   describe('resolver method in mocked environment', () => {
     beforeEach(async () => {
@@ -70,6 +105,7 @@ describe('DidValidator', () => {
           return mockResolversByDid[did]
         })
       fetchMocker.setMockResponses({
+        ...ALL_ANCHOR_MOCKS,
         'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
         'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
         'https://ecs-trust-registry/service-credential-schema-credential.json': {
@@ -154,6 +190,7 @@ describe('DidValidator', () => {
         ],
       })
       fetchMocker.setMockResponses({
+        ...ALL_ANCHOR_MOCKS,
         'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
         'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
       })
@@ -181,6 +218,7 @@ describe('DidValidator', () => {
           return mockResolversByDid[did]
         })
       fetchMocker.setMockResponses({
+        ...ALL_ANCHOR_MOCKS,
         'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
         'https://example.com/vp-ser-ext-issued': {
           ok: true,
@@ -268,6 +306,7 @@ describe('DidValidator', () => {
           return mockResolversByDid[did]
         })
       fetchMocker.setMockResponses({
+        ...ALL_ANCHOR_MOCKS,
         'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
         'https://example.com/vp-ser-ext-issued': {
           ok: true,
@@ -386,12 +425,22 @@ describe('DidValidator', () => {
           if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
           throw new Error(`Unexpected schema URL in adapter: ${url}`)
         },
-        fetchParticipant: async () => ({
-          role: ParticipantRole.ISSUER,
-          created: '2000-11-18T15:26:01.487Z',
-          participant_state: ParticipantState.ACTIVE,
+        listParticipants: async () => [
+          {
+            id: 1,
+            role: ParticipantRole.ISSUER,
+            created: '2000-11-18T15:26:01.487Z',
+            participant_state: ParticipantState.ACTIVE,
+          },
+        ],
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async (schemaId: number) => ({
+          id: Number(schemaId),
+          ecosystemId: 1,
+          ecosystemDid: ecosystemBySchemaId[schemaId],
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
         }),
-        fetchSchemaEcosystemDid: async (schemaId: number) => ecosystemBySchemaId[schemaId],
       })
 
     const allowlistMockResponses = {
@@ -438,18 +487,30 @@ describe('DidValidator', () => {
         throw new Error(`Unexpected schema URL in adapter: ${url}`)
       })
 
-      const fetchParticipantSpy = vi.fn(async () => ({
-        role: ParticipantRole.ISSUER,
-        created: '2000-11-18T15:26:01.487Z',
-        participant_state: ParticipantState.ACTIVE,
-      }))
+      const fetchParticipantSpy = vi.fn(async () => [
+        {
+          id: 1,
+          role: ParticipantRole.ISSUER,
+          created: '2000-11-18T15:26:01.487Z',
+          participant_state: ParticipantState.ACTIVE,
+        },
+      ])
 
       const registriesWithAdapter = createRegistriesWithAdapter({
         fetchSchema: fetchSchemaSpy,
-        fetchParticipant: fetchParticipantSpy,
+        listParticipants: fetchParticipantSpy,
+        fetchDigest: async () => ({ created: LEDGER_ANCHORED_AT }),
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
+        }),
       })
 
       fetchMocker.setMockResponses({
+        ...ALL_ANCHOR_MOCKS,
         'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
         'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
         'https://ecs-trust-registry/service-credential-schema-credential.json': {
@@ -484,7 +545,7 @@ describe('DidValidator', () => {
         expect.anything(),
         didSelfIssued,
         ParticipantRole.ISSUER,
-        '2024-02-08T18:38:46+01:00',
+        LEDGER_ANCHORED_AT,
       )
 
       // Logger confirms the adapter path was taken
@@ -499,7 +560,7 @@ describe('DidValidator', () => {
         return mockResolversByDid[did]
       })
 
-      fetchMocker.setMockResponses(allowlistMockResponses)
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
 
       const trusted = { did: 'did:example:ecosystem', vpr: 'vpr:verana:vna-testnet-1' }
 
@@ -537,7 +598,7 @@ describe('DidValidator', () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
       })
-      fetchMocker.setMockResponses(allowlistMockResponses)
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
       vi.setSystemTime(new Date('2020-01-01T00:00:00Z'))
 
       const registries = createRegistriesWithAdapter({
@@ -546,12 +607,22 @@ describe('DidValidator', () => {
           if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
           throw new Error(`Unexpected schema URL in adapter: ${url}`)
         },
-        fetchParticipant: async () => ({
-          role: ParticipantRole.ISSUER,
-          created: '2000-11-18T15:26:01.487Z',
-          participant_state: ParticipantState.ACTIVE,
+        listParticipants: async () => [
+          {
+            id: 1,
+            role: ParticipantRole.ISSUER,
+            created: '2000-11-18T15:26:01.487Z',
+            participant_state: ParticipantState.ACTIVE,
+          },
+        ],
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
         }),
-        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
       })
 
       const result = await resolveDID(didSelfIssued, {
@@ -562,11 +633,101 @@ describe('DidValidator', () => {
       expect(result.verified).toBe(false)
     })
 
+    it('fails a credential whose digest was never anchored on the ledger', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
+
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        listParticipants: async () => [
+          {
+            id: 1,
+            role: ParticipantRole.ISSUER,
+            created: '2000-11-18T15:26:01.487Z',
+            participant_state: ParticipantState.ACTIVE,
+          },
+        ],
+        fetchDigest: async () => undefined,
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
+        }),
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.verified).toBe(false)
+      expect(result.metadata?.errorMessage).toContain('no provable issuance time')
+    })
+
+    it('takes expiresAtTime from the HOLDER entries anchoring the credential', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
+
+      const HOLDER_EFFECTIVE_UNTIL = '2025-01-01T00:00:00.000Z'
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        listParticipants: async (_schemaId: number, _did: string, role: ParticipantRole) =>
+          role === ParticipantRole.HOLDER
+            ? [
+                {
+                  id: 2,
+                  role: ParticipantRole.HOLDER,
+                  created: '2000-11-18T15:26:01.487Z',
+                  effective_until: HOLDER_EFFECTIVE_UNTIL,
+                  participant_state: ParticipantState.ACTIVE,
+                },
+              ]
+            : [
+                {
+                  id: 1,
+                  role: ParticipantRole.ISSUER,
+                  created: '2000-11-18T15:26:01.487Z',
+                  effective_until: '2099-01-01T00:00:00.000Z',
+                  participant_state: ParticipantState.ACTIVE,
+                },
+              ],
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
+        }),
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.expiresAtTime).toBe(HOLDER_EFFECTIVE_UNTIL)
+    })
+
     it('does not serve a cached resolution to a caller using a different allowlist', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
       })
-      fetchMocker.setMockResponses(allowlistMockResponses)
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
 
       const cache = new InMemoryCache()
       const registries = registriesFor({ '12345678': 'did:example:rogue', '12345671': 'did:example:rogue' })
@@ -598,7 +759,7 @@ describe('DidValidator', () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
       })
-      fetchMocker.setMockResponses(allowlistMockResponses)
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
 
       const registries = createRegistriesWithAdapter({
         fetchSchema: async (url: string) => {
@@ -606,12 +767,22 @@ describe('DidValidator', () => {
           if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
           throw new Error(`Unexpected schema URL in adapter: ${url}`)
         },
-        fetchParticipant: async () => ({
-          role: ParticipantRole.ISSUER,
-          created: '2000-11-18T15:26:01.487Z',
-          participant_state: state,
+        listParticipants: async () => [
+          {
+            id: 1,
+            role: ParticipantRole.ISSUER,
+            created: '2000-11-18T15:26:01.487Z',
+            participant_state: state,
+          },
+        ],
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
         }),
-        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
       })
 
       const result = await resolveDID(didSelfIssued, {
