@@ -14,7 +14,6 @@ const canonicalize = ((_canonicalize as any).default ?? _canonicalize) as (
 
 // CredentialSchema.digest_algorithm names the algorithm the multihash way, `hash` wants the bare name
 const DIGEST_ALGORITHMS: Record<string, string> = {
-  'sha2-256': 'SHA256',
   'sha2-384': 'SHA384',
   'sha2-512': 'SHA512',
   sha256: 'SHA256',
