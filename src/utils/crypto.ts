@@ -7,6 +7,9 @@ export function hash(algorithm: string, data: string) {
       return sha384(data)
     case 'SHA512':
       return sha512(data)
+    // not a credential digest algorithm, Ed25519Signature2018 hashes its canonicalized document with it
+    case 'SHA256':
+      return sha256(data)
     case 'SHA1':
       return sha1(data)
     default:

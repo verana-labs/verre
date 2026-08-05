@@ -363,13 +363,13 @@ export async function buildV4Fixtures(agent: Agent): Promise<V4Fixtures> {
         schema: {
           id: schemaId,
           ecosystem_id: 1,
-          digest_algorithm: 'sha2-384',
+          digest_algorithm: 'sha384',
           json_schema: JSON.stringify(schemaBody),
         },
       },
     }
     // [IDX-VT-EVAL-1] anchoring at the issuance instant keeps the participant mock below valid
-    const digestJCS = computeCredentialDigestJCS(JsonTransformer.toJSON(vtc) as never, 'sha2-384')
+    const digestJCS = computeCredentialDigestJCS(JsonTransformer.toJSON(vtc) as never, 'sha384')
     mockResponses[`${VPR_ORIGIN}/v4/di/get/${encodeURIComponent(digestJCS)}`] = {
       ok: true,
       data: { digest: { digest: digestJCS, created: ISSUANCE_DATE } },

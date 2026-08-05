@@ -60,11 +60,11 @@ const anchorMocks = (...vcs: unknown[]) => {
     mocks[`${IDX}/v4/credential-schema/get/${id}`] = {
       ok: true,
       status: 200,
-      data: { schema: { id, ecosystem_id: 1, digest_algorithm: 'sha2-384', json_schema: '' } },
+      data: { schema: { id, ecosystem_id: 1, digest_algorithm: 'sha384', json_schema: '' } },
     }
   }
   for (const vc of vcs) {
-    const digest = computeCredentialDigestJCS(vc as never, 'sha2-384')
+    const digest = computeCredentialDigestJCS(vc as never, 'sha384')
     mocks[`${IDX}/v4/di/get/${encodeURIComponent(digest)}`] = {
       ok: true,
       status: 200,
@@ -438,7 +438,7 @@ describe('DidValidator', () => {
           id: Number(schemaId),
           ecosystemId: 1,
           ecosystemDid: ecosystemBySchemaId[schemaId],
-          digestAlgorithm: 'sha2-384',
+          digestAlgorithm: 'sha384',
           jsonSchema: '',
         }),
       })
@@ -504,7 +504,7 @@ describe('DidValidator', () => {
           id: 1,
           ecosystemId: 1,
           ecosystemDid: 'did:example:ecosystem',
-          digestAlgorithm: 'sha2-384',
+          digestAlgorithm: 'sha384',
           jsonSchema: '',
         }),
       })
@@ -620,7 +620,7 @@ describe('DidValidator', () => {
           id: 1,
           ecosystemId: 1,
           ecosystemDid: 'did:example:ecosystem',
-          digestAlgorithm: 'sha2-384',
+          digestAlgorithm: 'sha384',
           jsonSchema: '',
         }),
       })
@@ -658,7 +658,7 @@ describe('DidValidator', () => {
           id: 1,
           ecosystemId: 1,
           ecosystemDid: 'did:example:ecosystem',
-          digestAlgorithm: 'sha2-384',
+          digestAlgorithm: 'sha384',
           jsonSchema: '',
         }),
       })
@@ -710,7 +710,7 @@ describe('DidValidator', () => {
           id: 1,
           ecosystemId: 1,
           ecosystemDid: 'did:example:ecosystem',
-          digestAlgorithm: 'sha2-384',
+          digestAlgorithm: 'sha384',
           jsonSchema: '',
         }),
       })
@@ -780,7 +780,7 @@ describe('DidValidator', () => {
           id: 1,
           ecosystemId: 1,
           ecosystemDid: 'did:example:ecosystem',
-          digestAlgorithm: 'sha2-384',
+          digestAlgorithm: 'sha384',
           jsonSchema: '',
         }),
       })
