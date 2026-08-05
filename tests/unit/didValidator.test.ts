@@ -767,12 +767,22 @@ describe('DidValidator', () => {
           if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
           throw new Error(`Unexpected schema URL in adapter: ${url}`)
         },
-        fetchParticipant: async () => ({
-          role: ParticipantRole.ISSUER,
-          created: '2000-11-18T15:26:01.487Z',
-          participant_state: state,
+        listParticipants: async () => [
+          {
+            id: 1,
+            role: ParticipantRole.ISSUER,
+            created: '2000-11-18T15:26:01.487Z',
+            participant_state: state,
+          },
+        ],
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha2-384',
+          jsonSchema: '',
         }),
-        fetchSchemaEcosystemDid: async () => 'did:example:ecosystem',
       })
 
       const result = await resolveDID(didSelfIssued, {

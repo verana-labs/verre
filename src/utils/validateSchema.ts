@@ -89,8 +89,10 @@ async function isAllowedEcsEcosystem({
     )
   }
   try {
-    const schema = await adapter.fetchCredentialSchema(schemaId)
-    const ecosystemDid = schema?.ecosystemDid
+    // adapters written against the previous minor only implement fetchSchemaEcosystemDid
+    const ecosystemDid = adapter.fetchCredentialSchema
+      ? (await adapter.fetchCredentialSchema(schemaId))?.ecosystemDid
+      : await adapter.fetchSchemaEcosystemDid?.(schemaId)
     return !!ecosystemDid && ecsEcosystems.some(e => e.did === ecosystemDid && e.vpr === vprId)
   } catch {
     logger?.warn('Failed to resolve the Ecosystem of a schema, treating it as not allowed', { schemaId })
