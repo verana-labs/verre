@@ -17,12 +17,10 @@ const DIGEST_ALGORITHMS: Record<string, string> = {
   sha512: 'SHA512',
 }
 
-const SRI_PREFIX: Record<string, string> = { SHA384: 'sha384', SHA512: 'sha512' }
-
 /**
  * JCS (RFC 8785) over the credential as issued, in its entirety: no member is removed, `id` and
- * `proof` are both included. This is what an issuer anchors on the ledger, so it is also what a
- * verifier must recompute. See the Verifiable Trust spec, Computing `digestJCS`.
+ * `proof` are both included, then base64 with padding and no algorithm prefix. The algorithm comes
+ * from the schema, not the value. See the Verifiable Trust spec, Computing `digestJCS`.
  */
 export function computeCredentialDigestJCS(
   credential: W3cVerifiableCredential,
@@ -39,5 +37,5 @@ export function computeCredentialDigestJCS(
   if (!canonical)
     throw new TrustError(TrustErrorCode.INVALID, 'Failed to canonicalize the credential for digesting')
 
-  return `${SRI_PREFIX[algorithm]}-${base64.encode(hash(algorithm, canonical))}`
+  return base64.encode(hash(algorithm, canonical))
 }

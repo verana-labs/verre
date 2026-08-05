@@ -24,9 +24,16 @@ describe('computeCredentialDigestJCS', () => {
     )
   })
 
-  it('derives the prefix from the schema digest_algorithm', () => {
-    expect(computeCredentialDigestJCS(signed, 'sha384')).toMatch(/^sha384-/)
-    expect(computeCredentialDigestJCS(signed, 'sha512')).toMatch(/^sha512-/)
+  it('is the encoded digest alone, with no algorithm prefix', () => {
+    expect(computeCredentialDigestJCS(signed, 'sha384')).toMatch(/^[A-Za-z0-9+/]+=*$/)
+  })
+
+  it('takes the algorithm from the schema, not from the value', () => {
+    const sha384 = computeCredentialDigestJCS(signed, 'sha384')
+    const sha512 = computeCredentialDigestJCS(signed, 'sha512')
+    expect(sha384).not.toBe(sha512)
+    expect(Buffer.from(sha384, 'base64')).toHaveLength(48)
+    expect(Buffer.from(sha512, 'base64')).toHaveLength(64)
   })
 
   it('rejects an algorithm the spec does not allow', () => {
