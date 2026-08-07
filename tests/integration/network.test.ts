@@ -135,6 +135,17 @@ describe('Integration with Verana Blockchain', () => {
             registryId: 'REG-1',
           }),
         }),
+        anchorPattern: 'self',
+        expiresAtTime: '2099-01-01T00:00:00.000Z',
+        presentations: expect.arrayContaining([
+          expect.objectContaining({
+            serviceId: `${did}#vpr-schemas-service-vtc-vp`,
+            endpoint: expect.any(String),
+            credentials: expect.arrayContaining([expect.objectContaining({ ecs: 'ecs-service' })]),
+            unresolvableCredentialIds: [],
+            invalidCredentialIds: [],
+          }),
+        ]),
       }),
     )
 
