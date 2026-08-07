@@ -726,6 +726,48 @@ describe('DidValidator', () => {
       )
     })
 
+    it('surfaces carried credentials and classifies the ones that fail (Scope B)', async () => {
+      const carriedInvalid = {
+        id: 'urn:vc:carried-invalid',
+        type: ['VerifiableCredential', 'ExampleBadge'],
+        issuer: didSelfIssued,
+        issuanceDate: '2024-01-01T00:00:00Z',
+        credentialSchema: { id: 'https://example.com/unsupported', type: 'UnsupportedSchemaType' },
+        credentialSubject: { id: 'did:example:holder' },
+      }
+      const vpWithCarried = {
+        ...mockServiceVcSelfIssued,
+        verifiableCredential: [mockServiceVcSelfIssued.verifiableCredential[0], carriedInvalid],
+      }
+
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({
+        ...allowlistMockResponses,
+        ...ALL_ANCHOR_MOCKS,
+        'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: vpWithCarried },
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registriesFor({
+          '12345678': 'did:example:ecosystem',
+          '12345671': 'did:example:ecosystem',
+        }),
+        skipDigestSRICheck: true,
+      })
+
+      // the carried failure must not affect the verdict [IDX-VT-EVAL-1]
+      expect(result.verified).toBe(true)
+
+      const servicePresentation = result.presentations?.find(presentation =>
+        presentation.credentials.some(credential => credential.ecs === ECS.SERVICE),
+      )
+      // the primary ECS credential is surfaced alongside the VP's carried contents
+      expect(servicePresentation?.credentials.some(credential => credential.ecs === ECS.SERVICE)).toBe(true)
+      expect(servicePresentation?.invalidCredentialIds).toContain('urn:vc:carried-invalid')
+    })
+
     it('takes expiresAtTime from the HOLDER entries anchoring the credential', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]

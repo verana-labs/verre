@@ -348,12 +348,20 @@ async function processDidDocument(
           ecsEcosystems,
         )
         credentials.push(credential)
+        const carried = await resolveCarriedCredentials(
+          vp,
+          credential.id,
+          verifiablePublicRegistries ?? [],
+          logger,
+          skipDigestSRICheck,
+          ecsEcosystems,
+        )
         presentations.push({
           serviceId: id,
           endpoint: firstEndpoint(didService),
-          credentials: [credential],
-          unresolvableCredentialIds: [],
-          invalidCredentialIds: [],
+          credentials: [credential, ...carried.credentials],
+          unresolvableCredentialIds: carried.unresolvableCredentialIds,
+          invalidCredentialIds: carried.invalidCredentialIds,
         })
         outcome = vpOutcome
 
@@ -388,7 +396,7 @@ async function processDidDocument(
       service,
       serviceProvider,
       ...(anchorPattern ? { anchorPattern } : {}),
-      // boundary over the anchor credentials only
+
       expiresAtTime: earliestBoundary([
         service.validUntil,
         serviceProvider.validUntil,
@@ -525,6 +533,59 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
 }
 
 /**
+ * Resolves the credentials a VP carries beyond the one driving the verdict. keeps
+ * these out of `trusted`/`expiresAtTime`, so a failure here only classifies the credential —
+ * unresolvable (no trust chain) or invalid (structurally) — and never fails the resolution.
+ */
+async function resolveCarriedCredentials(
+  vp: W3cPresentation,
+  primaryId: string,
+  verifiablePublicRegistries: VerifiablePublicRegistry[],
+  logger: IVerreLogger,
+  skipDigestSRICheck?: boolean,
+  ecsEcosystems?: EcsEcosystem[],
+): Promise<Pick<PresentationSummary, 'credentials' | 'unresolvableCredentialIds' | 'invalidCredentialIds'>> {
+  const all = Array.isArray(vp.verifiableCredential)
+    ? vp.verifiableCredential
+    : vp.verifiableCredential
+      ? [vp.verifiableCredential]
+      : []
+  const carried = all.filter(vc => vc.type?.includes('VerifiableCredential') && vc.id !== primaryId)
+
+  const credentials: ResolvedCredential[] = []
+  const unresolvableCredentialIds: string[] = []
+  const invalidCredentialIds: string[] = []
+
+  await Promise.all(
+    carried.map(async vc => {
+      const vcId = typeof vc.id === 'string' ? vc.id : ''
+      try {
+        const { credential } = await processCredential(
+          vc,
+          verifiablePublicRegistries,
+          skipDigestSRICheck,
+          logger,
+          ecsEcosystems,
+        )
+        credentials.push(credential)
+      } catch (error) {
+        const code = error instanceof TrustError ? error.metadata.errorCode : undefined
+        // no trust chain vs structurally invalid
+        const unresolvable =
+          code === TrustErrorCode.NOT_SUPPORTED ||
+          code === TrustErrorCode.NOT_FOUND ||
+          code === TrustErrorCode.NOT_AUTHORIZED ||
+          code === TrustErrorCode.NO_ANCHORED_DIGEST ||
+          code === TrustErrorCode.INVALID_REQUEST
+        ;(unresolvable ? unresolvableCredentialIds : invalidCredentialIds).push(vcId)
+      }
+    }),
+  )
+
+  return { credentials, unresolvableCredentialIds, invalidCredentialIds }
+}
+
+/**
  * Processes and validates a Verifiable Credential against its declared schema.
  *
  * This function supports two schema types:
@@ -646,7 +707,6 @@ async function processCredential(
         if (version) evidence.ecsSchemaVersion = version
         evidence.issuerParticipant = toParticipantRef(issuerParticipant)
 
-        // HOLDER entries anchoring the credential
         const subjectDid = typeof attrs?.id === 'string' ? attrs.id : undefined
         if (subjectDid) {
           // a credential with no anchoring entry contributes no boundary, not a failure
