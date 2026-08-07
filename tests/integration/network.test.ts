@@ -120,16 +120,20 @@ describe('Integration with Verana Blockchain', () => {
         verified: true,
         outcome: TrustResolutionOutcome.VERIFIED_TEST,
         service: expect.objectContaining({
-          schemaType: 'ecs-service',
-          name: 'V4 Demo Service',
-          logoUri: 'https://v4-agent.example/logo.png',
+          ecs: 'ecs-service',
           issuer: did,
+          subject: expect.objectContaining({
+            name: 'V4 Demo Service',
+            logoUri: 'https://v4-agent.example/logo.png',
+          }),
         }),
         serviceProvider: expect.objectContaining({
-          schemaType: 'ecs-org',
-          name: 'V4 Demo Org',
-          registryId: 'REG-1',
+          ecs: 'ecs-org',
           issuer: did,
+          subject: expect.objectContaining({
+            name: 'V4 Demo Org',
+            registryId: 'REG-1',
+          }),
         }),
       }),
     )

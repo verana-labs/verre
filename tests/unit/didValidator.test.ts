@@ -151,24 +151,26 @@ describe('DidValidator', () => {
           verified: true,
           outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssued,
-          service: {
-            schemaType: ECS.SERVICE,
-            id: didSelfIssued,
+          service: expect.objectContaining({
+            ecs: ECS.SERVICE,
+            id: mockServiceVcSelfIssued.verifiableCredential[0].id,
             issuer: didSelfIssued,
-            ...mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
+            subject: expect.objectContaining(
+              mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject,
+            ),
             validFrom: mockServiceVcSelfIssued.verifiableCredential[0].issuanceDate,
             validUntil: mockServiceVcSelfIssued.verifiableCredential[0].expirationDate,
             raw: mockServiceVcSelfIssued.verifiableCredential[0],
-          },
-          serviceProvider: {
-            schemaType: ECS.ORG,
-            id: didSelfIssued,
+          }),
+          serviceProvider: expect.objectContaining({
+            ecs: ECS.ORG,
+            id: mockOrgVc.verifiableCredential[0].id,
             issuer: didSelfIssued,
-            ...mockOrgVc.verifiableCredential[0].credentialSubject,
+            subject: expect.objectContaining(mockOrgVc.verifiableCredential[0].credentialSubject),
             validFrom: mockOrgVc.verifiableCredential[0].issuanceDate,
             validUntil: mockOrgVc.verifiableCredential[0].expirationDate,
             raw: mockOrgVc.verifiableCredential[0],
-          },
+          }),
         }),
       )
     })
@@ -276,24 +278,28 @@ describe('DidValidator', () => {
           verified: true,
           outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssuedExtIssuer,
-          service: {
-            schemaType: ECS.SERVICE,
-            id: didSelfIssued,
+          service: expect.objectContaining({
+            ecs: ECS.SERVICE,
+            id: mockServiceExtIssuerVc.verifiableCredential[0].id,
             issuer: didSelfIssued,
-            ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            subject: expect.objectContaining(
+              mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            ),
             validFrom: mockServiceExtIssuerVc.verifiableCredential[0].issuanceDate,
             validUntil: mockServiceExtIssuerVc.verifiableCredential[0].expirationDate,
             raw: mockServiceExtIssuerVc.verifiableCredential[0],
-          },
-          serviceProvider: {
-            schemaType: ECS.ORG,
-            id: didSelfIssued,
+          }),
+          serviceProvider: expect.objectContaining({
+            ecs: ECS.ORG,
+            id: mockOrgVcWithoutIssuer.verifiableCredential[0].id,
             issuer: didSelfIssued,
-            ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            subject: expect.objectContaining(
+              mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            ),
             validFrom: mockOrgVcWithoutIssuer.verifiableCredential[0].issuanceDate,
             validUntil: mockOrgVcWithoutIssuer.verifiableCredential[0].expirationDate,
             raw: mockOrgVcWithoutIssuer.verifiableCredential[0],
-          },
+          }),
         }),
       )
     })
@@ -374,24 +380,28 @@ describe('DidValidator', () => {
           verified: true,
           outcome: TrustResolutionOutcome.VERIFIED,
           ...mockDidDocumentSelfIssuedExtIssuer,
-          service: {
-            schemaType: ECS.SERVICE,
-            id: didSelfIssued,
+          service: expect.objectContaining({
+            ecs: ECS.SERVICE,
+            id: mockServiceExtIssuerVc.verifiableCredential[0].id,
             issuer: didSelfIssued,
-            ...mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            subject: expect.objectContaining(
+              mockServiceExtIssuerVc.verifiableCredential[0].credentialSubject,
+            ),
             validFrom: mockServiceExtIssuerVc.verifiableCredential[0].issuanceDate,
             validUntil: mockServiceExtIssuerVc.verifiableCredential[0].expirationDate,
             raw: mockServiceExtIssuerVc.verifiableCredential[0],
-          },
-          serviceProvider: {
-            schemaType: ECS.ORG,
-            id: didSelfIssued,
+          }),
+          serviceProvider: expect.objectContaining({
+            ecs: ECS.ORG,
+            id: mockOrgVcWithoutIssuer.verifiableCredential[0].id,
             issuer: didSelfIssued,
-            ...mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            subject: expect.objectContaining(
+              mockOrgVcWithoutIssuer.verifiableCredential[0].credentialSubject,
+            ),
             validFrom: mockOrgVcWithoutIssuer.verifiableCredential[0].issuanceDate,
             validUntil: mockOrgVcWithoutIssuer.verifiableCredential[0].expirationDate,
             raw: mockOrgVcWithoutIssuer.verifiableCredential[0],
-          },
+          }),
         }),
       )
 
@@ -570,7 +580,7 @@ describe('DidValidator', () => {
         ecsEcosystems: [trusted],
       })
       expect(allowed.verified).toBe(true)
-      expect(allowed.service?.schemaType).toBe(ECS.SERVICE)
+      expect(allowed.service?.ecs).toBe(ECS.SERVICE)
 
       const denied = await resolveDID(didSelfIssued, {
         verifiablePublicRegistries: registriesFor({
@@ -670,6 +680,50 @@ describe('DidValidator', () => {
 
       expect(result.verified).toBe(false)
       expect(result.metadata?.errorMessage).toContain('no provable issuance time')
+    })
+
+    it('surfaces the VPR evidence on each resolved credential (Scope B)', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registriesFor({
+          '12345678': 'did:example:ecosystem',
+          '12345671': 'did:example:ecosystem',
+        }),
+        skipDigestSRICheck: true,
+      })
+
+      expect(result.verified).toBe(true)
+      // the service self-issued this credential
+      expect(result.anchorPattern).toBe('self')
+
+      const service = result.service!
+      // id is the VC id, no longer shadowed by the subject DID
+      expect(service.id).toBe(mockServiceVcSelfIssued.verifiableCredential[0].id)
+      expect(service.subject.id).toBe(mockServiceVcSelfIssued.verifiableCredential[0].credentialSubject.id)
+      expect(service.id).not.toBe(service.subject.id)
+      // EVAL-1 evidence gathered on the way
+      expect(service.digestJCS).toEqual(expect.any(String))
+      expect(service.issuedAtTime).toBe(ANCHORED_AT)
+      expect(service.credentialSchemaId).toEqual(expect.any(Number))
+      expect(service.ecosystemId).toBe(1)
+      expect(service.issuerParticipant).toEqual(
+        expect.objectContaining({ id: 1, role: ParticipantRole.ISSUER }),
+      )
+      expect(Array.isArray(service.subjectParticipants)).toBe(true)
+
+      // the linked VPs are surfaced so consumers do not re-fetch them
+      expect(result.presentations?.length).toBeGreaterThan(0)
+      expect(result.presentations?.[0]).toEqual(
+        expect.objectContaining({
+          serviceId: expect.any(String),
+          endpoint: expect.any(String),
+          credentials: expect.arrayContaining([service]),
+        }),
+      )
     })
 
     it('takes expiresAtTime from the HOLDER entries anchoring the credential', async () => {
