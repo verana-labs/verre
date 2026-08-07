@@ -8,10 +8,39 @@ export type TrustResolution = {
   verified: boolean
   outcome: TrustResolutionOutcome
   metadata?: TrustResolutionMetadata
-  service?: IService
-  serviceProvider?: ICredential
-  failedCredentials?: FailedCredential[]
+  service?: ResolvedCredential
+  serviceProvider?: ResolvedCredential
+  anchorPattern?: 'self' | 'parent'
   expiresAtTime?: string | null
+  presentations?: PresentationSummary[]
+  failedCredentials?: FailedCredential[]
+}
+
+export type ResolvedCredential = {
+  ecs: ECS | null
+  id: string
+  issuer: string
+  subject: Record<string, unknown>
+  validFrom?: string
+  validUntil?: string
+  raw: W3cVerifiableCredential
+
+  digestJCS?: string
+  issuedAtTime?: string
+  issuedAtHeight?: number
+  credentialSchemaId?: number
+  ecosystemId?: number
+  ecsSchemaVersion?: string
+  issuerParticipant?: ParticipantRef
+  subjectParticipants: ParticipantRef[]
+}
+
+export type PresentationSummary = {
+  serviceId: string
+  endpoint: string
+  credentials: ResolvedCredential[]
+  unresolvableCredentialIds: string[]
+  invalidCredentialIds: string[]
 }
 
 export const CREDENTIAL_FORMAT_LDP_VC = 'ldp_vc'
@@ -54,7 +83,7 @@ export type VerifyParticipantOptions = {
 
 export type InternalResolverConfig = Omit<ResolverConfig, 'didResolver'> & {
   didResolver: Resolver
-  attrs?: IService
+  attrs?: ResolvedCredential
 }
 
 /**
