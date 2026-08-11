@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.0](https://github.com/verana-labs/verre/compare/v0.3.2...v0.4.0) (2026-08-10)
+
+
+### ⚠ BREAKING CHANGES
+
+* trust resolution according to v4 spec ([#135](https://github.com/verana-labs/verre/issues/135))
+* derive the issuance instant from the ledger anchored digest ([#134](https://github.com/verana-labs/verre/issues/134))
+* resolve schemas through the vpr scheme and verify participants at the issuance instant ([#131](https://github.com/verana-labs/verre/issues/131))
+* replace the v3 permission model with the v4 participant model ([#130](https://github.com/verana-labs/verre/issues/130))
+* identify ECS by v4 schema digests ([#120](https://github.com/verana-labs/verre/issues/120))
+
+### Features
+
+* derive the issuance instant from the ledger anchored digest ([#134](https://github.com/verana-labs/verre/issues/134)) ([56de89a](https://github.com/verana-labs/verre/commit/56de89af5b71819761bfab3c4ffce6df1f808ba4))
+* gate ECS classification on an ecosystem allowlist ([#124](https://github.com/verana-labs/verre/issues/124)) ([7bb2627](https://github.com/verana-labs/verre/commit/7bb2627caf2344175a48863ff8bcca091b482693))
+* identify ECS by v4 schema digests ([#120](https://github.com/verana-labs/verre/issues/120)) ([34ab431](https://github.com/verana-labs/verre/commit/34ab431997abf7261a318d7f0134a662b5733818))
+* replace the v3 permission model with the v4 participant model ([#130](https://github.com/verana-labs/verre/issues/130)) ([9619f92](https://github.com/verana-labs/verre/commit/9619f92f0239affb6aa69c1c726c37c06a948e31))
+* resolve schemas through the vpr scheme and verify participants at the issuance instant ([#131](https://github.com/verana-labs/verre/issues/131)) ([6134099](https://github.com/verana-labs/verre/commit/613409932077381e2bd066b953049bf41ea3f1be))
+* trust resolution according to v4 spec ([#135](https://github.com/verana-labs/verre/issues/135)) ([9047334](https://github.com/verana-labs/verre/commit/904733477c643e9dc2c75c78d1f20c7bd8c0e019))
+
+
+### Bug Fixes
+
+* accept unpadded base64url JWS signatures ([#121](https://github.com/verana-labs/verre/issues/121)) ([fead46d](https://github.com/verana-labs/verre/commit/fead46d5a718f8048d66a8a5d882579de79c8db1))
+* bump resolve-version action ([8e71f34](https://github.com/verana-labs/verre/commit/8e71f345fbd9af9c62bd2eb2f85bb5cf3e0c187e))
+
 ## [0.3.2](https://github.com/verana-labs/verre/compare/v0.3.1...v0.3.2) (2026-07-27)
 
 
