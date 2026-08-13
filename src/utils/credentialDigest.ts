@@ -1,5 +1,3 @@
-import type { W3cVerifiableCredential } from '@credo-ts/core'
-
 import { base64 } from '@scure/base'
 import _canonicalize from 'canonicalize'
 
@@ -22,10 +20,7 @@ const DIGEST_ALGORITHMS: Record<string, string> = {
  * `proof` are both included, then base64 with padding and no algorithm prefix. The algorithm comes
  * from the schema, not the value. See the Verifiable Trust spec, Computing `digestJCS`.
  */
-export function computeCredentialDigestJCS(
-  credential: W3cVerifiableCredential,
-  digestAlgorithm: string,
-): string {
+export function computeCredentialDigestJCS(credential: object, digestAlgorithm: string): string {
   const algorithm = DIGEST_ALGORITHMS[String(digestAlgorithm).toLowerCase()]
   if (!algorithm)
     throw new TrustError(

@@ -1006,28 +1006,32 @@ async function verifyAuthorization(
   participants = await fetchParticipantsAt(api, schemaId, did, role, issuanceDate, adapter)
 
   const issuanceTs = Date.parse(issuanceDate)
-  const authorized = participants.find(participant => {
+  const covering = participants.filter(participant => {
     if (participant.role !== role) return false
     const effectiveFrom = Date.parse(participant.effective_from ?? participant.created)
     const effectiveUntil = participant.effective_until ? Date.parse(participant.effective_until) : Date.now()
     return issuanceTs >= effectiveFrom && issuanceTs <= effectiveUntil
   })
 
-  if (!authorized)
+  if (covering.length === 0)
     throw new TrustError(
       TrustErrorCode.NOT_AUTHORIZED,
       `No ${role} Participant effective at ${issuanceDate} was found for the specified DID: ${did} for schema ${schemaId}`,
     )
 
+  // any covering entry authorises the issuance if usable now; a revoked one must not shadow a usable one.
   // later expiry does not invalidate an already-issued credential, every other state does:
   // REPAID reports a slash that may also mask a revocation, FUTURE and INACTIVE were never effective
-  if (
-    authorized.participant_state !== ParticipantState.ACTIVE &&
-    authorized.participant_state !== ParticipantState.EXPIRED
+  const authorized = covering.find(
+    participant =>
+      participant.participant_state === ParticipantState.ACTIVE ||
+      participant.participant_state === ParticipantState.EXPIRED,
   )
+
+  if (!authorized)
     throw new TrustError(
       TrustErrorCode.NOT_AUTHORIZED,
-      `Participant for the specified DID: ${did} for schema ${schemaId} is ${authorized.participant_state ?? 'in an unknown state'}`,
+      `Participant for the specified DID: ${did} for schema ${schemaId} is ${covering[0].participant_state ?? 'in an unknown state'}`,
     )
 
   logger.debug('Participant verified successfully', { did, schemaId })

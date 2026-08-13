@@ -768,6 +768,58 @@ describe('DidValidator', () => {
       expect(servicePresentation?.invalidCredentialIds).toContain('urn:vc:carried-invalid')
     })
 
+    it('prefers an ACTIVE Participant over a revoked one covering the same instant', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
+
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        // the revoked entry is returned BEFORE the active one, both covering the issuance instant
+        listParticipants: async (_schemaId: number, _did: string, role: ParticipantRole) =>
+          role === ParticipantRole.ISSUER
+            ? [
+                {
+                  id: 4,
+                  role: ParticipantRole.ISSUER,
+                  created: '2000-01-01T00:00:00Z',
+                  effective_from: '2000-01-01T00:00:00Z',
+                  participant_state: ParticipantState.REVOKED,
+                },
+                {
+                  id: 45,
+                  role: ParticipantRole.ISSUER,
+                  created: '2000-01-01T00:00:00Z',
+                  effective_from: '2000-01-01T00:00:00Z',
+                  participant_state: ParticipantState.ACTIVE,
+                },
+              ]
+            : [],
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async () => ({
+          id: 1,
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
+        }),
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+
+      // the active entry authorises the issuance even though the revoked one is listed first
+      expect(result.verified).toBe(true)
+      expect(result.service?.issuerParticipant?.id).toBe(45)
+    })
+
     it('takes expiresAtTime from the HOLDER entries anchoring the credential', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
