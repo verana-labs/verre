@@ -19,8 +19,19 @@ const DIGEST_ALGORITHMS: Record<string, string> = {
  * JCS (RFC 8785) over the credential as issued, in its entirety: no member is removed, `id` and
  * `proof` are both included, then base64 with padding and no algorithm prefix. The algorithm comes
  * from the schema, not the value. See the Verifiable Trust spec, Computing `digestJCS`.
+ *
+ * The input MUST be the credential as plain JSON-LD (the shape a verifier fetches over HTTP), not a
+ * VC library's internal class instance. A raw class instance canonicalizes under its internal
+ * property names (e.g. `context` instead of `@context`) and hashes to a digest no third party can
+ * reproduce; serialize it first (e.g. credo-ts `JsonTransformer.toJSON(credential)`).
  */
 export function computeCredentialDigestJCS(credential: object, digestAlgorithm: string): string {
+  if (typeof credential !== 'object' || credential === null || !('@context' in credential))
+    throw new TrustError(
+      TrustErrorCode.INVALID,
+      'computeCredentialDigestJCS expects a plain JSON-LD credential (with `@context`), not a VC library class instance',
+    )
+
   const algorithm = DIGEST_ALGORITHMS[String(digestAlgorithm).toLowerCase()]
   if (!algorithm)
     throw new TrustError(
