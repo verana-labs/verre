@@ -34,6 +34,7 @@ import {
   CredentialSchemaRef,
 } from '../types.js'
 import {
+  buildMetadata,
   fetchJson,
   fetchText,
   handleTrustError,
@@ -317,6 +318,7 @@ async function processDidDocument(
 
   const credentials: ResolvedCredential[] = []
   const presentations: PresentationSummary[] = []
+  const failedCredentials: FailedCredential[] = []
   let serviceProvider: ResolvedCredential | undefined
   let service: ResolvedCredential | undefined = attrs
   let outcome: TrustResolutionOutcome = TrustResolutionOutcome.NOT_TRUSTED
@@ -324,12 +326,14 @@ async function processDidDocument(
   let delegatedExpiresAtTime: string | null | undefined
 
   logger.debug('Processing DID services', { serviceCount: didDocument.service.length })
-  const serviceResults = await Promise.allSettled(
+  const serviceResults = await Promise.all(
     didDocument.service.map(async didService => {
       const { type, id } = didService
       const matchesPattern = LINKED_VP_FRAGMENT_PATTERNS.some(pattern => pattern.test(id.split('#')[1]))
       logger.debug('Evaluating DID service', { id, type, matchesPattern })
-      if (type === 'LinkedVerifiablePresentation' && matchesPattern) {
+      if (type !== 'LinkedVerifiablePresentation' || !matchesPattern) return undefined
+
+      try {
         logger.debug('Resolving linked VP service', { id })
         const vp = await resolveServiceVP(didService)
         if (!vp)
@@ -377,17 +381,27 @@ async function processDidDocument(
           serviceProvider = resolution.serviceProvider
           delegatedExpiresAtTime = resolution.expiresAtTime
         }
+        return undefined
+      } catch (error) {
+        logger.debug('Linked VP resolution failed', { id, error })
+        const failure = classifyVpFailure(error)
+        failedCredentials.push(...failure.failedCredentials)
+        presentations.push({
+          serviceId: id,
+          endpoint: firstEndpoint(didService),
+          credentials: [],
+          unresolvableCredentialIds: failure.unresolvableCredentialIds,
+          invalidCredentialIds: failure.invalidCredentialIds,
+        })
+        return { errorCode: failure.errorCode, errorMessage: failure.errorMessage }
       }
     }),
   )
 
-  const reasons = serviceResults.flatMap(result => (result.status === 'rejected' ? [result.reason] : []))
-  if (reasons.length > 0) throw aggregateCredentialFailures(reasons)
-
   service ??= credentials.find(cred => cred.ecs === ECS.SERVICE)
   serviceProvider ??= credentials.find(cred => cred.ecs === ECS.ORG || cred.ecs === ECS.PERSONA)
 
-  // If proof of trust exists, return the result with the service (issuer equals did)
+  // trust is derived only from the ECS anchors; other credentials only ride along the sections.
   if (serviceProvider && service) {
     return {
       didDocument,
@@ -396,7 +410,6 @@ async function processDidDocument(
       service,
       serviceProvider,
       ...(anchorPattern ? { anchorPattern } : {}),
-
       expiresAtTime: earliestBoundary([
         service.validUntil,
         serviceProvider.validUntil,
@@ -405,9 +418,25 @@ async function processDidDocument(
         delegatedExpiresAtTime,
       ]),
       presentations,
+      ...(failedCredentials.length > 0 ? { failedCredentials } : {}),
     }
   }
-  throw new TrustError(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found')
+
+  // the ECS anchors did not both resolve: not trusted, but return everything gathered — never collapse.
+  const firstFailure = serviceResults.find(result => result !== undefined)
+  return {
+    didDocument,
+    verified: false,
+    outcome: TrustResolutionOutcome.INVALID,
+    metadata: firstFailure
+      ? buildMetadata(firstFailure.errorCode, firstFailure.errorMessage)
+      : buildMetadata(TrustErrorCode.NOT_FOUND, 'Valid serviceProvider and service were not found'),
+    ...(anchorPattern ? { anchorPattern } : {}),
+    ...(service ? { service } : {}),
+    ...(serviceProvider ? { serviceProvider } : {}),
+    presentations,
+    ...(failedCredentials.length > 0 ? { failedCredentials } : {}),
+  }
 }
 
 /** The first serviceEndpoint of a DID service, as a string (for evidence). */
@@ -532,6 +561,51 @@ function getCredential(vp: W3cPresentation): W3cVerifiableCredential {
   return validCredential
 }
 
+function isUnresolvableCode(code: TrustErrorCode | undefined): boolean {
+  return (
+    code === TrustErrorCode.NOT_SUPPORTED ||
+    code === TrustErrorCode.NOT_FOUND ||
+    code === TrustErrorCode.NOT_AUTHORIZED ||
+    code === TrustErrorCode.NO_ANCHORED_DIGEST ||
+    code === TrustErrorCode.INVALID_REQUEST
+  )
+}
+
+/**
+ * Splits a VP-processing failure into the per-presentation buckets the spec groups by
+ * the `failedCredentials` it carried, plus each id classified as unresolvable
+ * (no trust chain) or invalid (structurally). A VP-level failure with no per-credential detail
+ * (e.g. an unfetchable endpoint) yields a single entry with no id to classify.
+ */
+function classifyVpFailure(error: unknown): Pick<
+  PresentationSummary,
+  'unresolvableCredentialIds' | 'invalidCredentialIds'
+> & {
+  errorCode: TrustErrorCode
+  errorMessage: string
+  failedCredentials: FailedCredential[]
+} {
+  const errorCode =
+    error instanceof TrustError
+      ? (error.metadata.errorCode ?? TrustErrorCode.INVALID)
+      : TrustErrorCode.INVALID
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  const failedCredentials =
+    error instanceof TrustError && error.failedCredentials
+      ? error.failedCredentials
+      : [{ format: CREDENTIAL_FORMAT_LDP_VC, error: errorMessage, errorCode }]
+
+  const unresolvableCredentialIds: string[] = []
+  const invalidCredentialIds: string[] = []
+  for (const failure of failedCredentials) {
+    if (failure.id === undefined) continue
+    ;(isUnresolvableCode(failure.errorCode) ? unresolvableCredentialIds : invalidCredentialIds).push(
+      failure.id,
+    )
+  }
+  return { errorCode, errorMessage, failedCredentials, unresolvableCredentialIds, invalidCredentialIds }
+}
+
 /**
  * Resolves the credentials a VP carries beyond the one driving the verdict. keeps
  * these out of `trusted`/`expiresAtTime`, so a failure here only classifies the credential —
@@ -570,14 +644,7 @@ async function resolveCarriedCredentials(
         credentials.push(credential)
       } catch (error) {
         const code = error instanceof TrustError ? error.metadata.errorCode : undefined
-        // no trust chain vs structurally invalid
-        const unresolvable =
-          code === TrustErrorCode.NOT_SUPPORTED ||
-          code === TrustErrorCode.NOT_FOUND ||
-          code === TrustErrorCode.NOT_AUTHORIZED ||
-          code === TrustErrorCode.NO_ANCHORED_DIGEST ||
-          code === TrustErrorCode.INVALID_REQUEST
-        ;(unresolvable ? unresolvableCredentialIds : invalidCredentialIds).push(vcId)
+        ;(isUnresolvableCode(code) ? unresolvableCredentialIds : invalidCredentialIds).push(vcId)
       }
     }),
   )
@@ -885,35 +952,6 @@ function toCredentialFailure(error: unknown, credential: W3cVerifiableCredential
       errorCode,
     },
   ])
-}
-
-/**
- * Combines failures raised across the DID document's services into a single error.
- *
- * The first failure supplies the top-level message and code (preserving the message a
- * caller would previously have seen), while every failure contributes its per-credential
- * detail so none is lost.
- *
- * @param reasons - The rejection reasons collected from the service resolutions.
- * @returns A `TrustError` carrying the combined per-credential detail.
- */
-function aggregateCredentialFailures(reasons: unknown[]): TrustError {
-  const failedCredentials = reasons.flatMap<FailedCredential>(reason =>
-    reason instanceof TrustError ? (reason.failedCredentials ?? []) : [],
-  )
-  const [first] = reasons
-  if (first instanceof TrustError) {
-    return new TrustError(
-      first.metadata.errorCode ?? TrustErrorCode.INVALID,
-      first.message,
-      failedCredentials,
-    )
-  }
-  return new TrustError(
-    TrustErrorCode.INVALID,
-    first instanceof Error ? first.message : String(first),
-    failedCredentials,
-  )
 }
 
 async function resolveCredentialSchema(
