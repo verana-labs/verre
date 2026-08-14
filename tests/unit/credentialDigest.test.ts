@@ -43,4 +43,18 @@ describe('computeCredentialDigestJCS', () => {
       }),
     )
   })
+
+  it('rejects a class-instance shape (`context` instead of `@context`) instead of anchoring an unreproducible digest', () => {
+    const classInstance = {
+      context: ['https://www.w3.org/2018/credentials/v1'],
+      id: 'urn:uuid:vtc-1',
+      type: ['VerifiableCredential', 'VerifiableTrustCredential'],
+      issuer: 'did:webvh:example',
+    } as never
+    expect(() => computeCredentialDigestJCS(classInstance, 'sha384')).toThrowError(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ errorCode: TrustErrorCode.INVALID }),
+      }),
+    )
+  })
 })
