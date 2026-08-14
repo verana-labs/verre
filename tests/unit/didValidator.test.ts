@@ -820,6 +820,68 @@ describe('DidValidator', () => {
       expect(result.service?.issuerParticipant?.id).toBe(45)
     })
 
+    it('surfaces a failed ECS credential per-VP instead of collapsing the resolution (Level 2)', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      fetchMocker.setMockResponses({ ...allowlistMockResponses, ...ALL_ANCHOR_MOCKS })
+
+      const registries = createRegistriesWithAdapter({
+        fetchSchema: async (url: string) => {
+          if (url.includes('12345678')) return JSON.stringify(mockCredentialSchemaSer)
+          if (url.includes('12345671')) return JSON.stringify(mockCredentialSchemaOrg)
+          throw new Error(`Unexpected schema URL in adapter: ${url}`)
+        },
+        // the ORG issuer (schema 12345671) is revoked; the SERVICE issuer (12345678) is active
+        listParticipants: async (schemaId: number, _did: string, role: ParticipantRole) => {
+          if (role !== ParticipantRole.ISSUER) return []
+          return String(schemaId) === '12345671'
+            ? [
+                {
+                  id: 4,
+                  role: ParticipantRole.ISSUER,
+                  created: '2000-01-01T00:00:00Z',
+                  participant_state: ParticipantState.REVOKED,
+                },
+              ]
+            : [
+                {
+                  id: 1,
+                  role: ParticipantRole.ISSUER,
+                  created: '2000-01-01T00:00:00Z',
+                  participant_state: ParticipantState.ACTIVE,
+                },
+              ]
+        },
+        fetchDigest: async () => ({ created: ANCHORED_AT }),
+        fetchCredentialSchema: async (schemaId: number) => ({
+          id: Number(schemaId),
+          ecosystemId: 1,
+          ecosystemDid: 'did:example:ecosystem',
+          digestAlgorithm: 'sha384',
+          jsonSchema: '',
+        }),
+      })
+
+      const result = await resolveDID(didSelfIssued, {
+        verifiablePublicRegistries: registries,
+        skipDigestSRICheck: true,
+      })
+
+      // the ORG anchor failed → not trusted, but the resolution did not collapse
+      expect(result.verified).toBe(false)
+      // the SERVICE credential that resolved is still surfaced
+      expect(result.service?.ecs).toBe(ECS.SERVICE)
+      expect(result.serviceProvider).toBeUndefined()
+      // the failed ORG credential is attributed to its own VP, not dropped
+      const failedVp = result.presentations?.find(
+        presentation =>
+          presentation.unresolvableCredentialIds.length > 0 || presentation.invalidCredentialIds.length > 0,
+      )
+      expect(failedVp).toBeDefined()
+      expect(result.failedCredentials?.some(f => f.errorCode === TrustErrorCode.NOT_AUTHORIZED)).toBe(true)
+    })
+
     it('takes expiresAtTime from the HOLDER entries anchoring the credential', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]
