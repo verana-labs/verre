@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1](https://github.com/verana-labs/verre/compare/v0.4.0...v0.4.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* reject non-JSON-LD input in computeCredentialDigestJCS instead of anchoring an unreproducible digest ([#139](https://github.com/verana-labs/verre/issues/139)) ([859fef5](https://github.com/verana-labs/verre/commit/859fef55fce683bbb19ce38ca8262d676c2cc833))
+* select the active Participant instead of the first one covering the instant ([#137](https://github.com/verana-labs/verre/issues/137)) ([127a181](https://github.com/verana-labs/verre/commit/127a18184aea0155ebf628d04ae034af3f4cbb74))
+* surface all credentials per-VP instead of collapsing on first failure ([#140](https://github.com/verana-labs/verre/issues/140)) ([bfb1500](https://github.com/verana-labs/verre/commit/bfb1500423f5fac957cb253f20492e6b214de2ce))
+
 ## [0.4.0](https://github.com/verana-labs/verre/compare/v0.3.2...v0.4.0) (2026-08-10)
 
 
