@@ -176,18 +176,13 @@ async function verifyJsonLdCredential(
   const proofs = asArray(vc.proof as Record<string, unknown> | Record<string, unknown>[])
   if (proofs.length === 0) return invalid('Credential has no proof')
 
+  const allowedProofPurposes = isPresentation ? PRESENTATION_PROOF_PURPOSES : CREDENTIAL_PROOF_PURPOSES
   for (const proof of proofs) {
     if (!proof || typeof proof !== 'object') return invalid('Credential proof must be an object')
     const result =
       proof.type === DATA_INTEGRITY_PROOF_TYPE
-        ? await verifyDataIntegrityProof(
-            vc,
-            proof,
-            isPresentation ? PRESENTATION_PROOF_PURPOSES : CREDENTIAL_PROOF_PURPOSES,
-            didResolver,
-            logger,
-          )
-        : await verifyLinkedDataProof(vc, proof, context, didResolver, logger)
+        ? await verifyDataIntegrityProof(vc, proof, allowedProofPurposes, didResolver, logger)
+        : await verifyLinkedDataProof(vc, proof, context, allowedProofPurposes, didResolver, logger)
     if (!result.isValid) return result
   }
   return { isValid: true }
@@ -207,18 +202,21 @@ async function verifyJsonLdCredential(
  *   4. Canonicalize document (without proof)
  *   5. verifyData = SHA-256(proofOptionsNQuads) || SHA-256(documentNQuads)
  *   6. Decode proofValue from multibase base58 ('z' prefix)
- *   7. Resolve verification method DID → extract public key
+ *   7. Resolve the verification method and check it is authorised for `proofPurpose`
+ *      in the controller DID document
  *   8. Verify Ed25519 signature over verifyData
  *
- * @param vc      The Verifiable Credential as a JSON-LD object.
- * @param proof   The proof under verification.
- * @param context The document `@context`, which the proof options are canonicalized under.
- * @param logger  Logger instance used for debug information.
+ * @param vc                    The Verifiable Credential as a JSON-LD object.
+ * @param proof                 The proof under verification.
+ * @param context               The document `@context`, which the proof options are canonicalized under.
+ * @param allowedProofPurposes  The proof purposes acceptable for this kind of document.
+ * @param logger                Logger instance used for debug information.
  */
 async function verifyLinkedDataProof(
   vc: Record<string, unknown>,
   proof: Record<string, unknown>,
   context: unknown,
+  allowedProofPurposes: ProofPurpose[],
   didResolver: Resolver,
   logger: IVerreLogger,
 ): Promise<ProofVerification> {
@@ -231,6 +229,8 @@ async function verifyLinkedDataProof(
   if (!verificationMethodId) {
     return invalid('Missing verificationMethod in proof')
   }
+  const purpose = checkProofPurpose(proof.proofPurpose, allowedProofPurposes)
+  if (typeof purpose !== 'string') return purpose
 
   const proofOptions: Record<string, unknown> = { ...proof }
   delete proofOptions.proofValue
@@ -284,17 +284,19 @@ async function verifyLinkedDataProof(
     return invalid(`Unsupported proof type: ${proofType}`)
   }
 
-  const publicKeyBytes = await resolvePublicKey(verificationMethodId, didResolver, logger)
-  if (!publicKeyBytes) {
-    return invalid(`Cannot resolve verification method: ${verificationMethodId}`)
-  }
+  const publicKey = await resolveAuthorizedPublicKey(verificationMethodId, purpose, didResolver, logger)
+  if (!(publicKey instanceof Uint8Array)) return publicKey
 
-  const valid = ed25519.verify(signatureBytes, verifyData, publicKeyBytes)
+  const valid = ed25519.verify(signatureBytes, verifyData, publicKey)
   if (!valid) {
     return invalid('Ed25519 signature verification failed')
   }
 
-  logger.debug(`${proofType} verified OK`, { vcId: vc.id, verificationMethod: verificationMethodId })
+  logger.debug(`${proofType} verified OK`, {
+    vcId: vc.id,
+    verificationMethod: verificationMethodId,
+    proofPurpose: purpose,
+  })
   return { isValid: true }
 }
 
@@ -338,15 +340,8 @@ async function verifyDataIntegrityProof(
   if (typeof verificationMethodId !== 'string') {
     return invalid('Missing verificationMethod in proof')
   }
-  const proofPurpose = proofConfig.proofPurpose
-  if (typeof proofPurpose !== 'string') {
-    return invalid('Missing proofPurpose in proof')
-  }
-  if (!allowedProofPurposes.includes(proofPurpose as ProofPurpose)) {
-    return invalid(
-      `Unexpected proofPurpose '${proofPurpose}', expected one of: ${allowedProofPurposes.join(', ')}`,
-    )
-  }
+  const proofPurpose = checkProofPurpose(proofConfig.proofPurpose, allowedProofPurposes)
+  if (typeof proofPurpose !== 'string') return proofPurpose
   if (typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
     return invalid('Missing or invalid proofValue (expected multibase base58-btc)')
   }
@@ -380,23 +375,12 @@ async function verifyDataIntegrityProof(
   }
   const verifyData = concatBytes(hash('SHA256', canonicalProofConfig), hash('SHA256', transformedDocument))
 
-  const resolved = await resolveVerificationMethod(verificationMethodId, didResolver, logger)
-  if (!resolved) {
-    return invalid(`Cannot resolve verification method: ${verificationMethodId}`)
-  }
-  if (!isAuthorizedForPurpose(resolved.didDocument, verificationMethodId, proofPurpose)) {
-    return invalid(
-      `Verification method ${verificationMethodId} is not authorized for proof purpose '${proofPurpose}'`,
-    )
-  }
-  const publicKeyBytes = extractEd25519PublicKey(resolved.verificationMethod, logger)
-  if (!publicKeyBytes) {
-    return invalid(`No supported Ed25519 public key in verification method: ${verificationMethodId}`)
-  }
+  const publicKey = await resolveAuthorizedPublicKey(verificationMethodId, proofPurpose, didResolver, logger)
+  if (!(publicKey instanceof Uint8Array)) return publicKey
 
   let valid: boolean
   try {
-    valid = ed25519.verify(signatureBytes, verifyData, publicKeyBytes)
+    valid = ed25519.verify(signatureBytes, verifyData, publicKey)
   } catch (error) {
     return invalid(`Ed25519 signature verification failed: ${error instanceof Error ? error.message : error}`)
   }
@@ -413,17 +397,48 @@ async function verifyDataIntegrityProof(
 }
 
 /**
- * Resolve a verification method DID URL to a raw Ed25519 public key (32 bytes)
- * @param verificationMethodId Full DID URL of the verification method * (e.g. did:example:123#key-1).
- * @returns
+ * Checks that a proof declares a purpose this kind of document accepts.
+ * @returns The proof purpose, or the failed verification.
  */
-async function resolvePublicKey(
+function checkProofPurpose(
+  proofPurpose: unknown,
+  allowedProofPurposes: ProofPurpose[],
+): ProofPurpose | ProofVerification {
+  if (typeof proofPurpose !== 'string') return invalid('Missing proofPurpose in proof')
+  if (!allowedProofPurposes.includes(proofPurpose as ProofPurpose)) {
+    return invalid(
+      `Unexpected proofPurpose '${proofPurpose}', expected one of: ${allowedProofPurposes.join(', ')}`,
+    )
+  }
+  return proofPurpose as ProofPurpose
+}
+
+/**
+ * Resolves a verification method DID URL to its raw Ed25519 public key (32 bytes), provided the
+ * controller DID document authorizes the method for the proof purpose.
+ * @param verificationMethodId Full DID URL of the verification method (e.g. did:example:123#key-1).
+ * @returns The public key, or the failed verification.
+ */
+async function resolveAuthorizedPublicKey(
   verificationMethodId: string,
+  proofPurpose: ProofPurpose,
   didResolver: Resolver,
   logger: IVerreLogger,
-): Promise<Uint8Array | null> {
+): Promise<Uint8Array | ProofVerification> {
   const resolved = await resolveVerificationMethod(verificationMethodId, didResolver, logger)
-  return resolved ? extractEd25519PublicKey(resolved.verificationMethod, logger) : null
+  if (!resolved) {
+    return invalid(`Cannot resolve verification method: ${verificationMethodId}`)
+  }
+  if (!isAuthorizedForPurpose(resolved.didDocument, verificationMethodId, proofPurpose)) {
+    return invalid(
+      `Verification method ${verificationMethodId} is not authorized for proof purpose '${proofPurpose}'`,
+    )
+  }
+  const publicKey = extractEd25519PublicKey(resolved.verificationMethod, logger)
+  if (!publicKey) {
+    return invalid(`No supported Ed25519 public key in verification method: ${verificationMethodId}`)
+  }
+  return publicKey
 }
 
 /**
@@ -517,7 +532,8 @@ function extractEd25519PublicKey(vm: VerificationMethod, logger: IVerreLogger): 
 
 /**
  * Whether a DID document lists a verification method under the verification relationship named
- * by a proof purpose (VC Data Integrity 1.0 §4.4, step 9: the method MUST be authorized for it).
+ * by a proof purpose (VC Data Integrity 1.0 §4.4, step 9, and the Linked Data Proofs proof purpose
+ * validation: the method MUST be authorized for it).
  */
 function isAuthorizedForPurpose(
   didDocument: DIDDocument,

@@ -26,7 +26,7 @@ VerRe verifies JSON-LD credentials, and the linked presentations that carry them
 | `DataIntegrityProof` with the `eddsa-jcs-2022` cryptosuite | VC Data Model 1.1 & 2.0 | JCS (RFC 8785), no context retrieval |
 | `Ed25519Signature2020` / `Ed25519Signature2018`          | VC Data Model 1.1       | RDF Dataset (URDNA2015)              |
 
-A `DataIntegrityProof` is accepted only when its `verificationMethod` is listed in the DID document under the relationship named by its `proofPurpose`: `assertionMethod` for credentials, `authentication` (or `assertionMethod`) for presentations. Credentials may declare their validity with `validFrom` / `validUntil` (2.0) or `issuanceDate` / `expirationDate` (1.1).
+A proof is accepted only when its `verificationMethod` is listed in the DID document under the relationship named by its `proofPurpose`: `assertionMethod` for credentials, `authentication` (or `assertionMethod`) for presentations. Credentials may declare their validity with `validFrom` / `validUntil` (2.0) or `issuanceDate` / `expirationDate` (1.1).
 
 ### didwebvh-ts
 
