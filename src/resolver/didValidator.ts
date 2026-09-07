@@ -703,7 +703,8 @@ async function processCredential(
       logger,
       ecsEcosystems,
       w3cCredential.issuer as string,
-      w3cCredential.issuanceDate as string,
+      // VC Data Model 2.0 credentials carry validFrom where 1.1 ones carry issuanceDate
+      normalizeValidityWindow(w3cCredential).validFrom,
       subject as Record<string, string>,
       sourceCredential ?? w3cCredential,
     )
@@ -725,7 +726,7 @@ async function processCredential(
       if (!issuer || !issuanceDate)
         throw new TrustError(
           TrustErrorCode.NOT_AUTHORIZED,
-          `Missing required fields: ${!issuer ? 'issuer' : 'issuanceDate'}`,
+          `Missing required fields: ${!issuer ? 'issuer' : 'validFrom (or issuanceDate)'}`,
         )
 
       logger.debug('Fetching schemas in parallel')
