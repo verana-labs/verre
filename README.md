@@ -10,19 +10,30 @@ The main entry point for using the resolver is the `resolve` function, which all
 
 ### Verifiable Trust spec versions
 
-| Verifiable Trust spec | verre |
+| Verifiable Trust spec | VerRe |
 | --------------------- | ----- |
 | v3 (current testnet)  | 0.3.x |
 | v4 onwards            | 0.4.x |
 
-verre 0.4.x identifies Essential Credential Schemas by the v4 reference digests ([ECS-EC](https://verana-labs.github.io/verifiable-trust-spec/versions/v4/#ecs-ec-essential-credential-schemas-ecosystem)), so v3 schemas are reported as unknown. Legacy deployments should stay on 0.3.x.
+VerRe 0.4.x identifies Essential Credential Schemas by the v4 reference digests ([ECS-EC](https://verana-labs.github.io/verifiable-trust-spec/versions/v4/#ecs-ec-essential-credential-schemas-ecosystem)), so v3 schemas are reported as unknown. Legacy deployments should stay on 0.3.x.
+
+### Credential formats
+
+VerRe verifies JSON-LD credentials, and the linked presentations that carry them, secured with:
+
+| Proof                                                        | Data model              | Canonicalization                     |
+| ------------------------------------------------------------ | ----------------------- | ------------------------------------ |
+| `DataIntegrityProof` with the `eddsa-jcs-2022` cryptosuite | VC Data Model 1.1 & 2.0 | JCS (RFC 8785), no context retrieval |
+| `Ed25519Signature2020` / `Ed25519Signature2018`          | VC Data Model 1.1       | RDF Dataset (URDNA2015)              |
+
+A proof is accepted only when its `verificationMethod` is listed in the DID document under the relationship named by its `proofPurpose`: `assertionMethod` for credentials, `authentication` (or `assertionMethod`) for presentations. Credentials may declare their validity with `validFrom` / `validUntil` (2.0) or `issuanceDate` / `expirationDate` (1.1).
 
 ### didwebvh-ts
 
-`didwebvh-ts@2.7.2` is only supported up to **verre v0.2.6**.
+`didwebvh-ts@2.7.2` is only supported up to **VerRe v0.2.6**.
 From `2.7.3`, the library enforces spec-compliant validation, which may break resolution for older (non-compliant) DID logs.
 
-If you are using newer versions of verre with legacy DIDs, you may encounter issues or need a temporary patch until your DIDs are re-issued.
+If you are using newer versions of VerRe with legacy DIDs, you may encounter issues or need a temporary patch until your DIDs are re-issued.
 
 This change is due to versions prior to `2.7.3` not fully complying with the spec.
 See: [https://github.com/verana-labs/verre/issues/103](https://github.com/verana-labs/verre/issues/103)
@@ -56,7 +67,7 @@ yarn add @verana-labs/verre
 
 ## Overview
 
-The Verre resolver provides two primary resolution methods:
+VerRe provides two primary resolution methods:
 
 * **`resolveDID`**: Resolves a Decentralized Identifier (DID), retrieves its DID Document, validates its services, and performs trust evaluation using configured registries.
 * **`resolveCredential`**: Validates a W3C Verifiable Credential by extracting its issuer and evaluating it against trust registries.
@@ -85,7 +96,7 @@ async function verifyParticipant(options: VerifyParticipantOptions): Promise<{ v
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **cache** (*TrustResolutionCache<string, Promise<TrustResolution>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
 * **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
-* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems allowed to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].scheme`). When set, a schema whose Ecosystem is not allowed degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; verre throws if one is not configured. Resolutions are cached per allowlist.
+* **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems allowed to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].scheme`). When set, a schema whose Ecosystem is not allowed degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; VerRe throws if one is not configured. Resolutions are cached per allowlist.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
 ---
