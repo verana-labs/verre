@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.2](https://github.com/verana-labs/verre/compare/v0.4.1...v0.4.2) (2026-10-07)
+
+
+### Features
+
+* support Data Integrity proofs ([#141](https://github.com/verana-labs/verre/issues/141)) ([91aebf2](https://github.com/verana-labs/verre/commit/91aebf2c67865501c75b49566501950e08dd2df1))
+
+
+### Bug Fixes
+
+* serve the W3C JSON Schema meta-schema from a bundled copy and cache schema documents ([#144](https://github.com/verana-labs/verre/issues/144)) ([051b5f8](https://github.com/verana-labs/verre/commit/051b5f8e3ddd51ecda4f64af5d7ff40300465aa9))
+
 ## [0.4.1](https://github.com/verana-labs/verre/compare/v0.4.0...v0.4.1) (2026-08-14)
 
 
