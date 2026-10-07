@@ -104,23 +104,34 @@ export function clearSchemaCache() {
   schemaCache.clear()
 }
 
+/** Loads the raw text of a document by URL. `fetchText` is the default loader. */
+export type SchemaTextLoader = (url: string) => Promise<string>
+
 /**
  * Returns the raw text of a JSON Schema document that a `credentialSchema` references.
  *
  * A bundled copy (`DEFAULT_SCHEMAS`) is served without network access when it matches the pinned
  * `digestSRI`, so a fixed W3C document never depends on the availability of w3.org. Any other document
- * is fetched once over HTTP and kept in an in-process cache. A cached copy is reused only while it
- * matches the pinned digest, and a failed fetch is never cached. Concurrent requests for one URL share
- * one fetch.
+ * is loaded once and kept in an in-process cache. A cached copy is reused only while it matches the
+ * pinned digest, and a failed load is never cached. Concurrent requests for one URL share one load.
+ *
+ * Without a pinned digest, every copy matches. The caller then either skips the digest check or
+ * establishes the integrity of the document in another way, so a bundled or cached copy is as good
+ * as a live one.
  *
  * The caller still verifies the returned text with `verifyDigestSRI`.
  *
  * @param url - The URL of the schema document.
  * @param digestSRI - The digest that the credential pins for the document, if any.
+ * @param load - Loads the document when no bundled or cached copy matches. Defaults to an HTTP fetch.
  * @returns A promise resolving to the raw text of the document.
- * @throws {TrustError} If the HTTP request fails.
+ * @throws {TrustError} If the HTTP request fails. A custom loader reports its own failures.
  */
-export async function fetchSchemaText(url: string, digestSRI?: string): Promise<string> {
+export async function fetchSchemaText(
+  url: string,
+  digestSRI?: string,
+  load: SchemaTextLoader = fetchText,
+): Promise<string> {
   const matches = (text: string) => {
     if (!digestSRI) return true
     // an unsupported algorithm is a mismatch here; verifyDigestSRI reports it to the caller
@@ -140,17 +151,33 @@ export async function fetchSchemaText(url: string, digestSRI?: string): Promise<
     if (matches(text)) return text
   }
 
-  const entry = { value: fetchText(url), expiresAt: Date.now() + SCHEMA_CACHE_TTL_MS }
+  // the newest copy stays cached even when it fails this pin: another caller may pin that copy, and
+  // verifyDigestSRI reports the mismatch to this one
+  const entry = { value: load(url), expiresAt: Date.now() + SCHEMA_CACHE_TTL_MS }
   schemaCache.set(url, entry)
   try {
-    const text = await entry.value
-    // a copy that fails its pin is not worth keeping; verifyDigestSRI reports the mismatch
-    if (!matches(text) && schemaCache.get(url) === entry) schemaCache.delete(url)
-    return text
+    return await entry.value
   } catch (error) {
     if (schemaCache.get(url) === entry) schemaCache.delete(url)
     throw error
   }
+}
+
+/**
+ * Returns the parsed JSON Schema Credential that a `credentialSchema` of type `JsonSchemaCredential`
+ * references.
+ *
+ * The document is fetched once and kept in the schema cache, so a resolution does not request the
+ * same credential again for one hour. The credential pins no digest, so the caller establishes its
+ * integrity: the ledger anchoring and the schema validation that follow.
+ *
+ * @template T - The expected structure of the credential.
+ * @param url - The URL of the JSON Schema Credential.
+ * @returns A promise resolving to the parsed credential.
+ * @throws {TrustError} If the HTTP request fails.
+ */
+export async function fetchSchemaCredential<T = any>(url: string): Promise<T> {
+  return JSON.parse(await fetchSchemaText(url)) as T
 }
 
 /**

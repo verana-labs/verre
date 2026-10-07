@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'v
 import { TrustErrorCode } from '../../src'
 import { DEFAULT_SCHEMAS, JSON_SCHEMA_CREDENTIAL_V2 } from '../../src/libraries'
 import { computeDigestSRI } from '../../src/utils/crypto'
-import { clearSchemaCache, fetchSchemaText, fetchText } from '../../src/utils/helper'
+import { clearSchemaCache, fetchSchemaCredential, fetchSchemaText, fetchText } from '../../src/utils/helper'
 import { mockW3cJsonSchemaV2 } from '../__mocks__'
 
 // The schema documents a credentialSchema pins: the W3C meta-schema is bundled, the others are
@@ -116,14 +116,80 @@ describe('schema fetch', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('returns a copy that fails its pin for the caller to report, and does not cache it', async () => {
+  it('returns a copy that fails its pin for the caller to report', async () => {
     const body = '{"version":1}'
     fetchSpy.mockResolvedValue(response(200, body))
 
+    // a cached copy that fails the pin is fetched again, in case the server has a newer one
     await expect(fetchSchemaText(SCHEMA_URL, 'sha256-AAAA')).resolves.toBe(body)
     await expect(fetchSchemaText(SCHEMA_URL, 'sha256-AAAA')).resolves.toBe(body)
 
     expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the newest copy cached when one pin fails it, for the callers whose pin matches', async () => {
+    const body = '{"version":1}'
+    fetchSpy.mockResolvedValue(response(200, body))
+
+    await expect(fetchSchemaText(SCHEMA_URL, sriOf(body))).resolves.toBe(body)
+    await expect(fetchSchemaText(SCHEMA_URL, 'sha256-AAAA')).resolves.toBe(body)
+    // the stale pin of another credential did not evict the copy this one matches
+    await expect(fetchSchemaText(SCHEMA_URL, sriOf(body))).resolves.toBe(body)
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('loads the document through the given loader and caches that copy', async () => {
+    const body = '{"title":"ecs-service"}'
+    const load = vi.fn(async () => body)
+
+    await expect(fetchSchemaText(SCHEMA_URL, sriOf(body), load)).resolves.toBe(body)
+    await expect(fetchSchemaText(SCHEMA_URL, sriOf(body), load)).resolves.toBe(body)
+
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(load).toHaveBeenCalledWith(SCHEMA_URL)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not cache a loader failure, and reports it as the loader raised it', async () => {
+    const body = '{"title":"ecs-service"}'
+    const failure = new Error('registry database is down')
+    const load = vi
+      .fn<(url: string) => Promise<string>>()
+      .mockRejectedValueOnce(failure)
+      .mockResolvedValueOnce(body)
+
+    await expect(fetchSchemaText(SCHEMA_URL, sriOf(body), load)).rejects.toBe(failure)
+    await expect(fetchSchemaText(SCHEMA_URL, sriOf(body), load)).resolves.toBe(body)
+
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  describe('fetchSchemaCredential', () => {
+    const CREDENTIAL_URL = 'https://ecs-trust-registry/service-credential-schema-credential.json'
+
+    it('fetches a JSON Schema Credential once and serves the parsed cached copy afterwards', async () => {
+      const credential = { id: CREDENTIAL_URL, type: ['VerifiableCredential', 'JsonSchemaCredential'] }
+      fetchSpy.mockResolvedValue(response(200, JSON.stringify(credential)))
+
+      await expect(fetchSchemaCredential(CREDENTIAL_URL)).resolves.toEqual(credential)
+      await expect(fetchSchemaCredential(CREDENTIAL_URL)).resolves.toEqual(credential)
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports a rate-limited fetch as unavailable and does not cache it', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(response(429, 'Too Many Requests'))
+        .mockResolvedValueOnce(response(200, '{}'))
+
+      await expect(fetchSchemaCredential(CREDENTIAL_URL)).rejects.toMatchObject({
+        metadata: { errorCode: TrustErrorCode.UNAVAILABLE },
+      })
+      await expect(fetchSchemaCredential(CREDENTIAL_URL)).resolves.toEqual({})
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('fetchText', () => {
