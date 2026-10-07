@@ -358,6 +358,20 @@ When `adapter` is omitted, verre falls back to standard HTTP resolution as usual
 
 ---
 
+## Remote documents
+
+A trust resolution reads these remote documents:
+
+- **JSON-LD contexts.** VerRe bundles them in `DEFAULT_CONTEXTS` and does not fetch them.
+- **The linked Verifiable Presentations.** VerRe fetches each service endpoint on every resolution.
+- **The JSON Schema Credentials** that a `credentialSchema` of type `JsonSchemaCredential` references. VerRe fetches each credential once and keeps it in an in-process cache for one hour.
+- **The W3C meta-schema** `https://www.w3.org/ns/credentials/json-schema/v2.json`, which each JSON Schema Credential pins in its `credentialSchema`. VerRe bundles the exact bytes in `DEFAULT_SCHEMAS` and serves them when they match the pinned `digestSRI`. VerRe fetches the document only when the pinned digest differs from the bundled copy.
+- **The other `credentialSchema` documents.** VerRe fetches each document once and keeps it in the same cache for one hour. VerRe reuses a cached copy only when it matches the pinned `digestSRI`. A registry adapter loads the subject schema with `fetchSchema` instead of HTTP, and VerRe caches that copy the same way.
+
+The cache keeps the newest copy of each document, also when the copy does not match the digest that one credential pins, because another credential can pin that copy. A document without a pinned `digestSRI` is served from the bundle or the cache as it is, so the caller must skip the digest check or verify the document in another way. VerRe never caches a failed fetch. Concurrent requests for one URL share one fetch. `clearSchemaCache()` empties the cache.
+
+A fetch that fails with a `429` status, a `5xx` status, or a network error gives the error code `unavailable`. The other failures keep the error code `invalid_request`. A caller can retry a resolution that failed with `unavailable`. A registry adapter reports its own failures, and VerRe does not map them.
+
 ## Notes
 - The method supports ECS (Entity Credential Schema) identifiers such as `ORG`, `PERSONA`, `USER-AGENT`, `SERVICE`, and `BADGE`.
 - The function exits early if both `issuerCredential` and `verifiableService` are found during credential processing.

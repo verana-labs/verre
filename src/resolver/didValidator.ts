@@ -35,8 +35,10 @@ import {
 } from '../types.js'
 import {
   buildMetadata,
+  fetchFailureCode,
   fetchJson,
-  fetchText,
+  fetchSchemaCredential,
+  fetchSchemaText,
   handleTrustError,
   identifySchema,
   computeCredentialDigestJCS,
@@ -129,7 +131,7 @@ export async function verifyParticipant(options: VerifyParticipantOptions) {
   try {
     const { did, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries, role } = options
     logger.debug('Verifying participant', { role })
-    const credential = await fetchJson<W3cVerifiableCredential>(jsonSchemaCredentialId)
+    const credential = await fetchSchemaCredential<W3cVerifiableCredential>(jsonSchemaCredentialId)
     const { subject } = resolveSchemaAndSubject(credential, logger)
     const { api, schemaId, adapter } = resolveSchemaRef(getRefUrl(subject), verifiablePublicRegistries)
     if (!api || schemaId === undefined) {
@@ -480,7 +482,10 @@ async function resolveServiceVP(service: Service): Promise<W3cPresentation> {
     try {
       return await fetchJson<W3cPresentation>(endpoint)
     } catch (error) {
-      throw new TrustError(TrustErrorCode.INVALID_REQUEST, `Failed to fetch VP from ${endpoint}: ${error}`)
+      // a transient failure (429, 5xx, network) keeps its UNAVAILABLE code, so the caller can retry
+      const code =
+        (error instanceof TrustError ? error.metadata.errorCode : undefined) ?? TrustErrorCode.INVALID_REQUEST
+      throw new TrustError(code, `Failed to fetch VP from ${endpoint}: ${error}`)
     }
   }
   throw new TrustError(TrustErrorCode.INVALID, 'No valid endpoints found')
@@ -567,7 +572,8 @@ function isUnresolvableCode(code: TrustErrorCode | undefined): boolean {
     code === TrustErrorCode.NOT_FOUND ||
     code === TrustErrorCode.NOT_AUTHORIZED ||
     code === TrustErrorCode.NO_ANCHORED_DIGEST ||
-    code === TrustErrorCode.INVALID_REQUEST
+    code === TrustErrorCode.INVALID_REQUEST ||
+    code === TrustErrorCode.UNAVAILABLE
   )
 }
 
@@ -695,7 +701,7 @@ async function processCredential(
 
   if (schema.type === 'JsonSchemaCredential') {
     logger.debug('Processing JsonSchemaCredential Processing, fetching it', { schemaId: schema.id })
-    const jsonSchemaCredential = await fetchJson<W3cVerifiableCredential>(schema.id)
+    const jsonSchemaCredential = await fetchSchemaCredential<W3cVerifiableCredential>(schema.id)
     return processCredential(
       jsonSchemaCredential,
       verifiablePublicRegistries,
@@ -730,9 +736,12 @@ async function processCredential(
         )
 
       logger.debug('Fetching schemas in parallel')
+      // a bundled or cached copy that matches the pinned digest is served without a load; an adapter
+      // replaces the HTTP fetch of the subject schema and reports its own failures
+      const loadSubjectSchema = adapter ? (url: string) => adapter.fetchSchema(url) : undefined
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
-        fetchText(schema.id),
-        adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
+        fetchSchemaText(schema.id, schemaDigestSRI),
+        fetchSchemaText(schemaUrl, subjectDigestSRI, loadSubjectSchema),
       ])
 
       const source = sourceCredential ?? w3cCredential
@@ -991,7 +1000,7 @@ async function resolveAnchoredDigest(
   if (response.status === 404) return undefined
   if (!response.ok)
     throw new TrustError(
-      TrustErrorCode.INVALID_REQUEST,
+      fetchFailureCode(response.status),
       `Failed to resolve digest from ${digestUrl}: ${response.status} ${response.statusText}`,
     )
   const raw = (await response.json()) as { digest?: { created?: string } }
