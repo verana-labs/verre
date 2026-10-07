@@ -1,8 +1,9 @@
 import { Agent, DidDocument, DidResolverService, W3cJsonLdVerifiablePresentation } from '@credo-ts/core'
 import { Resolver } from 'did-resolver'
-import { describe, it, beforeAll, afterAll, vi, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll, afterEach, vi, expect } from 'vitest'
 
 import {
+  clearSchemaCache,
   CREDENTIAL_FORMAT_LDP_VC,
   fetchJson,
   InMemoryCache,
@@ -58,6 +59,11 @@ describe('Integration with Verana Blockchain', () => {
 
     // Mock global fetch
     fetchMocker.enable()
+  })
+
+  afterEach(() => {
+    // a schema document that one test mocks must not reach the next test from the schema cache
+    clearSchemaCache()
   })
 
   afterAll(async () => {
