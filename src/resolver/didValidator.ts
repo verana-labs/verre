@@ -35,8 +35,9 @@ import {
 } from '../types.js'
 import {
   buildMetadata,
+  fetchFailureCode,
   fetchJson,
-  fetchText,
+  fetchSchemaText,
   handleTrustError,
   identifySchema,
   computeCredentialDigestJCS,
@@ -567,7 +568,8 @@ function isUnresolvableCode(code: TrustErrorCode | undefined): boolean {
     code === TrustErrorCode.NOT_FOUND ||
     code === TrustErrorCode.NOT_AUTHORIZED ||
     code === TrustErrorCode.NO_ANCHORED_DIGEST ||
-    code === TrustErrorCode.INVALID_REQUEST
+    code === TrustErrorCode.INVALID_REQUEST ||
+    code === TrustErrorCode.UNAVAILABLE
   )
 }
 
@@ -730,9 +732,10 @@ async function processCredential(
         )
 
       logger.debug('Fetching schemas in parallel')
+      // a bundled or cached copy that matches the pinned digest is served without network access
       const [schemaRawText, subjectSchemaRawText] = await Promise.all([
-        fetchText(schema.id),
-        adapter ? adapter.fetchSchema(schemaUrl) : fetchText(schemaUrl),
+        fetchSchemaText(schema.id, schemaDigestSRI),
+        adapter ? adapter.fetchSchema(schemaUrl) : fetchSchemaText(schemaUrl, subjectDigestSRI),
       ])
 
       const source = sourceCredential ?? w3cCredential
@@ -991,7 +994,7 @@ async function resolveAnchoredDigest(
   if (response.status === 404) return undefined
   if (!response.ok)
     throw new TrustError(
-      TrustErrorCode.INVALID_REQUEST,
+      fetchFailureCode(response.status),
       `Failed to resolve digest from ${digestUrl}: ${response.status} ${response.statusText}`,
     )
   const raw = (await response.json()) as { digest?: { created?: string } }

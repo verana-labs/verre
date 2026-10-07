@@ -241,6 +241,7 @@ export enum TrustErrorCode {
   NOT_SUPPORTED = 'not_supported',
   NOT_AUTHORIZED = 'not_authorized',
   INVALID_REQUEST = 'invalid_request',
+  UNAVAILABLE = 'unavailable',
   SCHEMA_MISMATCH = 'schema_mismatch',
   NO_ANCHORED_DIGEST = 'no_anchored_digest',
   VERIFICATION_FAILED = 'verification_failed',

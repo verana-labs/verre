@@ -3,14 +3,14 @@ import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } f
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { bytesToHex, concatBytes } from '@noble/hashes/utils'
-import { base58, base64, base64urlnopad } from '@scure/base'
+import { base58, base64urlnopad } from '@scure/base'
 import _canonicalize from 'canonicalize'
 import { DIDDocument, Resolver, VerificationMethod } from 'did-resolver'
 
 import { createDocumentLoader } from '../libraries/index.js'
 import { TrustErrorCode, IVerreLogger, FailedCredential, CREDENTIAL_FORMAT_LDP_VC } from '../types.js'
 
-import { hash } from './crypto.js'
+import { computeDigestSRI, hash } from './crypto.js'
 import { TrustError } from './trustError.js'
 
 // Node16 CJS interop: default import may be the namespace or the value itself
@@ -583,17 +583,17 @@ function isVerifiablePresentation(
  * @throws {TrustError} Throws an error if the computed hash does not match the expected hash.
  */
 export function verifyDigestSRI(rawContent: string, expectedDigestSRI: string, logger: IVerreLogger) {
-  const [algorithm, expectedHash] = expectedDigestSRI.split('-')
+  const [algorithm] = expectedDigestSRI.split('-')
 
   logger.debug('Verifying digest SRI', { expectedDigestSRI: `${expectedDigestSRI}` })
 
-  const computedHash = base64.encode(hash(algorithm, rawContent))
-  logger.debug('Computing hash', { computedHash: `${algorithm}-${computedHash}` })
+  const computedDigestSRI = computeDigestSRI(algorithm, rawContent)
+  logger.debug('Computing hash', { computedHash: computedDigestSRI })
 
-  if (computedHash !== expectedHash) {
+  if (computedDigestSRI !== expectedDigestSRI) {
     throw new TrustError(
       TrustErrorCode.VERIFICATION_FAILED,
-      `digestSRI verification failed for ${rawContent}. Computed: ${computedHash}, Expected: ${expectedHash}`,
+      `digestSRI verification failed for ${rawContent}. Computed: ${computedDigestSRI}, Expected: ${expectedDigestSRI}`,
     )
   }
 

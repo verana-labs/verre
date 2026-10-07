@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { ParticipantRole, resolveCredential, TrustResolutionOutcome, verifyParticipant } from '../../src'
+import { clearSchemaCache } from '../../src/utils/helper'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
   fetchMocker,
@@ -27,6 +28,7 @@ describe('Credential Validator', () => {
       fetchMocker.reset()
       fetchMocker.disable()
       vi.clearAllMocks()
+      clearSchemaCache()
     })
 
     it('should work correctly when the issuer is equal to "did" over testing network.', async () => {

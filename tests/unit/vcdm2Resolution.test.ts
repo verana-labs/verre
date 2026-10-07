@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ECS, resolveDID, TrustErrorCode, TrustResolutionOutcome } from '../../src'
 import { resolverInstance } from '../../src/libraries'
 import { computeCredentialDigestJCS } from '../../src/utils/credentialDigest'
+import { clearSchemaCache } from '../../src/utils/helper'
 import {
   fetchMocker,
   mockCredentialSchemaOrg,
@@ -77,6 +78,7 @@ describe('VC Data Model 2.0 trust resolution', () => {
     fetchMocker.disable()
     vi.restoreAllMocks()
     resolverInstance.clear()
+    clearSchemaCache()
   })
 
   it('resolves a DID whose linked VPs carry Data Integrity secured 2.0 credentials', async () => {

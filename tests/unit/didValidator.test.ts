@@ -13,7 +13,7 @@ import {
 } from '../../src'
 import { resolverInstance } from '../../src/libraries'
 import { computeCredentialDigestJCS } from '../../src/utils/credentialDigest'
-import { InMemoryCache } from '../../src/utils/helper'
+import { clearSchemaCache, InMemoryCache } from '../../src/utils/helper'
 import { identifySchema } from '../../src/utils/validateSchema'
 import * as signatureVerifier from '../../src/utils/verifier'
 import {
@@ -53,6 +53,9 @@ const ANCHORED_AT = '2024-02-08T18:38:46+01:00'
 // instant is what reaches the participant lookup
 const LEDGER_ANCHORED_AT = '2023-05-05T00:00:00.000Z'
 const IDX = 'https://idx.testnet.verana.network'
+const W3C_META_URL = 'https://www.w3.org/ns/credentials/json-schema/v2.json'
+// the digestSRI of the bundled W3C meta-schema, as the Verifiable Trust JSON Schema Credentials pin it
+const W3C_META_DIGEST = 'sha384-FdPKzKLFNWo+3ZqV9vjuY8aNQk+636lvGRKKNzAfy93Q9jf+lNHD8j91g/KHWCBX'
 
 const anchorMocks = (...vcs: unknown[]) => {
   const mocks: Record<string, { ok: boolean; status: number; data: unknown }> = {}
@@ -95,6 +98,7 @@ describe('DidValidator', () => {
       fetchMocker.disable()
       vi.clearAllMocks()
       resolverInstance.clear()
+      clearSchemaCache()
     })
 
     it('should work correctly when the issuer is equal to "did" over testing network.', async () => {
@@ -173,6 +177,82 @@ describe('DidValidator', () => {
           }),
         }),
       )
+    })
+
+    // the mocks of a self-issued resolution, with the schema credentials and the W3C meta-schema a case supplies
+    const selfIssuedMocks = (
+      serviceSchema: unknown,
+      orgSchema: unknown,
+      w3cMetaSchema: { ok: boolean; status: number; data: unknown },
+    ) => ({
+      ...ALL_ANCHOR_MOCKS,
+      'https://example.com/vp-ser-self-issued': { ok: true, status: 200, data: mockServiceVcSelfIssued },
+      'https://example.com/vp-org': { ok: true, status: 200, data: mockOrgVc },
+      'https://ecs-trust-registry/service-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: serviceSchema,
+      },
+      'https://ecs-trust-registry/org-credential-schema-credential.json': {
+        ok: true,
+        status: 200,
+        data: orgSchema,
+      },
+      [W3C_META_URL]: w3cMetaSchema,
+      [`${IDX}/v4/credential-schema/js/12345671`]: { ok: true, status: 200, data: mockCredentialSchemaOrg },
+      [`${IDX}/v4/credential-schema/js/12345678`]: { ok: true, status: 200, data: mockCredentialSchemaSer },
+      'https://example.com/trust-registry': { ok: true, status: 200, data: {} },
+      [`${IDX}/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345678&when=2024-02-08T18%3A38%3A46%2B01%3A00`]:
+        { ok: true, status: 200, data: mockParticipant },
+      [`${IDX}/v4/participant/list?did=did%3Aweb%3Aservice.self-issued.example.com&role=ISSUER&schema_id=12345671&when=2024-02-08T18%3A38%3A46%2B01%3A00`]:
+        { ok: true, status: 200, data: mockParticipant },
+    })
+    const rateLimited = { ok: false, status: 429, data: 'Too Many Requests' }
+
+    it('serves the bundled W3C meta-schema when w3.org rate-limits the request', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      // the digest that a Verifiable Trust JSON Schema Credential pins for the W3C document
+      const pinBundled = <T extends { credentialSchema: Record<string, unknown> }>(vc: T): T => ({
+        ...vc,
+        credentialSchema: { ...vc.credentialSchema, digestSRI: W3C_META_DIGEST },
+      })
+      fetchMocker.setMockResponses(
+        selfIssuedMocks(pinBundled(mockServiceSchemaSelfIssued), pinBundled(mockOrgSchema), rateLimited),
+      )
+
+      const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+
+      expect(result.verified).toBe(true)
+      expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
+      expect(result.service?.ecs).toBe(ECS.SERVICE)
+      expect(result.serviceProvider?.ecs).toBe(ECS.ORG)
+      expect(global.fetch).not.toHaveBeenCalledWith(W3C_META_URL)
+    })
+
+    it('reports a rate-limited schema fetch as unavailable, so the caller can retry', async () => {
+      vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
+        return mockResolversByDid[did]
+      })
+      // the credentials pin the digest of the mocked document, so the bundled copy does not apply
+      fetchMocker.setMockResponses(selfIssuedMocks(mockServiceSchemaSelfIssued, mockOrgSchema, rateLimited))
+
+      const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+
+      expect(result.verified).toBe(false)
+      expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
+      expect(result.failedCredentials).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            errorCode: TrustErrorCode.UNAVAILABLE,
+            error: expect.stringContaining('429'),
+          }),
+        ]),
+      )
+      expect(
+        result.failedCredentials?.some(failure => failure.errorCode === TrustErrorCode.INVALID_REQUEST),
+      ).toBe(false)
     })
 
     it('should report which credentials failed validation, not just an overall outcome.', async () => {
@@ -426,6 +506,7 @@ describe('DidValidator', () => {
       fetchMocker.disable()
       vi.clearAllMocks()
       resolverInstance.clear()
+      clearSchemaCache()
     })
 
     const registriesFor = (ecosystemBySchemaId: Record<string, string>) =>
