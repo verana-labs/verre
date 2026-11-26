@@ -3,6 +3,7 @@ import type { W3cJsonLdVerifiableCredential, W3cJsonLdVerifiablePresentation } f
 import jsonld from '@digitalcredentials/jsonld'
 import { ed25519 } from '@noble/curves/ed25519.js'
 import { bytesToHex, concatBytes } from '@noble/hashes/utils'
+import { ml_dsa44 } from '@noble/post-quantum/ml-dsa.js'
 import { base58, base64urlnopad } from '@scure/base'
 import _canonicalize from 'canonicalize'
 import { DIDDocument, Resolver, VerificationMethod } from 'did-resolver'
@@ -21,15 +22,65 @@ const canonicalize = ((_canonicalize as any).default ?? _canonicalize) as (
 // RFC 7515 base64url is unpadded, but legacy signers emit padded values; accept both
 const decodeBase64url = (value: string): Uint8Array => base64urlnopad.decode(value.replace(/=+$/u, ''))
 
-// Ed25519 multicodec prefix: 0xed01
-const ED25519_MULTICODEC_PREFIX = new Uint8Array([0xed, 0x01])
+/** Signature algorithms a verification method key can belong to. */
+type KeyType = 'Ed25519' | 'ML-DSA-44'
+type PublicKey = { keyType: KeyType; bytes: Uint8Array }
+
+/** Multibase prefixes in use: base58-btc (`z`) and base64url without padding (`u`). */
+type MultibasePrefix = 'z' | 'u'
+const MULTIBASE_NAMES: Record<MultibasePrefix, string> = { z: 'base58-btc', u: 'base64url' }
+
+const decodeMultibase = (value: string): { prefix: MultibasePrefix; bytes: Uint8Array } | null => {
+  const prefix = value[0]
+  if (prefix === 'z') return { prefix, bytes: base58.decode(value.slice(1)) }
+  if (prefix === 'u') return { prefix, bytes: base64urlnopad.decode(value.slice(1)) }
+  return null
+}
+
+// Multikey public keys: unsigned-varint multicodec header followed by the raw key
+// (https://github.com/multiformats/multicodec/blob/master/table.csv)
+const MULTICODEC_KEYS: { header: number[]; keyType: KeyType; length: number }[] = [
+  { header: [0xed, 0x01], keyType: 'Ed25519', length: 32 }, // ed25519-pub, code 0xed
+  { header: [0x90, 0x24], keyType: 'ML-DSA-44', length: 1312 }, // ml-dsa-44-pub, code 0x1210
+]
 
 // Linked Data Proof suites, verified over the RDF canonicalization of the JSON-LD document
 const LINKED_DATA_PROOF_TYPES = ['Ed25519Signature2020', 'Ed25519Signature2018']
 
-// VC Data Integrity proofs are dispatched on their cryptosuite; only the JCS EdDSA suite is supported
 const DATA_INTEGRITY_PROOF_TYPE = 'DataIntegrityProof'
-const EDDSA_JCS_2022_CRYPTOSUITE = 'eddsa-jcs-2022'
+
+/**
+ * A JCS Data Integrity cryptosuite: every supported suite transforms the document with JCS and
+ * hashes proof config and document with SHA-256; they differ in the signature algorithm, the key it
+ * needs, the signature size and the multibase the `proofValue` is encoded with.
+ */
+interface JcsCryptosuite {
+  name: string
+  keyType: KeyType
+  signatureLength: number
+  proofValueMultibase: MultibasePrefix
+  verify: (signature: Uint8Array, data: Uint8Array, publicKey: Uint8Array) => boolean
+}
+
+// VC Data Integrity proofs are dispatched on their cryptosuite
+const DATA_INTEGRITY_CRYPTOSUITES: Record<string, JcsCryptosuite> = {
+  // EdDSA Cryptosuites v1.0 §3.3
+  'eddsa-jcs-2022': {
+    name: 'eddsa-jcs-2022',
+    keyType: 'Ed25519',
+    signatureLength: 64,
+    proofValueMultibase: 'z',
+    verify: (signature, data, publicKey) => ed25519.verify(signature, data, publicKey),
+  },
+  // Quantum-Resistant Cryptosuites v1.0 (FPWD): ML-DSA-44 (FIPS 204) pure signing with an empty context
+  'mldsa44-jcs-2024': {
+    name: 'mldsa44-jcs-2024',
+    keyType: 'ML-DSA-44',
+    signatureLength: 2420,
+    proofValueMultibase: 'u',
+    verify: (signature, data, publicKey) => ml_dsa44.verify(signature, data, publicKey),
+  },
+}
 
 type ProofPurpose = 'assertionMethod' | 'authentication'
 // a credential proof asserts claims; a presentation proof authenticates the holder, but holders
@@ -151,7 +202,7 @@ export async function verifySignature(
  *
  * `proof` may be a single proof or a proof set; each proof is verified against the document
  * without its `proof` member and all of them must be valid. A proof is dispatched on its type:
- *   - `DataIntegrityProof` (VC Data Integrity 1.0), currently with the `eddsa-jcs-2022` cryptosuite
+ *   - `DataIntegrityProof` (VC Data Integrity 1.0) with the `eddsa-jcs-2022` or `mldsa44-jcs-2024` cryptosuite
  *   - `Ed25519Signature2020` / `Ed25519Signature2018` Linked Data Proofs
  *
  * @param vc              The credential or presentation as a JSON-LD object.
@@ -284,7 +335,13 @@ async function verifyLinkedDataProof(
     return invalid(`Unsupported proof type: ${proofType}`)
   }
 
-  const publicKey = await resolveAuthorizedPublicKey(verificationMethodId, purpose, didResolver, logger)
+  const publicKey = await resolveAuthorizedPublicKey(
+    verificationMethodId,
+    purpose,
+    'Ed25519',
+    didResolver,
+    logger,
+  )
   if (!(publicKey instanceof Uint8Array)) return publicKey
 
   const valid = ed25519.verify(signatureBytes, verifyData, publicKey)
@@ -301,11 +358,12 @@ async function verifyLinkedDataProof(
 }
 
 /**
- * Verifies a `DataIntegrityProof` secured with the `eddsa-jcs-2022` cryptosuite.
+ * Verifies a `DataIntegrityProof` secured with a supported JCS cryptosuite.
  *
  * ---------------------------------------------------------------------------
- * DataIntegrityProof / eddsa-jcs-2022 verification
- * (W3C VC Data Integrity 1.0 §4.4 + EdDSA Cryptosuites v1.0 §3.3)
+ * DataIntegrityProof / eddsa-jcs-2022 and mldsa44-jcs-2024 verification
+ * (W3C VC Data Integrity 1.0 §4.4, EdDSA Cryptosuites v1.0 §3.3,
+ *  Quantum-Resistant Cryptosuites v1.0 §3.1)
  *
  * Algorithm:
  *   1. Ensure the cryptosuite is supported and the proof carries the required members
@@ -313,10 +371,11 @@ async function verifyLinkedDataProof(
  *      when one is present (the document `@context` must start with it)
  *   3. transformedDocument = JCS(document without proof), canonicalProofConfig = JCS(proofConfig)
  *   4. hashData = SHA-256(canonicalProofConfig) || SHA-256(transformedDocument)
- *   5. Decode proofValue from multibase base58-btc ('z' prefix) into a 64-byte signature
- *   6. Resolve the verification method and check it is authorised for `proofPurpose`
- *      in the controller DID document
- *   7. Verify the Ed25519 signature over hashData
+ *   5. Decode proofValue from the multibase the suite mandates (base58-btc `z` for EdDSA,
+ *      base64url `u` for ML-DSA) into a signature of the suite's length (64 / 2420 bytes)
+ *   6. Resolve the verification method, check it is authorised for `proofPurpose` in the
+ *      controller DID document and holds a key of the suite's algorithm
+ *   7. Verify the signature over hashData (Ed25519, or ML-DSA-44 pure mode with an empty context)
  *
  * The JCS cryptosuites never expand the document as JSON-LD, so no context is fetched.
  *
@@ -333,7 +392,11 @@ async function verifyDataIntegrityProof(
 ): Promise<ProofVerification> {
   const { proofValue, ...proofConfig } = proof
 
-  if (proofConfig.cryptosuite !== EDDSA_JCS_2022_CRYPTOSUITE) {
+  const suite =
+    typeof proofConfig.cryptosuite === 'string'
+      ? DATA_INTEGRITY_CRYPTOSUITES[proofConfig.cryptosuite]
+      : undefined
+  if (!suite) {
     return invalid(`Unsupported cryptosuite: ${String(proofConfig.cryptosuite)}`)
   }
   const verificationMethodId = proofConfig.verificationMethod
@@ -342,17 +405,18 @@ async function verifyDataIntegrityProof(
   }
   const proofPurpose = checkProofPurpose(proofConfig.proofPurpose, allowedProofPurposes)
   if (typeof proofPurpose !== 'string') return proofPurpose
-  if (typeof proofValue !== 'string' || !proofValue.startsWith('z')) {
-    return invalid('Missing or invalid proofValue (expected multibase base58-btc)')
+  const multibaseName = MULTIBASE_NAMES[suite.proofValueMultibase]
+  if (typeof proofValue !== 'string' || !proofValue.startsWith(suite.proofValueMultibase)) {
+    return invalid(`Missing or invalid proofValue (expected multibase ${multibaseName})`)
   }
   let signatureBytes: Uint8Array
   try {
-    signatureBytes = base58.decode(proofValue.slice(1))
+    signatureBytes = decodeMultibase(proofValue)!.bytes
   } catch {
-    return invalid('Invalid proofValue (expected multibase base58-btc)')
+    return invalid(`Invalid proofValue (expected multibase ${multibaseName})`)
   }
-  if (signatureBytes.length !== 64) {
-    return invalid(`Invalid Ed25519 signature length: ${signatureBytes.length}`)
+  if (signatureBytes.length !== suite.signatureLength) {
+    return invalid(`Invalid ${suite.keyType} signature length: ${signatureBytes.length}`)
   }
 
   const unsecuredDocument: Record<string, unknown> = { ...document }
@@ -375,20 +439,28 @@ async function verifyDataIntegrityProof(
   }
   const verifyData = concatBytes(hash('SHA256', canonicalProofConfig), hash('SHA256', transformedDocument))
 
-  const publicKey = await resolveAuthorizedPublicKey(verificationMethodId, proofPurpose, didResolver, logger)
+  const publicKey = await resolveAuthorizedPublicKey(
+    verificationMethodId,
+    proofPurpose,
+    suite.keyType,
+    didResolver,
+    logger,
+  )
   if (!(publicKey instanceof Uint8Array)) return publicKey
 
   let valid: boolean
   try {
-    valid = ed25519.verify(signatureBytes, verifyData, publicKey)
+    valid = suite.verify(signatureBytes, verifyData, publicKey)
   } catch (error) {
-    return invalid(`Ed25519 signature verification failed: ${error instanceof Error ? error.message : error}`)
+    return invalid(
+      `${suite.keyType} signature verification failed: ${error instanceof Error ? error.message : error}`,
+    )
   }
   if (!valid) {
-    return invalid('Ed25519 signature verification failed')
+    return invalid(`${suite.keyType} signature verification failed`)
   }
 
-  logger.debug(`${DATA_INTEGRITY_PROOF_TYPE} (${EDDSA_JCS_2022_CRYPTOSUITE}) verified OK`, {
+  logger.debug(`${DATA_INTEGRITY_PROOF_TYPE} (${suite.name}) verified OK`, {
     id: document.id,
     verificationMethod: verificationMethodId,
     proofPurpose,
@@ -414,14 +486,17 @@ function checkProofPurpose(
 }
 
 /**
- * Resolves a verification method DID URL to its raw Ed25519 public key (32 bytes), provided the
- * controller DID document authorizes the method for the proof purpose.
+ * Resolves a verification method DID URL to its raw public key, provided the controller DID
+ * document authorizes the method for the proof purpose and the key is of the algorithm the
+ * proof's suite signs with.
  * @param verificationMethodId Full DID URL of the verification method (e.g. did:example:123#key-1).
- * @returns The public key, or the failed verification.
+ * @param keyType              The key algorithm the suite under verification requires.
+ * @returns The public key bytes, or the failed verification.
  */
 async function resolveAuthorizedPublicKey(
   verificationMethodId: string,
   proofPurpose: ProofPurpose,
+  keyType: KeyType,
   didResolver: Resolver,
   logger: IVerreLogger,
 ): Promise<Uint8Array | ProofVerification> {
@@ -434,11 +509,16 @@ async function resolveAuthorizedPublicKey(
       `Verification method ${verificationMethodId} is not authorized for proof purpose '${proofPurpose}'`,
     )
   }
-  const publicKey = extractEd25519PublicKey(resolved.verificationMethod, logger)
+  const publicKey = extractPublicKey(resolved.verificationMethod, logger)
   if (!publicKey) {
-    return invalid(`No supported Ed25519 public key in verification method: ${verificationMethodId}`)
+    return invalid(`No supported ${keyType} public key in verification method: ${verificationMethodId}`)
   }
-  return publicKey
+  if (publicKey.keyType !== keyType) {
+    return invalid(
+      `Verification method ${verificationMethodId} holds a ${publicKey.keyType} key, but the proof requires ${keyType}`,
+    )
+  }
+  return publicKey.bytes
 }
 
 /**
@@ -486,43 +566,60 @@ async function resolveVerificationMethod(
 }
 
 /**
- * Extracts the raw Ed25519 public key (32 bytes) from a verification method.
- * Supports `publicKeyMultibase` (with or without the multicodec prefix), `publicKeyBase58` and `publicKeyJwk`.
+ * Extracts the raw public key and its algorithm from a verification method.
+ *
+ * Supports:
+ *   - `publicKeyMultibase` in base58-btc (`z`) or base64url (`u`), as a Multikey (multicodec header
+ *     `0xed01` Ed25519, `0x9024` ML-DSA-44) or as a bare 32-byte Ed25519 key
+ *   - `publicKeyBase58` (Ed25519)
+ *   - `publicKeyJwk`: OKP/Ed25519 (`x`) or AKP/ML-DSA-44 (`pub`, RFC 9964)
  */
-function extractEd25519PublicKey(vm: VerificationMethod, logger: IVerreLogger): Uint8Array | null {
+function extractPublicKey(vm: VerificationMethod, logger: IVerreLogger): PublicKey | null {
   const verificationMethodId = vm.id
 
   if (vm.publicKeyMultibase && typeof vm.publicKeyMultibase === 'string') {
-    const multibase = vm.publicKeyMultibase as string
-    if (!multibase.startsWith('z')) {
-      logger.debug('Unsupported multibase prefix', { verificationMethodId })
+    let decoded: Uint8Array
+    try {
+      const multibase = decodeMultibase(vm.publicKeyMultibase as string)
+      if (!multibase) {
+        logger.debug('Unsupported multibase prefix', { verificationMethodId })
+        return null
+      }
+      decoded = multibase.bytes
+    } catch {
+      logger.debug('Malformed publicKeyMultibase', { verificationMethodId })
       return null
     }
-    const decoded = base58.decode(multibase.slice(1))
-    // Strip multicodec prefix if present (0xed 0x01 for Ed25519)
-    if (
-      decoded.length === 34 &&
-      decoded[0] === ED25519_MULTICODEC_PREFIX[0] &&
-      decoded[1] === ED25519_MULTICODEC_PREFIX[1]
-    ) {
-      return decoded.slice(2)
+    const codec = MULTICODEC_KEYS.find(
+      ({ header, length }) =>
+        decoded.length === header.length + length && header.every((byte, index) => decoded[index] === byte),
+    )
+    if (codec) {
+      return { keyType: codec.keyType, bytes: decoded.slice(codec.header.length) }
     }
-    // Already raw 32-byte key
+    // Legacy: a raw 32-byte Ed25519 key without multicodec header
     if (decoded.length === 32) {
-      return decoded
+      return { keyType: 'Ed25519', bytes: decoded }
     }
     logger.debug('Unexpected public key length', { verificationMethodId, decodedLength: decoded.length })
     return null
   }
 
   if (vm.publicKeyBase58 && typeof vm.publicKeyBase58 === 'string') {
-    return base58.decode(vm.publicKeyBase58 as string)
+    return { keyType: 'Ed25519', bytes: base58.decode(vm.publicKeyBase58 as string) }
   }
 
   if (vm.publicKeyJwk && typeof vm.publicKeyJwk === 'object') {
     const jwk = vm.publicKeyJwk as Record<string, unknown>
-    if (jwk.x && typeof jwk.x === 'string') {
-      return decodeBase64url(jwk.x as string)
+    if (jwk.kty === 'AKP') {
+      if (jwk.alg !== 'ML-DSA-44' || typeof jwk.pub !== 'string') {
+        logger.debug('Unsupported AKP key', { verificationMethodId, alg: jwk.alg })
+        return null
+      }
+      return { keyType: 'ML-DSA-44', bytes: decodeBase64url(jwk.pub) }
+    }
+    if (jwk.x && typeof jwk.x === 'string' && (jwk.crv === undefined || jwk.crv === 'Ed25519')) {
+      return { keyType: 'Ed25519', bytes: decodeBase64url(jwk.x as string) }
     }
   }
 

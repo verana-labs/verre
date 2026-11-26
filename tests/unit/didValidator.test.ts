@@ -232,6 +232,71 @@ describe('DidValidator', () => {
       expect(global.fetch).not.toHaveBeenCalledWith(W3C_META_URL)
     })
 
+    describe('[TR-3] JSON Schema Credential proof', () => {
+      const isSchemaCredential = (document: unknown) =>
+        Array.isArray((document as { type?: unknown })?.type) &&
+        (document as { type: string[] }).type.includes('JsonSchemaCredential')
+      const schemaCredentialsVerified = () =>
+        vi
+          .mocked(signatureVerifier.verifySignature)
+          .mock.calls.map(([document]) => document)
+          .filter(isSchemaCredential)
+          .map(vc => (vc as { id: string }).id)
+          .sort()
+
+      it('verifies the proof of every schema credential met by default', async () => {
+        vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
+          async (did: string) => mockResolversByDid[did],
+        )
+        fetchMocker.setMockResponses(selfIssuedMocks(mockServiceSchemaSelfIssued, mockOrgSchema, w3cMetaOk))
+
+        const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+
+        expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
+        expect(schemaCredentialsVerified()).toEqual([mockOrgSchema.id, mockServiceSchemaSelfIssued.id].sort())
+      })
+
+      it('skips it when skipSchemaCredentialProofCheck is set', async () => {
+        vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
+          async (did: string) => mockResolversByDid[did],
+        )
+        fetchMocker.setMockResponses(selfIssuedMocks(mockServiceSchemaSelfIssued, mockOrgSchema, w3cMetaOk))
+
+        const result = await resolveDID(didSelfIssued, {
+          verifiablePublicRegistries,
+          skipSchemaCredentialProofCheck: true,
+        })
+
+        expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
+        expect(schemaCredentialsVerified()).toEqual([])
+      })
+
+      it('fails the resolution when a schema credential proof is not valid', async () => {
+        vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
+          async (did: string) => mockResolversByDid[did],
+        )
+        vi.mocked(signatureVerifier.verifySignature).mockImplementation(async document =>
+          isSchemaCredential(document)
+            ? { result: false, error: 'ML-DSA-44 signature verification failed' }
+            : { result: true },
+        )
+        fetchMocker.setMockResponses(selfIssuedMocks(mockServiceSchemaSelfIssued, mockOrgSchema, w3cMetaOk))
+
+        const result = await resolveDID(didSelfIssued, { verifiablePublicRegistries })
+
+        expect(result.verified).toBe(false)
+        expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
+        expect(result.failedCredentials).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              errorCode: TrustErrorCode.VERIFICATION_FAILED,
+              error: expect.stringContaining('The JSON Schema Credential proof is not valid for'),
+            }),
+          ]),
+        )
+      })
+    })
+
     it('reports a rate-limited schema fetch as unavailable, so the caller can retry', async () => {
       vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) => {
         return mockResolversByDid[did]

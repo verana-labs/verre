@@ -6,6 +6,8 @@ import { resolverInstance } from '../../src/libraries'
 import { computeCredentialDigestJCS } from '../../src/utils/credentialDigest'
 import { clearSchemaCache } from '../../src/utils/helper'
 import {
+  ecosystemDid,
+  ecosystemResolver,
   fetchMocker,
   mockCredentialSchemaOrg,
   mockCredentialSchemaSer,
@@ -13,6 +15,7 @@ import {
   mockParticipant,
   mockServiceSchemaSelfIssued,
   mockW3cJsonSchemaV2,
+  signSchemaCredential,
   vcdm2Did,
   vcdm2OrgVp,
   vcdm2Resolver,
@@ -21,7 +24,8 @@ import {
 } from '../__mocks__'
 
 // The trust resolution of a DID whose linked VPs carry VC Data Model 2.0 credentials secured with
-// DataIntegrityProof (eddsa-jcs-2022): real signature verification, ledger evidence mocked.
+// DataIntegrityProof (eddsa-jcs-2022): real signature verification, of the schema credentials too
+// ([TR-3]), ledger evidence mocked.
 const IDX = 'https://idx.testnet.verana.network'
 const ANCHORED_AT = '2024-02-08T18:38:46+01:00'
 const SCHEMA_IDS = { service: 12345678, org: 12345671 }
@@ -39,8 +43,12 @@ const mockResponses = () => {
   const responses: Record<string, ReturnType<typeof ok>> = {
     [SERVICE_VP_URL]: ok(vcdm2ServiceVp),
     [ORG_VP_URL]: ok(vcdm2OrgVp),
-    'https://ecs-trust-registry/service-credential-schema-credential.json': ok(mockServiceSchemaSelfIssued),
-    'https://ecs-trust-registry/org-credential-schema-credential.json': ok(mockOrgSchema),
+    'https://ecs-trust-registry/service-credential-schema-credential.json': ok(
+      signSchemaCredential(mockServiceSchemaSelfIssued),
+    ),
+    'https://ecs-trust-registry/org-credential-schema-credential.json': ok(
+      signSchemaCredential(mockOrgSchema),
+    ),
     'https://www.w3.org/ns/credentials/json-schema/v2.json': ok(mockW3cJsonSchemaV2),
     [`${IDX}/v4/credential-schema/js/${SCHEMA_IDS.service}`]: ok(mockCredentialSchemaSer),
     [`${IDX}/v4/credential-schema/js/${SCHEMA_IDS.org}`]: ok(mockCredentialSchemaOrg),
@@ -64,10 +72,17 @@ const mockResponses = () => {
 
 describe('VC Data Model 2.0 trust resolution', () => {
   beforeEach(() => {
-    vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(async (did: string) =>
-      did === vcdm2Did
-        ? vcdm2Resolver
-        : { didResolutionMetadata: { error: 'notFound' }, didDocumentMetadata: {}, didDocument: null },
+    const resolvers: Record<string, unknown> = {
+      [vcdm2Did]: vcdm2Resolver,
+      [ecosystemDid]: ecosystemResolver,
+    }
+    vi.spyOn(Resolver.prototype, 'resolve').mockImplementation(
+      async (did: string) =>
+        (resolvers[did] as never) ?? {
+          didResolutionMetadata: { error: 'notFound' },
+          didDocumentMetadata: {},
+          didDocument: null,
+        },
     )
     fetchMocker.enable()
     fetchMocker.setMockResponses(mockResponses())

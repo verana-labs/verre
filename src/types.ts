@@ -65,6 +65,7 @@ export type ResolverConfig = {
   skipDigestSRICheck?: boolean
   logger?: IVerreLogger
   ecsEcosystems?: EcsEcosystem[]
+  skipSchemaCredentialProofCheck?: boolean
 }
 
 export type EcsEcosystem = {
