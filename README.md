@@ -24,7 +24,10 @@ VerRe verifies JSON-LD credentials, and the linked presentations that carry them
 | Proof                                                        | Data model              | Canonicalization                     |
 | ------------------------------------------------------------ | ----------------------- | ------------------------------------ |
 | `DataIntegrityProof` with the `eddsa-jcs-2022` cryptosuite | VC Data Model 1.1 & 2.0 | JCS (RFC 8785), no context retrieval |
+| `DataIntegrityProof` with the `mldsa44-jcs-2024` cryptosuite (ML-DSA-44, FIPS 204) | VC Data Model 1.1 & 2.0 | JCS (RFC 8785), no context retrieval |
 | `Ed25519Signature2020` / `Ed25519Signature2018`          | VC Data Model 1.1       | RDF Dataset (URDNA2015)              |
+
+Verification method keys are read from `publicKeyMultibase` (Multikey in base58-btc `z` or base64url `u`, multicodec `0xed01` Ed25519 / `0x1210` ML-DSA-44), `publicKeyBase58` or `publicKeyJwk` (OKP Ed25519, or AKP ML-DSA-44 per RFC 9964). The key algorithm must match the proof's suite.
 
 A proof is accepted only when its `verificationMethod` is listed in the DID document under the relationship named by its `proofPurpose`: `assertionMethod` for credentials, `authentication` (or `assertionMethod`) for presentations. Credentials may declare their validity with `validFrom` / `validUntil` (2.0) or `issuanceDate` / `expirationDate` (1.1).
 
@@ -96,6 +99,7 @@ async function verifyParticipant(options: VerifyParticipantOptions): Promise<{ v
 * **didResolver** (*Resolver*, optional): Custom universal resolver instance.
 * **cache** (*TrustResolutionCache<string, Promise<TrustResolution>*, optional): Cache store for trust resolution results. When provided, a successful resolution is stored keyed by DID and returned directly on subsequent calls. Any object implementing the `TrustResolutionCache` interface is accepted, the library provides `InMemoryCache` as a built-in implementation.
 * **skipDigestSRICheck** (*boolean*, optional): When true, skips verification of the credential integrity (digestSRI). Defaults to false.
+* **skipSchemaCredentialProofCheck** (*boolean*, optional): When true, skips the signature verification of the JSON Schema Credentials a credential's `credentialSchema` points to ([TR-3]); their `digestSRI` checks still run. Defaults to false.
 * **ecsEcosystems** (*EcsEcosystem[]*, optional): Ecosystems allowed to create Essential Credential Schemas per [WL-ECS] (`{ did, vpr }` pairs, where `vpr` matches a `verifiablePublicRegistries[].scheme`). When set, a schema whose Ecosystem is not allowed degrades to a regular VTC. When undefined, any Ecosystem is accepted. Requires a registry adapter; VerRe throws if one is not configured. Resolutions are cached per allowlist.
 * **logger** (*IVerreLogger*, optional): Logger instance for the resolution process. Accepts any object that implements the `IVerreLogger` interface.
 
@@ -149,6 +153,8 @@ Resolves to a `TrustResolution` containing:
 * **issuanceDate** (*string*): Date when the credential was issued.
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate Participant entries.
 * **role** (*ParticipantRole*): The Participant role to verify.
+* **didResolver** (*Resolver*, optional): DID resolver used to verify the proof of the JSON Schema Credential ([TR-3]). Defaults to the built-in resolver.
+* **skipSchemaCredentialProofCheck** (*boolean*, optional): When true, that proof is not verified. Defaults to false.
 * **logger** (*IVerreLogger*, optional): Logger used for debugging
 
 
