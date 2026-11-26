@@ -80,7 +80,7 @@ export type VerifyParticipantOptions = {
   verifiablePublicRegistries: VerifiablePublicRegistry[]
   role: ParticipantRole
   logger?: IVerreLogger
-}
+} & Pick<ResolverConfig, 'didResolver' | 'skipSchemaCredentialProofCheck'>
 
 export type InternalResolverConfig = Omit<ResolverConfig, 'didResolver'> & {
   didResolver: Resolver

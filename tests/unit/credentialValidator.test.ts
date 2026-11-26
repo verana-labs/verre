@@ -12,6 +12,7 @@ import {
   mockParticipant,
   mockW3cJsonSchemaV2,
   mockHolderParticipant,
+  mockServiceSchemaSelfIssued,
 } from '../__mocks__'
 
 describe('Credential Validator', () => {
@@ -101,6 +102,60 @@ describe('Credential Validator', () => {
       expect(result.verified).toBe(false)
       const requested = (global.fetch as unknown as { mock: { calls: string[][] } }).mock.calls.map(c => c[0])
       expect(requested.some(url => url.includes('/v4/participant/list'))).toBe(false)
+    })
+
+    describe('[TR-3] the JSON Schema Credential proof', () => {
+      const IDX = 'https://idx.testnet.verana.network'
+      const options = {
+        did: 'did:web:issuer.example',
+        jsonSchemaCredentialId: 'https://ecs-trust-registry/service-credential-schema-credential.json',
+        issuanceDate: '2024-02-08T18:38:46+01:00',
+        verifiablePublicRegistries,
+        role: ParticipantRole.ISSUER,
+      }
+      const participantsUrl = `${IDX}/v4/participant/list?did=${encodeURIComponent(options.did)}&role=ISSUER&schema_id=12345678&when=${encodeURIComponent(options.issuanceDate)}`
+      const requestedParticipants = () =>
+        (global.fetch as unknown as { mock: { calls: string[][] } }).mock.calls
+          .map(c => c[0])
+          .some(url => url.includes('/v4/participant/list'))
+
+      beforeEach(() => {
+        fetchMocker.setMockResponses({
+          [options.jsonSchemaCredentialId]: { ok: true, status: 200, data: mockServiceSchemaSelfIssued },
+          [participantsUrl]: { ok: true, status: 200, data: mockParticipant },
+        })
+      })
+
+      it('is verified before the Participant is looked up', async () => {
+        const result = await verifyParticipant(options)
+
+        expect(result.verified).toBe(true)
+        expect(signatureVerifier.verifySignature).toHaveBeenCalledWith(
+          expect.objectContaining({ id: mockServiceSchemaSelfIssued.id }),
+          expect.anything(),
+          expect.anything(),
+        )
+        expect(requestedParticipants()).toBe(true)
+      })
+
+      it('fails the verification when the proof is not valid, without looking the Participant up', async () => {
+        vi.mocked(signatureVerifier.verifySignature).mockResolvedValue({
+          result: false,
+          error: 'Ed25519 signature verification failed',
+        })
+
+        const result = await verifyParticipant(options)
+
+        expect(result.verified).toBe(false)
+        expect(requestedParticipants()).toBe(false)
+      })
+
+      it('is skipped with skipSchemaCredentialProofCheck', async () => {
+        const result = await verifyParticipant({ ...options, skipSchemaCredentialProofCheck: true })
+
+        expect(result.verified).toBe(true)
+        expect(signatureVerifier.verifySignature).not.toHaveBeenCalled()
+      })
     })
   })
 })

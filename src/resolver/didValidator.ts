@@ -55,6 +55,35 @@ type CredentialResult = {
   outcome: TrustResolutionOutcome
 }
 
+/** How to verify the proof of the JSON Schema Credentials met while processing ([TR-3]). */
+type SchemaCredentialProofOptions = { didResolver: Resolver }
+
+/**
+ * The credential a schema credential is validated for. `processCredential` builds it when it
+ * recurses from a credential into its `JsonSchemaCredential` schema.
+ */
+type PresentedCredential = {
+  issuer: string
+  /** The issuance instant: `validFrom` (VC Data Model 2.0) or `issuanceDate` (1.1). */
+  issuanceDate?: string
+  /** The credential subject, validated against the subject schema. */
+  attrs: Record<string, string>
+  /** The credential the validation started from: sources the validity window and the raw credential exposed. */
+  credential: W3cVerifiableCredential
+}
+
+/** What `processCredential` needs besides the credential and the registries. */
+type ProcessCredentialOptions = {
+  logger: IVerreLogger
+  skipDigestSRICheck?: boolean
+  /** Ecosystems allowed to define Essential Credential Schemas; undefined accepts any. */
+  ecsEcosystems?: EcsEcosystem[]
+  /** Verify the proof of the schema credentials met ([TR-3]); undefined skips the check. */
+  schemaCredentialProof?: SchemaCredentialProofOptions
+  /** Set by the recursion only: the credential being validated against this schema credential. */
+  presented?: PresentedCredential
+}
+
 /** Maps an indexed Participant to the trimmed reference verre exposes as evidence. */
 function toParticipantRef(
   participant: Pick<
@@ -125,6 +154,8 @@ export async function resolveDID(did: string, options: ResolverConfig): Promise<
  * @param options.issuanceDate - The date at which the credential was issued.
  * @param options.verifiablePublicRegistries - A list of public trust registries used for validation.
  * @param options.role - The Participant role to verify.
+ * @param options.didResolver - (Optional) DID resolver used to verify the proof of the JSON Schema Credential ([TR-3]).
+ * @param options.skipSchemaCredentialProofCheck - (Optional) When true, that proof is not verified. Defaults to false.
  * @param options.logger - (Optional) Logger used for debugging.
  */
 export async function verifyParticipant(options: VerifyParticipantOptions) {
@@ -133,6 +164,10 @@ export async function verifyParticipant(options: VerifyParticipantOptions) {
     const { did, jsonSchemaCredentialId, issuanceDate, verifiablePublicRegistries, role } = options
     logger.debug('Verifying participant', { role })
     const credential = await fetchSchemaCredential<W3cVerifiableCredential>(jsonSchemaCredentialId)
+    const schemaCredentialProof = schemaCredentialProofOptions(options)
+    if (schemaCredentialProof) {
+      await verifySchemaCredentialProof(credential, jsonSchemaCredentialId, schemaCredentialProof, logger)
+    }
     const { subject } = resolveSchemaAndSubject(credential, logger)
     const { api, schemaId, adapter } = resolveSchemaRef(getRefUrl(subject), verifiablePublicRegistries)
     if (!api || schemaId === undefined) {
@@ -665,34 +700,35 @@ async function resolveCarriedCredentials(
   return { credentials, unresolvableCredentialIds, invalidCredentialIds }
 }
 
-/** How to verify the proof of the JSON Schema Credentials met while processing ([TR-3]). */
-type SchemaCredentialProofOptions = { didResolver: Resolver }
-
-/** The [TR-3] options for a resolver configuration, or undefined when the check is skipped. */
-const schemaCredentialProofOptions = (options: ResolverConfig): SchemaCredentialProofOptions | undefined =>
+/** The [TR-3] options for a configuration, or undefined when the check is skipped. */
+const schemaCredentialProofOptions = (
+  options: Pick<ResolverConfig, 'didResolver' | 'skipSchemaCredentialProofCheck'>,
+): SchemaCredentialProofOptions | undefined =>
   options.skipSchemaCredentialProofCheck
     ? undefined
     : { didResolver: options.didResolver ?? resolverInstance }
 
-/** What `processCredential` needs besides the credential and the registries. */
-type ProcessCredentialOptions = {
-  logger: IVerreLogger
-  skipDigestSRICheck?: boolean
-  /** Ecosystems allowed to define Essential Credential Schemas; undefined accepts any. */
-  ecsEcosystems?: EcsEcosystem[]
-  /** Verify the proof of the schema credentials met ([TR-3]); undefined skips the check. */
-  schemaCredentialProof?: SchemaCredentialProofOptions
-  /** Set when recursing into a schema credential: the issuer of the credential being validated. */
-  issuer?: string
-  /** Set when recursing: the issuance instant of the credential being validated. */
-  issuanceDate?: string
-  /** Set when recursing: the credential subject to validate against the subject schema. */
-  attrs?: Record<string, string>
-  /**
-   * Set when recursing: the credential the validation started from, which sources the validity
-   * window and the raw credential exposed to consumers.
-   */
-  sourceCredential?: W3cVerifiableCredential
+/**
+ * Verifies the proof of a JSON Schema Credential ([TR-3]: "The VTJSC signature MUST be verified").
+ *
+ * @param credential - The fetched JSON Schema Credential.
+ * @param url - Where it was fetched from, named in the error.
+ * @throws {TrustError} `VERIFICATION_FAILED` when the proof is not valid.
+ */
+async function verifySchemaCredentialProof(
+  credential: W3cVerifiableCredential,
+  url: string,
+  { didResolver }: SchemaCredentialProofOptions,
+  logger: IVerreLogger,
+): Promise<void> {
+  logger.debug('Verifying JsonSchemaCredential proof', { schemaId: url })
+  const verification = await verifySignature(credential as W3cJsonLdVerifiableCredential, didResolver, logger)
+  if (!verification.result) {
+    throw new TrustError(
+      TrustErrorCode.VERIFICATION_FAILED,
+      `The JSON Schema Credential proof is not valid for ${url}: ${verification.error}`,
+    )
+  }
 }
 
 /**
@@ -713,7 +749,7 @@ type ProcessCredentialOptions = {
  * @param verifiablePublicRegistries - The registry public registries URLs used for validation and lookup.
  * @param options - See {@link ProcessCredentialOptions}. When a credential declares a
  * `JsonSchemaCredential`, this function recurses on the *schema* credential and carries the
- * credential originally presented down in `issuer`, `issuanceDate`, `attrs` and `sourceCredential`.
+ * credential originally presented down in `presented`.
  * @returns A Promise resolving to the processed and validated credential.
  * @throws {TrustError} If validation fails due to missing fields, unsupported types, schema mismatch, or integrity check failure.
  */
@@ -722,8 +758,7 @@ async function processCredential(
   verifiablePublicRegistries: VerifiablePublicRegistry[],
   options: ProcessCredentialOptions,
 ): Promise<CredentialResult> {
-  const { logger, skipDigestSRICheck = false, ecsEcosystems, schemaCredentialProof } = options
-  const { issuer, issuanceDate, attrs, sourceCredential } = options
+  const { logger, skipDigestSRICheck = false, ecsEcosystems, schemaCredentialProof, presented } = options
   logger.debug('Processing credential', { id: w3cCredential.id })
 
   const { schema, subject } = resolveSchemaAndSubject(w3cCredential, logger)
@@ -733,27 +768,16 @@ async function processCredential(
     logger.debug('Processing JsonSchemaCredential Processing, fetching it', { schemaId: schema.id })
     const jsonSchemaCredential = await fetchSchemaCredential<W3cVerifiableCredential>(schema.id)
     if (schemaCredentialProof) {
-      // [TR-3] the schema credential proof must be valid, like the credential's own
-      logger.debug('Verifying JsonSchemaCredential proof', { schemaId: schema.id })
-      const verification = await verifySignature(
-        jsonSchemaCredential as W3cJsonLdVerifiableCredential,
-        schemaCredentialProof.didResolver,
-        logger,
-      )
-      if (!verification.result) {
-        throw new TrustError(
-          TrustErrorCode.VERIFICATION_FAILED,
-          `The JSON Schema Credential proof is not valid for ${schema.id}: ${verification.error}`,
-        )
-      }
+      await verifySchemaCredentialProof(jsonSchemaCredential, schema.id, schemaCredentialProof, logger)
     }
     return processCredential(jsonSchemaCredential, verifiablePublicRegistries, {
       ...options,
-      issuer: w3cCredential.issuer as string,
-      // VC Data Model 2.0 credentials carry validFrom where 1.1 ones carry issuanceDate
-      issuanceDate: normalizeValidityWindow(w3cCredential).validFrom,
-      attrs: subject as Record<string, string>,
-      sourceCredential: sourceCredential ?? w3cCredential,
+      presented: {
+        issuer: w3cCredential.issuer as string,
+        issuanceDate: normalizeValidityWindow(w3cCredential).validFrom,
+        attrs: subject as Record<string, string>,
+        credential: presented?.credential ?? w3cCredential,
+      },
     })
   }
 
@@ -770,11 +794,12 @@ async function processCredential(
       )
       logger.debug('Schema reference resolved', { api, schemaId, outcome, hasAdapter: !!adapter })
 
-      if (!issuer || !issuanceDate)
+      if (!presented?.issuer || !presented.issuanceDate)
         throw new TrustError(
           TrustErrorCode.NOT_AUTHORIZED,
-          `Missing required fields: ${!issuer ? 'issuer' : 'validFrom (or issuanceDate)'}`,
+          `Missing required fields: ${presented?.issuer ? 'validFrom (or issuanceDate)' : 'issuer'}`,
         )
+      const { issuer, attrs, credential: source } = presented
 
       logger.debug('Fetching schemas in parallel')
       // a bundled or cached copy that matches the pinned digest is served without a load; an adapter
@@ -784,8 +809,6 @@ async function processCredential(
         fetchSchemaText(schema.id, schemaDigestSRI),
         fetchSchemaText(schemaUrl, subjectDigestSRI, loadSubjectSchema),
       ])
-
-      const source = sourceCredential ?? w3cCredential
 
       // issuance evidence derived from the ledger digest, not the credential
       const evidence: Pick<

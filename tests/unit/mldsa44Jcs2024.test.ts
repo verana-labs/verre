@@ -277,6 +277,29 @@ describe('DataIntegrityProof (mldsa44-jcs-2024) verification', () => {
     expect(error).toBe(`No supported ML-DSA-44 public key in verification method: ${mldsaVmId}`)
   })
 
+  it('rejects an AKP key that is not 1312 bytes long', async () => {
+    const jwkResolver = resolverFor({
+      [did]: {
+        ...didDocument,
+        verificationMethod: [
+          {
+            id: mldsaVmId,
+            type: 'JsonWebKey',
+            controller: did,
+            // ML-DSA-44 named, ML-DSA-65 sized
+            publicKeyJwk: { kty: 'AKP', alg: 'ML-DSA-44', pub: base64urlnopad.encode(new Uint8Array(1952)) },
+          },
+        ],
+      },
+    })
+    const { result, error } = await verify(
+      secure(signMldsa(unsecuredCredential, mldsaProofOptions)),
+      jwkResolver,
+    )
+    expect(result).toBe(false)
+    expect(error).toBe(`No supported ML-DSA-44 public key in verification method: ${mldsaVmId}`)
+  })
+
   it('still rejects a cryptosuite it does not know', async () => {
     const proof = { ...signMldsa(unsecuredCredential, mldsaProofOptions), cryptosuite: 'mldsa65-jcs-2024' }
     const { result, error } = await verify(secure(proof), resolver)

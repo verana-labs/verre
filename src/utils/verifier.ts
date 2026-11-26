@@ -39,9 +39,12 @@ const decodeMultibase = (value: string): { prefix: MultibasePrefix; bytes: Uint8
 
 // Multikey public keys: unsigned-varint multicodec header followed by the raw key
 // (https://github.com/multiformats/multicodec/blob/master/table.csv)
+/** The length of a raw public key, per algorithm. */
+const PUBLIC_KEY_LENGTHS: Record<KeyType, number> = { Ed25519: 32, 'ML-DSA-44': 1312 }
+
 const MULTICODEC_KEYS: { header: number[]; keyType: KeyType; length: number }[] = [
-  { header: [0xed, 0x01], keyType: 'Ed25519', length: 32 }, // ed25519-pub, code 0xed
-  { header: [0x90, 0x24], keyType: 'ML-DSA-44', length: 1312 }, // ml-dsa-44-pub, code 0x1210
+  { header: [0xed, 0x01], keyType: 'Ed25519', length: PUBLIC_KEY_LENGTHS.Ed25519 }, // ed25519-pub, code 0xed
+  { header: [0x90, 0x24], keyType: 'ML-DSA-44', length: PUBLIC_KEY_LENGTHS['ML-DSA-44'] }, // ml-dsa-44-pub, code 0x1210
 ]
 
 // Linked Data Proof suites, verified over the RDF canonicalization of the JSON-LD document
@@ -576,6 +579,25 @@ async function resolveVerificationMethod(
  */
 function extractPublicKey(vm: VerificationMethod, logger: IVerreLogger): PublicKey | null {
   const verificationMethodId = vm.id
+  // a key of a known algorithm is accepted only at the length of that algorithm, whatever its encoding
+  const keyOf = (keyType: KeyType, decode: () => Uint8Array): PublicKey | null => {
+    let bytes: Uint8Array
+    try {
+      bytes = decode()
+    } catch {
+      logger.debug('Malformed public key', { verificationMethodId, keyType })
+      return null
+    }
+    if (bytes.length !== PUBLIC_KEY_LENGTHS[keyType]) {
+      logger.debug('Unexpected public key length', {
+        verificationMethodId,
+        keyType,
+        decodedLength: bytes.length,
+      })
+      return null
+    }
+    return { keyType, bytes }
+  }
 
   if (vm.publicKeyMultibase && typeof vm.publicKeyMultibase === 'string') {
     let decoded: Uint8Array
@@ -606,7 +628,7 @@ function extractPublicKey(vm: VerificationMethod, logger: IVerreLogger): PublicK
   }
 
   if (vm.publicKeyBase58 && typeof vm.publicKeyBase58 === 'string') {
-    return { keyType: 'Ed25519', bytes: base58.decode(vm.publicKeyBase58 as string) }
+    return keyOf('Ed25519', () => base58.decode(vm.publicKeyBase58 as string))
   }
 
   if (vm.publicKeyJwk && typeof vm.publicKeyJwk === 'object') {
@@ -616,10 +638,12 @@ function extractPublicKey(vm: VerificationMethod, logger: IVerreLogger): PublicK
         logger.debug('Unsupported AKP key', { verificationMethodId, alg: jwk.alg })
         return null
       }
-      return { keyType: 'ML-DSA-44', bytes: decodeBase64url(jwk.pub) }
+      const pub = jwk.pub
+      return keyOf('ML-DSA-44', () => decodeBase64url(pub))
     }
     if (jwk.x && typeof jwk.x === 'string' && (jwk.crv === undefined || jwk.crv === 'Ed25519')) {
-      return { keyType: 'Ed25519', bytes: decodeBase64url(jwk.x as string) }
+      const x = jwk.x
+      return keyOf('Ed25519', () => decodeBase64url(x))
     }
   }
 

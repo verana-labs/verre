@@ -153,6 +153,8 @@ Resolves to a `TrustResolution` containing:
 * **issuanceDate** (*string*): Date when the credential was issued.
 * **verifiablePublicRegistries** (*VerifiablePublicRegistry[]*): Trusted registries used to validate Participant entries.
 * **role** (*ParticipantRole*): The Participant role to verify.
+* **didResolver** (*Resolver*, optional): DID resolver used to verify the proof of the JSON Schema Credential ([TR-3]). Defaults to the built-in resolver.
+* **skipSchemaCredentialProofCheck** (*boolean*, optional): When true, that proof is not verified. Defaults to false.
 * **logger** (*IVerreLogger*, optional): Logger used for debugging
 
 

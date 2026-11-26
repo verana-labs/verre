@@ -70,9 +70,13 @@ const mockResponses = () => {
   return responses
 }
 
+const SERVICE_SCHEMA_CREDENTIAL_URL = 'https://ecs-trust-registry/service-credential-schema-credential.json'
+
 describe('VC Data Model 2.0 trust resolution', () => {
+  let resolvers: Record<string, unknown>
+
   beforeEach(() => {
-    const resolvers: Record<string, unknown> = {
+    resolvers = {
       [vcdm2Did]: vcdm2Resolver,
       [ecosystemDid]: ecosystemResolver,
     }
@@ -157,5 +161,95 @@ describe('VC Data Model 2.0 trust resolution', () => {
     // the untouched org credential still resolves
     expect(result.serviceProvider?.ecs).toBe(ECS.ORG)
     expect(result.service).toBeUndefined()
+  })
+
+  describe('[TR-3] the JSON Schema Credential proof', () => {
+    const expectSchemaCredentialRejected = (
+      result: Awaited<ReturnType<typeof resolveDID>>,
+      reason: string,
+    ) => {
+      expect(result.verified).toBe(false)
+      expect(result.outcome).toBe(TrustResolutionOutcome.INVALID)
+      expect(result.failedCredentials).toEqual([
+        expect.objectContaining({
+          errorCode: TrustErrorCode.VERIFICATION_FAILED,
+          error: `The JSON Schema Credential proof is not valid for ${SERVICE_SCHEMA_CREDENTIAL_URL}: ${reason}`,
+        }),
+      ])
+      // the credential itself verified; its schema credential is what failed
+      expect(result.presentations?.find(p => p.serviceId.endsWith('#vpr-schemas-service-vtc-vp'))).toEqual(
+        expect.objectContaining({ invalidCredentialIds: [serviceVc.id] }),
+      )
+      // the org credential, whose schema credential is intact, still resolves
+      expect(result.serviceProvider?.ecs).toBe(ECS.ORG)
+      expect(result.service).toBeUndefined()
+    }
+
+    it('fails the credential when the proof of its schema credential was tampered with', async () => {
+      const signed = signSchemaCredential(mockServiceSchemaSelfIssued) as { proof: { proofValue: string } }
+      const proofValue = signed.proof.proofValue
+      const tampered = {
+        ...signed,
+        proof: {
+          ...signed.proof,
+          proofValue: proofValue.slice(0, -1) + (proofValue.endsWith('1') ? '2' : '1'),
+        },
+      }
+      fetchMocker.addMockResponse(SERVICE_SCHEMA_CREDENTIAL_URL, ok(tampered))
+
+      const result = await resolveDID(vcdm2Did, { verifiablePublicRegistries })
+
+      expectSchemaCredentialRejected(result, 'Ed25519 signature verification failed')
+    })
+
+    it('fails the credential when the schema credential content was altered after signing', async () => {
+      const signed = signSchemaCredential(mockServiceSchemaSelfIssued) as {
+        credentialSubject: { id: string }
+      }
+      const altered = {
+        ...signed,
+        credentialSubject: { ...signed.credentialSubject, id: 'https://evil.example/other-schema.json' },
+      }
+      fetchMocker.addMockResponse(SERVICE_SCHEMA_CREDENTIAL_URL, ok(altered))
+
+      const result = await resolveDID(vcdm2Did, { verifiablePublicRegistries })
+
+      expectSchemaCredentialRejected(result, 'Ed25519 signature verification failed')
+    })
+
+    it('fails the credential when the Ecosystem DID of its schema credential cannot be resolved', async () => {
+      // the service schema credential is issued by an Ecosystem nobody can resolve
+      const unresolvableEcosystem = 'did:web:gone.example'
+      const signed = signSchemaCredential(mockServiceSchemaSelfIssued) as {
+        proof: { verificationMethod: string }
+      }
+      fetchMocker.addMockResponse(
+        SERVICE_SCHEMA_CREDENTIAL_URL,
+        ok({
+          ...signed,
+          issuer: unresolvableEcosystem,
+          proof: { ...signed.proof, verificationMethod: `${unresolvableEcosystem}#key-1` },
+        }),
+      )
+
+      const result = await resolveDID(vcdm2Did, { verifiablePublicRegistries })
+
+      expectSchemaCredentialRejected(
+        result,
+        `Cannot resolve verification method: ${unresolvableEcosystem}#key-1`,
+      )
+    })
+
+    it('resolves without the Ecosystem DID when skipSchemaCredentialProofCheck is set', async () => {
+      delete resolvers[ecosystemDid]
+
+      const result = await resolveDID(vcdm2Did, {
+        verifiablePublicRegistries,
+        skipSchemaCredentialProofCheck: true,
+      })
+
+      expect(result.verified).toBe(true)
+      expect(result.outcome).toBe(TrustResolutionOutcome.VERIFIED)
+    })
   })
 })
